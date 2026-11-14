@@ -76,6 +76,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 ├── scripts/generate-icons.mjs
 ├── src/
 │   ├── app/                   # Shell, proveedores y QueryClient
+│   ├── assets/brand/          # Emblema y logotipo originales en SVG
 │   ├── components/ui/         # Iconos y estados reutilizables
 │   ├── features/              # Solo README en cada dominio
 │   │   ├── appointments/
