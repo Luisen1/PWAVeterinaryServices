@@ -1,6 +1,8 @@
 # PWA de servicios veterinarios
 
-PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local y la implementación hasta HU06: cuentas, perfil y mascotas, oferentes, revisión administrativa y fichas aprobadas. Inicio y Citas mantienen pantallas provisionales. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
+PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local y la implementación hasta HU06: cuentas, perfil y mascotas, oferentes, revisión administrativa y fichas aprobadas. Citas mantiene una pantalla provisional. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
+
+La interfaz utiliza los prototipos y la guía visual del proyecto: Poppins, azul marino, turquesa y verde, junto al emblema SVG original. El inicio contiene accesos funcionales y el registro de establecimientos se organiza en cuatro pasos. Consulta [diseño visual](docs/diseno-visual.md) para conocer los componentes, adaptaciones y validaciones.
 
 ## Requisitos e instalación
 
@@ -39,17 +41,17 @@ Para habilitar las cuentas en un proyecto nuevo, aplicar las cuatro migraciones 
 
 ## Comandos
 
-| Comando             | Resultado                                                 |
-| ------------------- | --------------------------------------------------------- |
-| `npm run dev`       | Vite en modo desarrollo, accesible en la red              |
-| `npm run icons`     | Regenera cinco PNG provisionales con Sharp                |
-| `npm run build`     | Genera iconos, comprueba tipos y produce `dist/` con SW   |
-| `npm run preview`   | Sirve el build en el puerto 4173                          |
-| `npm run lint`      | ESLint y comprobación de Prettier                         |
-| `npm run format`    | Aplica Prettier                                           |
-| `npm run typecheck` | TypeScript estricto para app, pruebas, configuración y SW |
-| `npm test`          | Vitest con IndexedDB de prueba                            |
-| `npm run test:e2e`  | Compila, abre preview y ejecuta Playwright                |
+| Comando             | Resultado                                                  |
+| ------------------- | ---------------------------------------------------------- |
+| `npm run dev`       | Vite en modo desarrollo, accesible en la red               |
+| `npm run icons`     | Regenera cinco PNG desde el emblema SVG original con Sharp |
+| `npm run build`     | Genera iconos, comprueba tipos y produce `dist/` con SW    |
+| `npm run preview`   | Sirve el build en el puerto 4173                           |
+| `npm run lint`      | ESLint y comprobación de Prettier                          |
+| `npm run format`    | Aplica Prettier                                            |
+| `npm run typecheck` | TypeScript estricto para app, pruebas, configuración y SW  |
+| `npm test`          | Vitest con IndexedDB de prueba                             |
+| `npm run test:e2e`  | Compila, abre preview y ejecuta Playwright                 |
 
 Primera ejecución de e2e en el equipo
 
@@ -119,7 +121,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 
 ## Shell y estados
 
-Las rutas `/` y `/citas` contienen pantallas provisionales. `/explorar` muestra establecimientos aprobados y `/establecimientos/:id` permite consultar sus fichas públicas. `/cuenta` permite iniciar sesión, crear cuenta, recuperar acceso y cerrar sesión. Las rutas de autenticación incluyen `/registro`, `/acceso`, `/recuperar-acceso`, `/auth/confirmar`, `/restablecer-clave` y `/privacidad`. Las rutas privadas nuevas son `/perfil`, `/oferentes`, `/oferentes/nuevo`, `/oferentes/:id/editar` y `/administracion/oferentes`. Una URL desconocida muestra la página 404. Los dos placeholders admiten los mismos parámetros de demostración.
+La ruta `/` presenta el inicio y sus accesos; `/citas` conserva una pantalla provisional. `/explorar` muestra establecimientos aprobados y `/establecimientos/:id` permite consultar sus fichas públicas. `/cuenta` muestra Mi perfil y permite iniciar sesión, crear cuenta, recuperar acceso y cerrar sesión. Las rutas de autenticación incluyen `/registro`, `/acceso`, `/recuperar-acceso`, `/auth/confirmar`, `/restablecer-clave` y `/privacidad`. Las rutas privadas son `/perfil`, `/oferentes`, `/oferentes/nuevo`, `/oferentes/:id/editar` y `/administracion/oferentes`. Una URL desconocida muestra la página 404. El placeholder de Citas admite parámetros de demostración.
 
 ```text
 /citas               Estado vacío
