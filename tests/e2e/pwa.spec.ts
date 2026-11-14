@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import sharp from 'sharp';
+import { E2E_ENVIRONMENT } from './environment';
 
 const execute = promisify(execFile);
 
@@ -87,7 +88,6 @@ test('rutas, estados y navegación accesible a 360 px', async ({ page }) => {
     ['/', 'Inicio'],
     ['/explorar', 'Explorar'],
     ['/citas', 'Citas'],
-    ['/cuenta', 'Cuenta'],
   ]) {
     await page.goto(path!);
     await expect(
@@ -110,6 +110,13 @@ test('rutas, estados y navegación accesible a 360 px', async ({ page }) => {
     await page.getByRole('button', { name: 'Reintentar' }).click();
     await expect(page.getByText('Un espacio por construir')).toBeVisible();
   }
+  await page.goto('/cuenta');
+  await expect(
+    page.getByRole('heading', { name: 'Cuenta', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Iniciar sesión', exact: true }),
+  ).toBeVisible();
   await page
     .getByRole('navigation')
     .getByRole('link', { name: 'Explorar', exact: true })
@@ -239,7 +246,10 @@ test('una segunda compilación espera confirmación y actualiza al pulsar Actual
     await execute(
       process.execPath,
       ['node_modules/vite/bin/vite.js', 'build', '--outDir', nextBuild],
-      { cwd: process.cwd(), env: { ...process.env, BUILD_ID: nextBuildId } },
+      {
+        cwd: process.cwd(),
+        env: { ...process.env, ...E2E_ENVIRONMENT, BUILD_ID: nextBuildId },
+      },
     );
     await cp(nextBuild, resolve('dist'), { recursive: true });
     await page.evaluate(async () => {

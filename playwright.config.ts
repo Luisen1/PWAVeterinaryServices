@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { E2E_ENVIRONMENT } from './tests/e2e/environment';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -20,5 +21,6 @@ export default defineConfig({
     url: 'http://localhost:4173',
     reuseExistingServer: false,
     timeout: 120_000,
+    env: E2E_ENVIRONMENT,
   },
 });

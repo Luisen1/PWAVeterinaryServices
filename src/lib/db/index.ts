@@ -58,7 +58,10 @@ export async function getLocalRecord<Row, Key>(
 }
 
 // Sin ownerId elimina todos los datos privados. Los catálogos públicos se conservan.
-export async function purgePrivateLocalData(ownerId?: string): Promise<void> {
+export async function purgePrivateLocalData(
+  ownerId?: string,
+  assertCanPurge?: () => Promise<void>,
+): Promise<void> {
   const privateTables = [
     db.favorites,
     db.private_notes,
@@ -69,6 +72,8 @@ export async function purgePrivateLocalData(ownerId?: string): Promise<void> {
     db.sync_meta,
   ];
   await db.transaction('rw', privateTables, async () => {
+    // La comprobación y la purga comparten el bloqueo de la misma transacción.
+    await assertCanPurge?.();
     for (const table of privateTables) {
       if (ownerId === undefined) {
         await table.clear();

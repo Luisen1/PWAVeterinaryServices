@@ -73,19 +73,19 @@ export function PlaceholderPage({
             {
               to: '/explorar',
               label: 'Explorar',
-              text: 'Directorio de servicios',
+              text: 'Directorio de servicios · Próximamente',
               icon: 'compass' as const,
             },
             {
               to: '/citas',
               label: 'Citas',
-              text: 'Agenda de atención',
+              text: 'Agenda de atención · Próximamente',
               icon: 'calendar' as const,
             },
             {
               to: '/cuenta',
               label: 'Cuenta',
-              text: 'Espacio personal',
+              text: 'Acceso y registro',
               icon: 'user' as const,
             },
           ].map(({ to, label, text, icon }) => (
@@ -98,7 +98,7 @@ export function PlaceholderPage({
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold">{label}</span>
                 <span className="mt-0.5 block text-xs text-stone-500">
-                  {text} · Próximamente
+                  {text}
                 </span>
               </span>
               <Icon

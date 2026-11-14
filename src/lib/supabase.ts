@@ -20,9 +20,10 @@ if ((url || key) && !environment.success) {
 export const supabase = environment.success
   ? createClient(environment.data.url, environment.data.key, {
       auth: {
-        persistSession: false,
-        autoRefreshToken: false,
+        persistSession: true,
+        autoRefreshToken: true,
         detectSessionInUrl: false,
+        flowType: 'pkce',
       },
     })
   : null;

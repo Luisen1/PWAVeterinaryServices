@@ -3,6 +3,13 @@ import { Layout } from '@/app/Layout';
 import { PlaceholderPage } from '@/routes/PlaceholderPage';
 import { NotFoundPage } from '@/routes/NotFoundPage';
 import { RouteErrorPage } from '@/routes/RouteErrorPage';
+import { AccountPage } from '@/features/auth/pages/AccountPage';
+import { LoginPage } from '@/features/auth/pages/LoginPage';
+import { RegisterPage } from '@/features/auth/pages/RegisterPage';
+import { RecoveryPage } from '@/features/auth/pages/RecoveryPage';
+import { ConfirmEmailPage } from '@/features/auth/pages/ConfirmEmailPage';
+import { ResetPasswordPage } from '@/features/auth/pages/ResetPasswordPage';
+import { PrivacyPage } from '@/features/auth/pages/PrivacyPage';
 
 export const router = createBrowserRouter([
   {
@@ -42,14 +49,14 @@ export const router = createBrowserRouter([
       },
       {
         path: '/cuenta',
-        element: (
-          <PlaceholderPage
-            title="Cuenta"
-            description="El futuro espacio para la información de tu cuenta."
-            emptyDescription="La cuenta y el acceso se incorporarán en una siguiente fase. Esta pantalla es provisional."
-          />
-        ),
+        element: <AccountPage />,
       },
+      { path: '/acceso', element: <LoginPage /> },
+      { path: '/registro', element: <RegisterPage /> },
+      { path: '/recuperar-acceso', element: <RecoveryPage /> },
+      { path: '/auth/confirmar', element: <ConfirmEmailPage /> },
+      { path: '/restablecer-clave', element: <ResetPasswordPage /> },
+      { path: '/privacidad', element: <PrivacyPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
