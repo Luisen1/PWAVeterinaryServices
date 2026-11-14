@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router';
 import { Layout } from '@/app/Layout';
 import { PlaceholderPage } from '@/routes/PlaceholderPage';
+import { HomePage } from '@/routes/HomePage';
 import { NotFoundPage } from '@/routes/NotFoundPage';
 import { RouteErrorPage } from '@/routes/RouteErrorPage';
 import { AccountPage } from '@/features/auth/pages/AccountPage';
@@ -28,14 +29,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: '/',
-        element: (
-          <PlaceholderPage
-            home
-            title="Inicio"
-            description="Bienvenido a la base de tu aplicación de servicios veterinarios."
-            emptyDescription="Aquí comenzará la experiencia. Las funcionalidades se incorporarán en las siguientes fases."
-          />
-        ),
+        element: <HomePage />,
       },
       {
         path: '/explorar',

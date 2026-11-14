@@ -1,30 +1,62 @@
-import { useId, type ComponentPropsWithRef } from 'react';
+import { useId, useState, type ComponentPropsWithRef } from 'react';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 type AuthFieldProps = ComponentPropsWithRef<'input'> & {
   label: string;
   error?: string;
 };
 
-export function AuthField({ label, error, id, ...props }: AuthFieldProps) {
+export function AuthField({
+  label,
+  error,
+  id,
+  type,
+  ...props
+}: AuthFieldProps) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
+  const [visible, setVisible] = useState(false);
+  const password = type === 'password';
+  const icon: IconName | undefined = password
+    ? 'lock'
+    : type === 'email'
+      ? 'mail'
+      : type === 'tel'
+        ? 'phone'
+        : undefined;
   return (
     <div>
-      <label
-        htmlFor={inputId}
-        className="mb-2 block text-sm font-medium text-stone-800"
-      >
+      <label htmlFor={inputId} className="sv-label">
         {label}
       </label>
-      <input
-        {...props}
-        id={inputId}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${inputId}-error` : undefined}
-        className="min-h-12 w-full min-w-0 rounded-xl border border-stone-300 bg-white px-3.5 py-3 text-base text-stone-900 placeholder:text-stone-400 focus:border-brand-700 disabled:bg-stone-50 disabled:text-stone-500 aria-invalid:border-red-700"
-      />
+      <div
+        className={`input-wrap ${icon ? 'input-wrap--icon' : ''} ${password ? 'input-wrap--password' : ''}`}
+      >
+        {icon && <Icon name={icon} className="input-icon" />}
+        <input
+          {...props}
+          id={inputId}
+          type={password && visible ? 'text' : type}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${inputId}-error` : undefined}
+          className="sv-input"
+        />
+        {password && (
+          <button
+            type="button"
+            aria-label={`${visible ? 'Ocultar' : 'Mostrar'} ${label.toLowerCase()}`}
+            aria-pressed={visible}
+            aria-controls={inputId}
+            className="password-toggle"
+            disabled={props.disabled}
+            onClick={() => setVisible((v) => !v)}
+          >
+            <Icon name={visible ? 'eyeOff' : 'eye'} />
+          </button>
+        )}
+      </div>
       {error && (
-        <p id={`${inputId}-error`} className="mt-2 text-sm text-red-800">
+        <p id={`${inputId}-error`} className="field-error">
           {error}
         </p>
       )}

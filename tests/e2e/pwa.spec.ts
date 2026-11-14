@@ -44,8 +44,8 @@ test('manifest, PNG y service worker activos en el build de producción', async 
     display: 'standalone',
     lang: 'es',
     orientation: 'portrait-primary',
-    theme_color: '#155e54',
-    background_color: '#f6f7f4',
+    theme_color: '#0b1f4b',
+    background_color: '#ffffff',
   });
   expect(manifest.icons).toHaveLength(4);
   for (const icon of manifest.icons) {
@@ -97,7 +97,7 @@ test('rutas, estados y navegación accesible a 360 px', async ({ page }) => {
     await expect(
       page.getByRole('heading', { name: title!, exact: true }),
     ).toBeVisible();
-    if (path !== '/explorar')
+    if (path === '/citas')
       await expect(
         page.getByText('Pantalla provisional', { exact: true }),
       ).toBeVisible();
@@ -112,6 +112,7 @@ test('rutas, estados y navegación accesible a 360 px', async ({ page }) => {
       ).toBeVisible();
       continue;
     }
+    if (path === '/') continue;
     await page.goto(`${path}?estado=carga`);
     await expect(page.getByText('Cargando este espacio…')).toBeVisible();
     await page.goto(`${path}?estado=error`);
@@ -123,19 +124,19 @@ test('rutas, estados y navegación accesible a 360 px', async ({ page }) => {
   }
   await page.goto('/cuenta');
   await expect(
-    page.getByRole('heading', { name: 'Cuenta', exact: true }),
+    page.getByRole('heading', { name: 'Mi perfil', exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Iniciar sesión', exact: true }),
   ).toBeVisible();
   await page
-    .getByRole('navigation')
+    .getByRole('navigation', { name: 'Navegación principal' })
     .getByRole('link', { name: 'Explorar', exact: true })
     .click();
   await expect(page.getByRole('main')).toBeFocused();
   await expect(
     page
-      .getByRole('navigation')
+      .getByRole('navigation', { name: 'Navegación principal' })
       .getByRole('link', { name: 'Explorar', exact: true }),
   ).toHaveAttribute('aria-current', 'page');
   await page.goto('/ruta-inexistente/profunda');
@@ -154,7 +155,7 @@ test('el shell y las rutas profundas cargan offline tras una primera visita', as
   for (const [path, title] of [
     ['/explorar', 'Explorar'],
     ['/citas', 'Citas'],
-    ['/cuenta', 'Cuenta'],
+    ['/cuenta', 'Mi perfil'],
     ['/', 'Inicio'],
   ]) {
     await page.goto(path!);

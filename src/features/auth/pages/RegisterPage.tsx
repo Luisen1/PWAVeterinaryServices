@@ -57,6 +57,7 @@ export function RegisterPage() {
     <AuthFrame
       title="Crear cuenta"
       description="Regístrate con tu correo para comenzar a utilizar tu cuenta."
+      icon="user"
     >
       {registeredEmail ? (
         <div className="space-y-4">

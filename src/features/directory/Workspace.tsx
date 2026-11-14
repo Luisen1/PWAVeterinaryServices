@@ -4,13 +4,12 @@ import { useAuth } from '@/features/auth/useAuth';
 import { refreshAuthSession } from '@/features/auth/session-store';
 import { useOnline } from '@/pwa/useOnline';
 import { authLinkClass } from '@/features/auth/components/AuthFrame';
+import { Icon } from '@/components/ui/Icon';
+import { PageHeading } from '@/components/ui/PageHeading';
 
-export const fieldClass =
-  'min-h-12 w-full min-w-0 rounded-xl border border-stone-300 bg-white px-3 py-3 text-base disabled:opacity-50';
-export const secondaryClass =
-  'inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-700 px-4 py-2 text-sm font-semibold text-brand-700 disabled:opacity-50';
-export const cardClass =
-  'space-y-5 rounded-2xl border border-stone-200 bg-white p-5 sm:p-7';
+export const fieldClass = 'sv-input';
+export const secondaryClass = 'button button-secondary';
+export const cardClass = 'sv-card';
 export function Notice({
   children,
   error = false,
@@ -19,12 +18,13 @@ export function Notice({
   error?: boolean;
 }) {
   return (
-    <p
+    <div
       role={error ? 'alert' : 'status'}
-      className={`rounded-xl p-3 text-sm leading-6 ${error ? 'bg-red-50 text-red-800' : 'bg-brand-50 text-brand-900'}`}
+      className={`notice ${error ? 'notice--error' : ''}`}
     >
-      {children}
-    </p>
+      <Icon name={error ? 'alert' : 'info'} />
+      <div>{children}</div>
+    </div>
   );
 }
 export function Workspace({
@@ -41,16 +41,19 @@ export function Workspace({
     document.title = `${title} · Servicios veterinarios`;
   }, [title]);
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
-      <Link to="/cuenta" className={authLinkClass}>
-        Volver a Cuenta
-      </Link>
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-brand-900">
-          {title}
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-stone-600">{description}</p>
-      </div>
+    <section className="mx-auto max-w-4xl space-y-6">
+      <PageHeading
+        title={title}
+        description={description}
+        backTo="/cuenta"
+        icon={
+          title.includes('mascota')
+            ? 'paw'
+            : title.includes('establecimiento') || title.includes('oferente')
+              ? 'store'
+              : 'compass'
+        }
+      />
       {!online && (
         <Notice>
           Estás sin conexión. Los formularios conservan lo escrito; vuelve a

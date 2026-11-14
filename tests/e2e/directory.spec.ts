@@ -42,16 +42,21 @@ async function fillEstablishment(page: Page) {
   await page
     .getByLabel('Nombre del establecimiento', { exact: true })
     .fill('Veterinaria Camino');
-  await page.getByLabel('Teléfono del establecimiento').fill('3001234567');
-  await page
-    .getByLabel('Correo de contacto público')
-    .fill('contacto@example.test');
   await page.getByLabel('Nombre del responsable').fill('Persona responsable');
+}
+async function fillLocation(page: Page) {
   await page.getByLabel('Dirección de la sede 1').fill('Calle 10 # 20-30');
   await page.getByLabel('Teléfono de la sede 1').fill('3001234567');
   await page.getByLabel('Latitud de la sede 1').fill('4.6');
   await page.getByLabel('Longitud de la sede 1').fill('-74.1');
   await page.getByLabel('Confirmé que las coordenadas').check();
+}
+async function advanceToReview(page: Page) {
+  for (let i = 0; i < 3; i++)
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Paso 4 de 4 · Revisión' }),
+  ).toBeVisible();
 }
 test('exige sesión verificada y restringe administración', async ({
   page,
@@ -161,9 +166,7 @@ test('registro, logo, corrección, aprobación y cambio pendiente conservan publ
   const api = await mockDirectoryApi(context, auth.getRole);
   await login(page);
   await page.goto('/oferentes/nuevo');
-  await page
-    .getByRole('button', { name: 'Enviar solicitud de registro' })
-    .click();
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await expect(page.getByText('Revisa los campos señalados.')).toBeVisible();
   await fillEstablishment(page);
   await page
@@ -187,6 +190,13 @@ test('registro, logo, corrección, aprobación y cambio pendiente conservan publ
   await expect(
     page.getByRole('button', { name: 'Quitar imagen', exact: true }),
   ).toBeVisible();
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await fillLocation(page);
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await page.getByLabel('Teléfono del establecimiento').fill('3001234567');
+  await page
+    .getByLabel('Correo de contacto público')
+    .fill('contacto@example.test');
   await page
     .getByRole('button', { name: 'Añadir horario', exact: true })
     .click();
@@ -197,6 +207,7 @@ test('registro, logo, corrección, aprobación y cambio pendiente conservan publ
     .getByRole('button', { name: 'Añadir excepción', exact: true })
     .click();
   await page.getByLabel('Fecha de excepción').fill('2026-12-25');
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await page
     .getByRole('button', { name: 'Enviar solicitud de registro' })
     .click();
@@ -218,6 +229,7 @@ test('registro, logo, corrección, aprobación y cambio pendiente conservan publ
     page.getByText('Motivo: Corrige la dirección de la sede.'),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Editar y enviar a revisión' }).click();
+  await advanceToReview(page);
   await page.getByRole('button', { name: 'Enviar cambios a revisión' }).click();
   await expect(
     page.getByText('Pendiente de revisión · Revisión 2'),
@@ -257,6 +269,7 @@ test('registro, logo, corrección, aprobación y cambio pendiente conservan publ
   await page
     .getByLabel('Nombre del establecimiento', { exact: true })
     .fill('Identidad nueva');
+  await advanceToReview(page);
   await page.getByRole('button', { name: 'Enviar cambios a revisión' }).click();
   await expect(
     page.getByText('Pendiente de revisión · Revisión 3'),

@@ -50,6 +50,7 @@ export function ResetPasswordPage() {
     <AuthFrame
       title="Nueva contraseña"
       description="Establece una contraseña para recuperar el acceso a tu cuenta."
+      icon="lock"
     >
       {status === 'loading' ? (
         <p role="status" className="text-sm text-stone-600">

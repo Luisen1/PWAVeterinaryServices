@@ -6,10 +6,7 @@ export function InstallApp() {
   if (installed) return null;
 
   return (
-    <aside
-      aria-label="Instalación de la aplicación"
-      className="mt-8 rounded-2xl border border-brand-100 bg-brand-50 p-5 sm:p-6"
-    >
+    <aside aria-label="Instalación de la aplicación" className="install-panel">
       <div className="flex items-start gap-4">
         <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-brand-100 bg-white text-brand-700">
           <Icon name="download" className="size-5" />

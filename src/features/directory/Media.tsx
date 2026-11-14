@@ -4,6 +4,7 @@ import { authClient } from '@/features/auth/api';
 import { useOnline } from '@/pwa/useOnline';
 import { dataError, uploadImage } from './api';
 import { Notice, secondaryClass } from './Workspace';
+import { Icon } from '@/components/ui/Icon';
 
 export function MediaImage({
   path,
@@ -29,13 +30,23 @@ export function MediaImage({
   });
   return (
     <div className="space-y-1">
-      <img
-        src={image.data ?? '/icons/icon-192.png'}
-        alt={alt}
-        className="size-24 rounded-2xl border border-stone-200 bg-stone-50 object-cover"
-        width={96}
-        height={96}
-      />
+      {image.data ? (
+        <img
+          src={image.data}
+          alt={alt}
+          className="media-image"
+          width={96}
+          height={96}
+        />
+      ) : (
+        <div
+          role="img"
+          aria-label={alt}
+          className="media-image media-placeholder"
+        >
+          <Icon name="store" />
+        </div>
+      )}
       {image.isError && (
         <span className="text-xs text-amber-900">Imagen no disponible</span>
       )}
@@ -71,7 +82,7 @@ export function MediaUpload({
     onSuccess: (values) => onChange(multiple ? [...paths, ...values] : values),
   });
   return (
-    <div className="space-y-3">
+    <div className="upload-control space-y-3">
       <label htmlFor={id} className="block text-sm font-medium">
         {label}
       </label>
@@ -105,7 +116,7 @@ export function MediaUpload({
         accept="image/jpeg,image/png,image/webp"
         multiple={multiple}
         disabled={!online || disabled || upload.isPending}
-        className="block w-full min-w-0 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-3 file:text-brand-900"
+        className="block w-full min-w-0 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand-100 file:px-3 file:py-3 file:text-brand-900"
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
           if (files.length) upload.mutate(files);
