@@ -11,13 +11,17 @@ Fecha de implementación 2026-11-14, America/Bogota.
 
 Los formularios usan validación en español. El registro y los cambios de contraseña admiten entre 8 y 72 caracteres. Las operaciones de autenticación bloquean la recarga de actualización mientras están en curso. Las peticiones y los formularios muestran errores de conexión y rechazos del servidor.
 
+## Actualización de HU03-HU06
+
+Las cuatro migraciones ya están aplicadas en `veterinary-services-dev`. Se añadieron perfil y mascotas, oferentes, revisión y fichas, además de sincronización acotada de perfil y mascotas antes del cierre. La guía vigente de uso y aceptación está en [HU01-HU06](hu01-hu06.md). Las pruebas con correos reales y la configuración administrativa de Auth siguen pendientes.
+
 ## Configuración de Supabase
 
 1. Seleccionar el proyecto de desarrollo correspondiente a la URL de `.env.local`.
-2. Aplicar las dos migraciones de `supabase/migrations`, en orden. La conexión de administración de Supabase permite aplicarlas como migraciones. Como alternativa, ejecutar cada archivo completo desde SQL Editor una vez, verificando que termine sin errores. Registrar esa aplicación antes de adoptar un historial de migraciones por CLI.
+2. Aplicar las cuatro migraciones de `supabase/migrations`, en orden, sobre un proyecto nuevo. En el proyecto de desarrollo ya están aplicadas y su historial está alineado con los archivos locales; no volver a ejecutarlas. La conexión de administración de Supabase permite aplicarlas como migraciones. Como alternativa, ejecutar cada archivo completo desde SQL Editor una vez, verificando que termine sin errores. Registrar esa aplicación antes de adoptar un historial de migraciones por CLI.
 3. En Authentication, habilitar el proveedor Email y mantener Confirm email activado. El proyecto ya informó registro habilitado y confirmación obligatoria durante la comprobación inicial.
 4. Configurar una longitud mínima de contraseña de 8 caracteres en las opciones de autenticación.
-5. En Authentication > URL Configuration, usar `http://localhost:5173` como Site URL durante desarrollo. Autorizar `http://localhost:5173/auth/confirmar` y `http://localhost:4173/auth/confirmar` como Redirect URLs. Autorizar también la URL exacta `/auth/confirmar` del origen HTTPS de prueba cuando exista.
+5. En Authentication > URL Configuration, usar `http://localhost:5173` como Site URL durante desarrollo. Autorizar las URL completas de ambos puertos con `?tipo=signup` y `?tipo=recovery` como Redirect URLs (véase `hu01-hu06.md`). Autorizar también las URL completas de retorno del origen HTTPS de prueba cuando exista.
 6. Configurar SMTP para registrar y recuperar cuentas con correos externos al equipo del proyecto. El SMTP predeterminado limita los destinatarios al equipo y aplica límites de envío.
 7. Verificar las plantillas de confirmación y recuperación. Las plantillas predeterminadas con `ConfirmationURL` admiten el flujo PKCE solicitado por el cliente.
 
@@ -27,7 +31,7 @@ La documentación oficial describe [las URL de retorno](https://supabase.com/doc
 
 ## Esquema y permisos
 
-- `public.profiles` tiene identidad, nombre de visualización y fechas. La cuenta puede leer su perfil y actualizar solo su nombre cuando su correo está confirmado. La edición de perfil se implementará en HU03.
+- `public.profiles` tiene identidad, nombre de visualización, teléfono opcional y fechas. La cuenta puede leer su perfil y actualizar solo su nombre y teléfono cuando su correo está confirmado. La edición de perfil está disponible en `/perfil` desde HU03.
 - `public.privacy_consents` conserva usuario, versión y fecha del servidor. La cuenta confirmada puede leer su aceptación. El cliente carece de permisos para modificarla.
 - `private.account_roles` conserva el rol, asignado inicialmente a `user` por un trigger. Los metadatos enviados por el navegador no asignan permisos. La asignación de oferente o administrador requiere una operación administrativa posterior.
 - `public.current_account_role()` devuelve únicamente el rol del usuario confirmado que hace la petición.
@@ -43,7 +47,7 @@ El formulario `/restablecer-clave` exige una sesión validada y la marca tempora
 
 La política de referrer del documento y del hosting es `no-referrer`. El SW conserva únicamente recursos del shell y no cachea respuestas de autenticación ni datos privados.
 
-El cierre de sesión cancela consultas, comprueba pendientes y purga los datos privados de la cuenta en una transacción. Cuando hay pendientes, la interfaz permite conservar la sesión o descartarlos expresamente. La sincronización de pendientes pertenece a una fase posterior. El cierre utiliza el alcance local del SDK y conserva los catálogos públicos. La sesión se actualiza en otras pestañas mediante los eventos del SDK.
+El cierre de sesión cancela consultas, comprueba pendientes y purga los datos privados de la cuenta en una transacción. Cuando hay pendientes, la interfaz permite sincronizar los cambios de perfil y mascotas, conservar la sesión o descartarlos expresamente. Los dominios futuros, borradores y adjuntos sin manejador permanecen pendientes para una fase posterior. El cierre utiliza el alcance local del SDK y conserva los catálogos públicos. La sesión se actualiza en otras pestañas mediante los eventos del SDK.
 
 ## Aviso de privacidad
 

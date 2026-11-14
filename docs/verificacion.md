@@ -50,7 +50,7 @@ Se capturaron y revisaron las pantallas a 360 px y 1280 px. Las capturas reprodu
 
 ## Límites y pendientes
 
-- No se publicaron recursos remotos ni se aplicó la migración SQL a un proyecto Supabase.
+- Estado inicial de la base técnica: no había migraciones remotas aplicadas. Este punto quedó superado con la implementación de HU01-HU06 descrita al final.
 - Falta la comprobación de instalación real y modo avión en Android e iPhone, y las cabeceras del hosting HTTPS definitivo.
 - El lockfile contiene dependencias transitivas preliminares heredadas de las herramientas estables. Se detallan en `decisiones.md`.
 - Quedan 12 avisos de seguridad en herramientas de desarrollo y una advertencia de deprecación del bundler en Workbox. La auditoría de dependencias de producción está limpia.
@@ -60,8 +60,20 @@ Se capturaron y revisaron las pantallas a 360 px y 1280 px. Las capturas reprodu
 
 El 2026-11-14 se implementaron registro, confirmación, acceso, recuperación PKCE y cierre de sesión con purga. La nueva migración incluye perfiles, roles controlados por servidor y aceptación versionada del aviso de privacidad. La guía de configuración y el alcance de las pruebas están en `autenticacion.md`.
 
-La comprobación del proyecto remoto confirmó el proveedor Email, registro habilitado y confirmación de correo obligatoria. La conexión de administración para aplicar las migraciones y configurar URL y correo sigue pendiente. Las pruebas de navegador usan peticiones interceptadas y las pruebas SQL usan PostgreSQL embebido.
+La comprobación del proyecto remoto confirmó el proveedor Email, registro habilitado y confirmación de correo obligatoria. Las migraciones ya se aplicaron mediante el conector administrativo. La configuración de URL y correo y su aceptación real siguen pendientes; véase `hu01-hu06.md`. Las pruebas de navegador usan peticiones interceptadas y las pruebas SQL usan PostgreSQL embebido.
 
 La verificación local de esta actualización terminó correctamente con `npm run lint`, `npm run typecheck`, 18 pruebas en `npm test`, 12 pruebas de `npm run test:e2e` y `npm run build`. Se revisó visualmente el registro a 360 px. El build final se regeneró con la configuración del proyecto real y se comprobó que no contiene el backend ficticio de Playwright.
 
 El build produce un aviso por el chunk principal de aproximadamente 826 kB y conserva el aviso de deprecación del bundler del SW. El precache tiene 14 recursos, unos 928 KiB. Los comandos terminan con código 0.
+
+## Actualización hasta HU06
+
+Verificación del 2026-11-14 (America/Bogota): `npm test` pasó 40 pruebas en nueve archivos; `npm run test:e2e` pasó 17 pruebas, incluyendo los flujos anteriores de Auth/PWA y los nuevos de perfil, mascotas y oferentes. `npm run lint`, `npm run typecheck`, `npm run build` y `git diff --check` terminaron correctamente. El build final se regeneró con el proyecto real después de Playwright.
+
+Se revisaron capturas de perfil y ficha pública a 360 px y de ficha a 1280 px. Las imágenes de E2E son fixtures. La suite comprueba validación conservando datos, denegación visual de administración, reintento tras fallo, sincronización antes del cierre, logo, corrección, aprobación y conservación de publicación anterior. El directorio ya tiene contenido funcional y sus estados dejaron de usar los parámetros de demostración del placeholder.
+
+Se aplicaron las cuatro migraciones en `veterinary-services-dev`. Se alinearon sus versiones del historial remoto con los archivos locales. La integración SQL de `supabase/tests/hu03_hu06.sql` terminó correctamente antes y después de las protecciones finales. Las cuentas y entidades sintéticas se revirtieron; la base conserva cero cuentas, mascotas, establecimientos, decisiones y publicaciones al terminar la prueba, y una invitación administrativa pendiente para el correo de Git.
+
+La revisión de seguridad de Supabase ya no muestra la advertencia de RPC pública con SECURITY DEFINER. Conserva dos [avisos informativos por tablas privadas con RLS y sin políticas](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy): roles e invitaciones administrativas, que deben permanecer inaccesibles desde los clientes. Rendimiento muestra tres [índices todavía sin uso](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index), esperables en la base sin datos reales; no se eliminan índices de propietario o cola de revisión por esta estadística inicial.
+
+El build conserva las advertencias de tamaño del chunk principal (aproximadamente 884 kB sin comprimir) y de `inlineDynamicImports` en Workbox; genera 14 entradas de precache, unos 986 KiB. No bloquean los comandos. La aceptación real de correo, los archivos por Storage, las URL de retorno y la cuenta administradora confirmada siguen pendientes según `hu01-hu06.md`.

@@ -1,6 +1,6 @@
 # PWA de servicios veterinarios
 
-PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local y la implementación de registro y acceso de HU01/HU02. Inicio, Explorar y Citas mantienen pantallas provisionales.
+PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local y la implementación hasta HU06: cuentas, perfil y mascotas, oferentes, revisión administrativa y fichas aprobadas. Inicio y Citas mantienen pantallas provisionales. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
 
 ## Requisitos e instalación
 
@@ -35,7 +35,7 @@ Ambas pueden quedar vacías para ejecutar y probar el shell. `supabase` se expor
 
 El cliente admite una clave pública publishable (`sb_publishable_`) en `VITE_SUPABASE_ANON_KEY`, además de la clave anon legacy. La sesión persiste y se refresca mediante el SDK. Los enlaces de correo usan PKCE y se procesan en `/auth/confirmar`.
 
-Para habilitar las cuentas en un proyecto remoto, aplicar ambas migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md`. La migración de identidad incluye perfiles, aceptación del aviso de privacidad y roles protegidos con RLS.
+Para habilitar las cuentas en un proyecto nuevo, aplicar las cuatro migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` las cuatro migraciones ya están aplicadas. La migración de identidad incluye perfiles, aceptación del aviso de privacidad y roles protegidos con RLS.
 
 ## Comandos
 
@@ -70,6 +70,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 ├── docs/
 │   ├── decisiones.md
 │   ├── autenticacion.md
+│   ├── hu01-hu06.md
 │   └── verificacion.md
 ├── public/
 │   ├── icons/                 # PNG 192, 512, maskable y Apple 180
@@ -81,11 +82,11 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 │   ├── app/                   # Shell, proveedores y QueryClient
 │   ├── assets/brand/          # Emblema y logotipo originales en SVG
 │   ├── components/ui/         # Iconos y estados reutilizables
-│   ├── features/              # Autenticación y dominios futuros
+│   ├── features/              # Cuentas, directorio y dominios futuros
 │   │   ├── appointments/
 │   │   ├── auth/             # HU01/HU02, formularios, sesión y pruebas
 │   │   ├── calls/
-│   │   ├── directory/
+│   │   ├── directory/        # HU03-HU06: perfil, mascotas y oferentes
 │   │   ├── messaging/
 │   │   └── sync/
 │   ├── lib/
@@ -101,7 +102,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 │   └── vite-env.d.ts
 ├── supabase/
 │   ├── functions/README.md
-│   └── migrations/            # Extensiones e identidad con RLS
+│   └── migrations/            # Cuatro migraciones con RLS y Storage
 ├── tests/
 │   ├── database/identity.test.ts
 │   ├── e2e/auth.spec.ts
@@ -118,12 +119,12 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 
 ## Shell y estados
 
-Las rutas `/`, `/explorar` y `/citas` contienen pantallas provisionales. `/cuenta` permite iniciar sesión, crear cuenta, recuperar acceso y cerrar sesión. Las rutas de autenticación incluyen `/registro`, `/acceso`, `/recuperar-acceso`, `/auth/confirmar`, `/restablecer-clave` y `/privacidad`. Una URL desconocida muestra la página 404. Los tres placeholders admiten los mismos parámetros de demostración.
+Las rutas `/` y `/citas` contienen pantallas provisionales. `/explorar` muestra establecimientos aprobados y `/establecimientos/:id` permite consultar sus fichas públicas. `/cuenta` permite iniciar sesión, crear cuenta, recuperar acceso y cerrar sesión. Las rutas de autenticación incluyen `/registro`, `/acceso`, `/recuperar-acceso`, `/auth/confirmar`, `/restablecer-clave` y `/privacidad`. Las rutas privadas nuevas son `/perfil`, `/oferentes`, `/oferentes/nuevo`, `/oferentes/:id/editar` y `/administracion/oferentes`. Una URL desconocida muestra la página 404. Los dos placeholders admiten los mismos parámetros de demostración.
 
 ```text
-/explorar               Estado vacío
-/explorar?estado=carga  Estado de carga
-/explorar?estado=error  Estado de error con Reintentar
+/citas               Estado vacío
+/citas?estado=carga  Estado de carga
+/citas?estado=error  Estado de error con Reintentar
 ```
 
 El botón Reintentar elimina el parámetro de demostración. La navegación mueve el foco al contenido. Se incluyen enlace para saltar al contenido, foco visible, etiquetas y márgenes seguros para pantallas con recortes. El indicador online/offline refleja la señal del navegador. La sesión se valida con Supabase antes de mostrar el acceso autenticado.
