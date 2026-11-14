@@ -1,0 +1,61 @@
+{
+  "name": "pwa-veterinary-services",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.15.0 <25",
+    "npm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "icons": "node scripts/generate-icons.mjs",
+    "build": "npm run icons && npm run typecheck && vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173 --strictPort",
+    "lint": "eslint . --max-warnings 0 && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fontsource/dm-sans": "5.3.0",
+    "@hookform/resolvers": "7.0.6",
+    "@supabase/supabase-js": "2.119.0",
+    "@tanstack/react-query": "5.107.1",
+    "dexie": "4.4.7",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-hook-form": "7.92.0",
+    "react-router": "8.5.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.65.1",
+    "@tailwindcss/vite": "4.3.5",
+    "@types/node": "24.10.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "eslint": "10.15.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "fake-indexeddb": "6.2.8",
+    "globals": "17.14.0",
+    "prettier": "3.10.1",
+    "sharp": "0.35.5",
+    "tailwindcss": "4.3.5",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.2",
+    "vite": "8.3.8",
+    "vite-plugin-pwa": "2.0.0",
+    "vitest": "5.1.0",
+    "workbox-core": "7.4.1",
+    "workbox-precaching": "7.4.1",
+    "workbox-routing": "7.4.1",
+    "workbox-strategies": "7.4.1",
+    "workbox-window": "7.4.1"
+  }
+}
