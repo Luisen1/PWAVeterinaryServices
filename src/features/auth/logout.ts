@@ -2,6 +2,7 @@ import { db, purgePrivateLocalData } from '@/lib/db';
 import { queryClient } from '@/app/query-client';
 import { authClient, withAuthOperation } from '@/features/auth/api';
 import { clearRecoveryAccess } from '@/features/auth/recovery-access';
+import { withAccountWriteLock } from '@/features/sync/account-write-lock';
 
 export class PendingLocalDataError extends Error {
   constructor() {
@@ -36,18 +37,20 @@ export async function logoutAccount(discardPending = false) {
     const { data, error } = await client.auth.getSession();
     if (error) throw error;
     const userId = data.session?.user.id;
-    if (queryClient.isMutating() > 0)
-      throw new Error(
-        'Espera a que termine el guardado antes de cerrar sesión.',
-      );
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    await purgePrivateLocalData(userId, async () => {
-      if (!discardPending && (await countPendingLocalData(userId)) > 0)
-        throw new PendingLocalDataError();
+    return withAccountWriteLock(userId ?? 'all', async () => {
+      if (queryClient.isMutating() > 0)
+        throw new Error(
+          'Espera a que termine el guardado antes de cerrar sesión.',
+        );
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      await purgePrivateLocalData(userId, async () => {
+        if (!discardPending && (await countPendingLocalData(userId)) > 0)
+          throw new PendingLocalDataError();
+      });
+      clearRecoveryAccess();
+      const result = await client.auth.signOut({ scope: 'local' });
+      if (result.error) throw result.error;
     });
-    clearRecoveryAccess();
-    const result = await client.auth.signOut({ scope: 'local' });
-    if (result.error) throw result.error;
   });
 }

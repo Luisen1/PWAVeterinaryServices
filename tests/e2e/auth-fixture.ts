@@ -8,8 +8,9 @@ export const TEST_PASSWORD = 'UnaClave123!';
 
 export async function mockAuthApi(
   context: BrowserContext,
-  options: { confirmed?: boolean } = {},
+  options: { confirmed?: boolean; role?: 'user' | 'provider' | 'admin' } = {},
 ) {
+  let role = options.role ?? 'user';
   let password = TEST_PASSWORD;
   let active = false;
   let recoveryUsed = false;
@@ -128,7 +129,7 @@ export async function mockAuthApi(
         return;
       }
       if (url.pathname === '/rest/v1/rpc/current_account_role' && active) {
-        await route.fulfill({ json: 'user' });
+        await route.fulfill({ json: role });
         return;
       }
       if (url.pathname === '/auth/v1/logout') {
@@ -146,7 +147,13 @@ export async function mockAuthApi(
       });
     },
   );
-  return { calls };
+  return {
+    calls,
+    setRole: (value: typeof role) => {
+      role = value;
+    },
+    getRole: () => role,
+  };
 }
 
 export async function login(page: Page) {

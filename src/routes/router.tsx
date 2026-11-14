@@ -10,6 +10,16 @@ import { RecoveryPage } from '@/features/auth/pages/RecoveryPage';
 import { ConfirmEmailPage } from '@/features/auth/pages/ConfirmEmailPage';
 import { ResetPasswordPage } from '@/features/auth/pages/ResetPasswordPage';
 import { PrivacyPage } from '@/features/auth/pages/PrivacyPage';
+import { ProfilePage } from '@/features/directory/ProfilePage';
+import {
+  ProviderPage,
+  ProviderEditPage,
+} from '@/features/directory/ProviderPages';
+import { AdminPage } from '@/features/directory/AdminPage';
+import {
+  DirectoryPage,
+  PublicEstablishmentPage,
+} from '@/features/directory/PublicPages';
 
 export const router = createBrowserRouter([
   {
@@ -29,13 +39,7 @@ export const router = createBrowserRouter([
       },
       {
         path: '/explorar',
-        element: (
-          <PlaceholderPage
-            title="Explorar"
-            description="El futuro espacio del directorio de servicios veterinarios."
-            emptyDescription="El directorio se construirá en una siguiente fase. Este espacio todavía no contiene establecimientos."
-          />
-        ),
+        element: <DirectoryPage />,
       },
       {
         path: '/citas',
@@ -57,6 +61,12 @@ export const router = createBrowserRouter([
       { path: '/auth/confirmar', element: <ConfirmEmailPage /> },
       { path: '/restablecer-clave', element: <ResetPasswordPage /> },
       { path: '/privacidad', element: <PrivacyPage /> },
+      { path: '/perfil', element: <ProfilePage /> },
+      { path: '/oferentes', element: <ProviderPage /> },
+      { path: '/oferentes/nuevo', element: <ProviderEditPage /> },
+      { path: '/oferentes/:id/editar', element: <ProviderEditPage /> },
+      { path: '/administracion/oferentes', element: <AdminPage /> },
+      { path: '/establecimientos/:id', element: <PublicEstablishmentPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

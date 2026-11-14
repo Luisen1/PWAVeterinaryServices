@@ -22,6 +22,7 @@
     "vitest.config.ts",
     "playwright.config.ts",
     "tests/e2e",
-    "tests/database"
+    "tests/database",
+    "src/features/directory/model.ts"
   ]
 }

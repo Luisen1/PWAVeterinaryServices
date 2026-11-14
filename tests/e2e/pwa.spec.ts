@@ -83,6 +83,10 @@ test('manifest, PNG y service worker activos en el build de producción', async 
 });
 
 test('rutas, estados y navegación accesible a 360 px', async ({ page }) => {
+  await page.route(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/establishment_publications**`,
+    (route) => route.fulfill({ json: [] }),
+  );
   await page.goto('/');
   for (const [path, title] of [
     ['/', 'Inicio'],
@@ -93,14 +97,21 @@ test('rutas, estados y navegación accesible a 360 px', async ({ page }) => {
     await expect(
       page.getByRole('heading', { name: title!, exact: true }),
     ).toBeVisible();
-    await expect(
-      page.getByText('Pantalla provisional', { exact: true }),
-    ).toBeVisible();
+    if (path !== '/explorar')
+      await expect(
+        page.getByText('Pantalla provisional', { exact: true }),
+      ).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
+    if (path === '/explorar') {
+      await expect(
+        page.getByText('Aún no hay establecimientos publicados'),
+      ).toBeVisible();
+      continue;
+    }
     await page.goto(`${path}?estado=carga`);
     await expect(page.getByText('Cargando este espacio…')).toBeVisible();
     await page.goto(`${path}?estado=error`);

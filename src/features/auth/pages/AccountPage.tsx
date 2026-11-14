@@ -11,6 +11,8 @@ import {
   submitClass,
 } from '@/features/auth/components/AuthFrame';
 import { useOnline } from '@/pwa/useOnline';
+import { syncPendingAccountChanges } from '@/features/sync/account-sync';
+import { dataError } from '@/features/directory/api';
 
 const roleNames: Record<string, string> = {
   user: 'Usuario',
@@ -73,6 +75,28 @@ export function AccountPage() {
       setMessage('Revisa tu correo para confirmar la cuenta.');
     } catch (caught) {
       setError(authErrorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function syncAndLogout() {
+    if (!auth.user) return;
+    setBusy(true);
+    setError('');
+    try {
+      await syncPendingAccountChanges(auth.user.id);
+      await logoutAccount();
+      setConfirmDiscard(false);
+      setMessage(
+        'Cambios sincronizados. Has cerrado sesión en este dispositivo.',
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof PendingLocalDataError
+          ? 'Quedan borradores o adjuntos sin enviar. Conserva la sesión para resolverlos o descártalos explícitamente.'
+          : dataError(caught),
+      );
     } finally {
       setBusy(false);
     }
@@ -191,6 +215,22 @@ export function AccountPage() {
                     </span>
                   </p>
                 )}
+                <div className="space-y-3 border-t border-stone-200 pt-4">
+                  <Link className={`block ${authLinkClass}`} to="/perfil">
+                    Perfil y mascotas
+                  </Link>
+                  <Link className={`block ${authLinkClass}`} to="/oferentes">
+                    Mis establecimientos
+                  </Link>
+                  {role.data === 'admin' && (
+                    <Link
+                      className={`block ${authLinkClass}`}
+                      to="/administracion/oferentes"
+                    >
+                      Revisar solicitudes de oferentes
+                    </Link>
+                  )}
+                </div>
                 {role.isFetching && (
                   <p role="status" className="text-sm text-stone-600">
                     Consultando permisos…
@@ -252,9 +292,17 @@ export function AccountPage() {
               className="text-sm leading-6 text-amber-950"
             >
               Hay borradores, adjuntos u operaciones guardados en este
-              dispositivo. Puedes conservar la sesión o descartarlos
-              explícitamente para cerrar sesión.
+              dispositivo. Puedes sincronizar los cambios de perfil y mascotas,
+              conservar la sesión o descartar los pendientes explícitamente.
             </p>
+            <button
+              type="button"
+              onClick={() => void syncAndLogout()}
+              disabled={busy || !online}
+              className={submitClass}
+            >
+              Sincronizar pendientes y cerrar sesión
+            </button>
             <button
               ref={cancelButton}
               type="button"
