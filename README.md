@@ -1,6 +1,6 @@
 # PWA de servicios veterinarios
 
-Base técnica con React, TypeScript estricto y Vite. Incluye cuatro pantallas provisionales, instalación PWA, funcionamiento offline del shell, actualización confirmada y persistencia local vacía.
+PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local y la implementación de registro y acceso de HU01/HU02. Inicio, Explorar y Citas mantienen pantallas provisionales.
 
 ## Requisitos e instalación
 
@@ -33,7 +33,9 @@ Copiar `.env.example` a `.env.local` para configurar un proyecto Supabase.
 
 Ambas pueden quedar vacías para ejecutar y probar el shell. `supabase` se exporta como `null` hasta que existan valores válidos. Si se configura una variable, se deben configurar ambas. Vite incorpora las variables `VITE_` al código público. Nunca incluir claves `service_role`, claves secretas, contraseñas o tokens privados. Las variables se fijan al compilar, por lo que sus cambios requieren otro build.
 
-El cliente está configurado con persistencia de sesión, detección de tokens en URL y refresco de autenticación desactivados. Las fases posteriores deberán definir la autenticación y sus permisos antes de habilitarlos.
+El cliente admite una clave pública publishable (`sb_publishable_`) en `VITE_SUPABASE_ANON_KEY`, además de la clave anon legacy. La sesión persiste y se refresca mediante el SDK. Los enlaces de correo usan PKCE y se procesan en `/auth/confirmar`.
+
+Para habilitar las cuentas en un proyecto remoto, aplicar ambas migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md`. La migración de identidad incluye perfiles, aceptación del aviso de privacidad y roles protegidos con RLS.
 
 ## Comandos
 
@@ -56,7 +58,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173 debe estar libre. Playwright inicia y detiene su propio preview de producción. La última prueba genera una segunda compilación en `test-results/`, simula su publicación y restaura el build inicial. Ejecutar la suite con un único worker evita publicaciones concurrentes.
+En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173 debe estar libre. Playwright inicia y detiene su propio preview de producción. Utiliza variables de un backend de prueba e intercepta sus peticiones para comprobar los flujos sin enviar correos reales. La prueba de actualización genera una segunda compilación en `test-results/` y restaura el build inicial. Ejecutar la suite con un único worker evita publicaciones concurrentes. Después de e2e, ejecutar `npm run build` para generar el artefacto con las variables reales del entorno previsto.
 
 ## Estructura
 
@@ -67,6 +69,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 ├── .npmrc / .nvmrc / .prettierrc.json
 ├── docs/
 │   ├── decisiones.md
+│   ├── autenticacion.md
 │   └── verificacion.md
 ├── public/
 │   ├── icons/                 # PNG 192, 512, maskable y Apple 180
@@ -78,9 +81,9 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 │   ├── app/                   # Shell, proveedores y QueryClient
 │   ├── assets/brand/          # Emblema y logotipo originales en SVG
 │   ├── components/ui/         # Iconos y estados reutilizables
-│   ├── features/              # Solo README en cada dominio
+│   ├── features/              # Autenticación y dominios futuros
 │   │   ├── appointments/
-│   │   ├── auth/
+│   │   ├── auth/             # HU01/HU02, formularios, sesión y pruebas
 │   │   ├── calls/
 │   │   ├── directory/
 │   │   ├── messaging/
@@ -91,15 +94,17 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 │   │   ├── forms.ts           # React Hook Form con zodResolver
 │   │   └── supabase.ts
 │   ├── pwa/                   # Instalación, conexión y actualización
-│   ├── routes/                # Cuatro placeholders y 404
+│   ├── routes/                # Shell, rutas y 404
 │   ├── styles/index.css       # Tailwind, tokens y foco visible
 │   ├── main.tsx
 │   ├── sw.ts
 │   └── vite-env.d.ts
 ├── supabase/
 │   ├── functions/README.md
-│   └── migrations/            # README y SQL de extensiones
+│   └── migrations/            # Extensiones e identidad con RLS
 ├── tests/
+│   ├── database/identity.test.ts
+│   ├── e2e/auth.spec.ts
 │   ├── e2e/pwa.spec.ts
 │   └── setup.ts
 ├── index.html
@@ -113,7 +118,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 
 ## Shell y estados
 
-Las rutas `/`, `/explorar`, `/citas` y `/cuenta` contienen pantallas provisionales. Una URL desconocida muestra la página 404. Se puede comprobar cada estado con los mismos parámetros en las cuatro rutas.
+Las rutas `/`, `/explorar` y `/citas` contienen pantallas provisionales. `/cuenta` permite iniciar sesión, crear cuenta, recuperar acceso y cerrar sesión. Las rutas de autenticación incluyen `/registro`, `/acceso`, `/recuperar-acceso`, `/auth/confirmar`, `/restablecer-clave` y `/privacidad`. Una URL desconocida muestra la página 404. Los tres placeholders admiten los mismos parámetros de demostración.
 
 ```text
 /explorar               Estado vacío
@@ -121,7 +126,7 @@ Las rutas `/`, `/explorar`, `/citas` y `/cuenta` contienen pantallas provisional
 /explorar?estado=error  Estado de error con Reintentar
 ```
 
-El botón Reintentar elimina el parámetro de demostración. La navegación mueve el foco al contenido. Se incluyen enlace para saltar al contenido, foco visible, etiquetas y márgenes seguros para pantallas con recortes. El indicador online/offline refleja la señal del navegador. La disponibilidad del backend se comprobará cuando se implementen consultas.
+El botón Reintentar elimina el parámetro de demostración. La navegación mueve el foco al contenido. Se incluyen enlace para saltar al contenido, foco visible, etiquetas y márgenes seguros para pantallas con recortes. El indicador online/offline refleja la señal del navegador. La sesión se valida con Supabase antes de mostrar el acceso autenticado.
 
 ## PWA y actualización
 
@@ -192,7 +197,7 @@ Conectar este repositorio a un proyecto Pages mediante Git, seleccionar Node 24.
 
 `public/_redirects` conserva las rutas SPA al recargar. `public/_headers` fuerza revalidación del manifest y del HTML, evita cachear `sw.js` y permite caché larga solo en activos con hash. Los PNG sin hash usan el comportamiento normal del hosting y revisiones de precache. Verificar estas cabeceras en el despliegue, ya que Vite preview no interpreta los archivos de configuración de Pages.
 
-La migración SQL inicial habilita solamente `postgis` y `btree_gist` en el esquema `extensions` de Supabase. Su aplicación remota requiere seleccionar el proyecto correspondiente en una fase posterior.
+La primera migración SQL habilita `postgis` y `btree_gist` en `extensions`. La segunda crea la base de identidad y sus políticas. El frontend usa las migraciones aplicadas al proyecto seleccionado, con el procedimiento descrito en `docs/autenticacion.md`.
 
 ## Calidad y siguientes fases
 
@@ -200,8 +205,9 @@ GitHub Actions ejecuta instalación reproducible, lint, TypeScript, Vitest, buil
 
 Pendiente para las siguientes fases
 
-- Autenticación, sesión y aislamiento de datos por cuenta.
-- Modelo PostgreSQL, tablas, restricciones, permisos y RLS.
+- Aplicación y verificación remota de las migraciones y configuración del correo.
+- Perfil y mascotas de HU03, oferentes y aprobación de HU04/HU05 y ficha de HU06.
+- Tablas, restricciones, permisos y RLS de los siguientes dominios.
 - Directorio, mapa, filtros, fichas, favoritos y notas.
 - Disponibilidad, reservas atómicas, agenda y citas.
 - Chat, archivos, audios, Storage y Realtime.

@@ -12,3 +12,5 @@ La instancia `db` es única y se abre de forma diferida al usarla. La versión 1
 4. Probar una base poblada con la versión anterior antes de publicar. No borrar IndexedDB para migrar.
 
 `purgePrivateLocalData(ownerId)` elimina los registros de esa cuenta en una sola transacción. Sin argumento borra todas las tablas privadas, incluidos adjuntos, outbox y metadatos. Conserva `catalog`, `services` y `hours`. Todas las filas de `sync_meta` deben tener un propietario. El futuro cierre de sesión debe detener primero las escrituras y la sincronización para impedir que se creen filas después de la purga.
+
+El segundo argumento opcional `assertCanPurge` permite comprobar pendientes dentro de la misma transacción antes de borrar. El cierre de sesión lo usa para exigir descarte explícito. Ese callback debe usar únicamente IndexedDB, sin operaciones de red.

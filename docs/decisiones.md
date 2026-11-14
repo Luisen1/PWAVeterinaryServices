@@ -23,7 +23,7 @@ Fecha de referencia 2026-11-14, America/Bogota.
 | Dexie singleton con esquema v1 y helpers genéricos tipados           | Diez tablas esqueleto e índices por propietario, sin implementar sincronización ni modelos de negocio.                                                                                                   |
 | Fechas persistidas como ISO UTC y presentación en America/Bogota     | Evita confundir el huso del equipo con el de referencia.                                                                                                                                                 |
 | Purga de todas las tablas privadas mediante una transacción          | Limpieza consistente de filas, adjuntos, outbox y metadatos. Se puede limitar a una cuenta o borrar todas las cuentas locales.                                                                           |
-| Supabase nullable sin variables y con validación cuando se configura | El shell funciona sin proyecto remoto ni credenciales inventadas. El cliente único desactiva automatismos de sesión hasta implementar autenticación.                                                     |
+| Supabase nullable sin variables y con validación cuando se configura | El shell funciona sin proyecto remoto ni credenciales inventadas. El cliente único usa sesión persistente y PKCE en HU01/HU02.                                                                           |
 | TanStack Query con una instancia y useZodForm compartido             | Proveedores y configuración preparados sin consultas ni formularios de negocio.                                                                                                                          |
 | SQL inicial con extensiones únicamente                               | El esquema extensions ya existe en el proyecto Supabase administrado. Las tablas y RLS pertenecen a la fase de backend.                                                                                  |
 | Hosting estático preparado para Cloudflare Pages                     | _redirects resuelve rutas profundas y _headers evita fijar versiones antiguas de SW y manifest. Esta entrega prepara los archivos locales de despliegue.                                                 |
@@ -43,3 +43,15 @@ Todas las versiones elegidas directamente en `package.json` son estables. El ár
 ## Control de recarga
 
 La prueba de segunda compilación detectó que el callback de recarga de Workbox puede omitir una actualización dentro de la misma primera sesión, porque esa sesión empezó sin controlador. `UpdatePrompt` escucha también `controllerchange`, distingue la primera toma de control y conserva la confirmación explícita antes de recargar. El callback `onNeedReload` del registro se controla localmente para respetar `useCanReload`, incluso si otra pestaña activa una versión.
+
+## Registro y acceso de HU01/HU02
+
+Actualización del 2026-11-14, America/Bogota. La autorización del usuario amplía la base con registro, acceso y recuperación. Supabase usa sesión persistente, refresco y PKCE, con procesamiento explícito del callback y validación remota mediante `getUser`.
+
+La identidad privada se establece en una migración SQL. El servidor asigna `user`, registra versión y fecha del aviso, y exige correo confirmado en las políticas. Los roles se guardan en un esquema privado. Los clientes consultan su rol mediante una RPC. La edición de perfil y el resto de dominios se desarrollarán en sus siguientes historias.
+
+El cierre comprueba pendientes y purga la cuenta dentro de la misma transacción IndexedDB. Los pendientes sobreviven a recargas y sesiones vencidas. El usuario decide expresamente su descarte al cerrar sesión. El motor de sincronización se implementará en su fase correspondiente.
+
+PGlite 0.5.16 se incorpora únicamente al entorno de pruebas para ejecutar el SQL y verificar RLS con PostgreSQL embebido. Docker está instalado y su motor local estaba detenido durante la comprobación. Los e2e usan el SDK real con un backend interceptado y credenciales ficticias de prueba. La aceptación en Supabase requiere aplicar las migraciones y comprobar los enlaces de correo reales.
+
+El aviso de privacidad corresponde al entorno de desarrollo. El responsable, contacto y retención quedan pendientes de definición antes de su publicación general. La guía operativa está en `autenticacion.md`.

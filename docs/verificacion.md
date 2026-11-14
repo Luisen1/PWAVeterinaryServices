@@ -55,3 +55,13 @@ Se capturaron y revisaron las pantallas a 360 px y 1280 px. Las capturas reprodu
 - El lockfile contiene dependencias transitivas preliminares heredadas de las herramientas estables. Se detallan en `decisiones.md`.
 - Quedan 12 avisos de seguridad en herramientas de desarrollo y una advertencia de deprecación del bundler en Workbox. La auditoría de dependencias de producción está limpia.
 - Las siguientes fases están enumeradas en README y en los README de cada dominio.
+
+## Actualización de HU01/HU02
+
+El 2026-11-14 se implementaron registro, confirmación, acceso, recuperación PKCE y cierre de sesión con purga. La nueva migración incluye perfiles, roles controlados por servidor y aceptación versionada del aviso de privacidad. La guía de configuración y el alcance de las pruebas están en `autenticacion.md`.
+
+La comprobación del proyecto remoto confirmó el proveedor Email, registro habilitado y confirmación de correo obligatoria. La conexión de administración para aplicar las migraciones y configurar URL y correo sigue pendiente. Las pruebas de navegador usan peticiones interceptadas y las pruebas SQL usan PostgreSQL embebido.
+
+La verificación local de esta actualización terminó correctamente con `npm run lint`, `npm run typecheck`, 18 pruebas en `npm test`, 12 pruebas de `npm run test:e2e` y `npm run build`. Se revisó visualmente el registro a 360 px. El build final se regeneró con la configuración del proyecto real y se comprobó que no contiene el backend ficticio de Playwright.
+
+El build produce un aviso por el chunk principal de aproximadamente 826 kB y conserva el aviso de deprecación del bundler del SW. El precache tiene 14 recursos, unos 928 KiB. Los comandos terminan con código 0.
