@@ -1,5 +1,7 @@
 # Verificación de la base técnica
 
+La verificación de HU07-HU09, ejecutada el 2026-11-15, está en [hu07-hu09.md](hu07-hu09.md): 66 pruebas de lógica/base de datos, 26 E2E e integración real en Supabase con datos revertidos. Las secciones siguientes conservan el registro histórico de las fases anteriores.
+
 Ejecutada el 2026-11-14, America/Bogota, en Windows con Node 24.15.0 y npm 11.12.1. Navegador automatizado Chromium 159 de Playwright 1.65.1.
 
 ## Comandos ejecutados
@@ -77,3 +79,9 @@ Se aplicaron las cuatro migraciones en `veterinary-services-dev`. Se alinearon s
 La revisión de seguridad de Supabase ya no muestra la advertencia de RPC pública con SECURITY DEFINER. Conserva dos [avisos informativos por tablas privadas con RLS y sin políticas](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy): roles e invitaciones administrativas, que deben permanecer inaccesibles desde los clientes. Rendimiento muestra tres [índices todavía sin uso](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index), esperables en la base sin datos reales; no se eliminan índices de propietario o cola de revisión por esta estadística inicial.
 
 El build conserva las advertencias de tamaño del chunk principal (aproximadamente 884 kB sin comprimir) y de `inlineDynamicImports` en Workbox; genera 14 entradas de precache, unos 986 KiB. No bloquean los comandos. La aceptación real de correo, los archivos por Storage, las URL de retorno y la cuenta administradora confirmada siguen pendientes según `hu01-hu06.md`.
+
+## Rediseño visual en Luise-Dev
+
+El 2026-11-14 se aplicó la guía visual y los prototipos a las funciones hasta HU06, dentro de la rama `Luise-Dev` creada antes de modificar archivos. El detalle de componentes, marca SVG, Poppins, contraste y alcance está en [diseño visual](diseno-visual.md).
+
+Pasaron lint, las 40 pruebas unitarias/SQL y las 20 pruebas E2E. Los recorridos nuevos comprueban el control de contraseña visible, las vistas a 320, 360 y 1280 px sin desbordamiento horizontal, la búsqueda local y el registro de establecimientos en cuatro pasos. Se conserva la cobertura anterior de autenticación, publicación, permisos y PWA. Los casos usan fixtures; los pendientes de aceptación remota de HU01-HU06 no cambian por este rediseño.

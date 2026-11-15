@@ -1,6 +1,10 @@
 # PWA de servicios veterinarios
 
-PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local y la implementación hasta HU06: cuentas, perfil y mascotas, oferentes, revisión administrativa y fichas aprobadas. Inicio y Citas mantienen pantallas provisionales. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
+Para continuar el desarrollo con un asistente de IA, consultar primero [AGENTS.md](AGENTS.md): contexto, estado de las HU, arquitectura, reglas del dominio y verificación.
+
+PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local y la implementación hasta HU09: cuentas, perfil y mascotas, oferentes, revisión administrativa, fichas, servicios, profesionales, disponibilidad, colaboradores y mapa con agrupación. Citas mantiene una pantalla provisional. Consulta [HU07-HU09](docs/hu07-hu09.md) para usar los nuevos flujos. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
+
+La interfaz utiliza los prototipos y la guía visual del proyecto: Poppins, azul marino, turquesa y verde, junto al emblema SVG original. El inicio contiene accesos funcionales y el registro de establecimientos se organiza en cuatro pasos. Consulta [diseño visual](docs/diseno-visual.md) para conocer los componentes, adaptaciones y validaciones.
 
 ## Requisitos e instalación
 
@@ -35,21 +39,21 @@ Ambas pueden quedar vacías para ejecutar y probar el shell. `supabase` se expor
 
 El cliente admite una clave pública publishable (`sb_publishable_`) en `VITE_SUPABASE_ANON_KEY`, además de la clave anon legacy. La sesión persiste y se refresca mediante el SDK. Los enlaces de correo usan PKCE y se procesan en `/auth/confirmar`.
 
-Para habilitar las cuentas en un proyecto nuevo, aplicar las cuatro migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` las cuatro migraciones ya están aplicadas. La migración de identidad incluye perfiles, aceptación del aviso de privacidad y roles protegidos con RLS.
+Para habilitar un proyecto nuevo, aplicar las cinco migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` las cinco migraciones ya están aplicadas. La migración de identidad incluye perfiles, aceptación del aviso de privacidad y roles protegidos con RLS. La quinta añade catálogo, disponibilidad y colaboradores. Las variables opcionales `VITE_MAP_TILE_URL` y `VITE_MAP_ATTRIBUTION` permiten configurar otro proveedor de mapas; por defecto se usa OpenStreetMap.
 
 ## Comandos
 
-| Comando             | Resultado                                                 |
-| ------------------- | --------------------------------------------------------- |
-| `npm run dev`       | Vite en modo desarrollo, accesible en la red              |
-| `npm run icons`     | Regenera cinco PNG provisionales con Sharp                |
-| `npm run build`     | Genera iconos, comprueba tipos y produce `dist/` con SW   |
-| `npm run preview`   | Sirve el build en el puerto 4173                          |
-| `npm run lint`      | ESLint y comprobación de Prettier                         |
-| `npm run format`    | Aplica Prettier                                           |
-| `npm run typecheck` | TypeScript estricto para app, pruebas, configuración y SW |
-| `npm test`          | Vitest con IndexedDB de prueba                            |
-| `npm run test:e2e`  | Compila, abre preview y ejecuta Playwright                |
+| Comando             | Resultado                                                  |
+| ------------------- | ---------------------------------------------------------- |
+| `npm run dev`       | Vite en modo desarrollo, accesible en la red               |
+| `npm run icons`     | Regenera cinco PNG desde el emblema SVG original con Sharp |
+| `npm run build`     | Genera iconos, comprueba tipos y produce `dist/` con SW    |
+| `npm run preview`   | Sirve el build en el puerto 4173                           |
+| `npm run lint`      | ESLint y comprobación de Prettier                          |
+| `npm run format`    | Aplica Prettier                                            |
+| `npm run typecheck` | TypeScript estricto para app, pruebas, configuración y SW  |
+| `npm test`          | Vitest con IndexedDB de prueba                             |
+| `npm run test:e2e`  | Compila, abre preview y ejecuta Playwright                 |
 
 Primera ejecución de e2e en el equipo
 
@@ -71,6 +75,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 │   ├── decisiones.md
 │   ├── autenticacion.md
 │   ├── hu01-hu06.md
+│   ├── hu07-hu09.md
 │   └── verificacion.md
 ├── public/
 │   ├── icons/                 # PNG 192, 512, maskable y Apple 180
@@ -82,7 +87,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 │   ├── app/                   # Shell, proveedores y QueryClient
 │   ├── assets/brand/          # Emblema y logotipo originales en SVG
 │   ├── components/ui/         # Iconos y estados reutilizables
-│   ├── features/              # Cuentas, directorio y dominios futuros
+│   ├── features/              # Cuentas, directorio, servicios y dominios futuros
 │   │   ├── appointments/
 │   │   ├── auth/             # HU01/HU02, formularios, sesión y pruebas
 │   │   ├── calls/
@@ -102,7 +107,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 │   └── vite-env.d.ts
 ├── supabase/
 │   ├── functions/README.md
-│   └── migrations/            # Cuatro migraciones con RLS y Storage
+│   └── migrations/            # Cinco migraciones con RLS y Storage
 ├── tests/
 │   ├── database/identity.test.ts
 │   ├── e2e/auth.spec.ts
@@ -119,7 +124,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 
 ## Shell y estados
 
-Las rutas `/` y `/citas` contienen pantallas provisionales. `/explorar` muestra establecimientos aprobados y `/establecimientos/:id` permite consultar sus fichas públicas. `/cuenta` permite iniciar sesión, crear cuenta, recuperar acceso y cerrar sesión. Las rutas de autenticación incluyen `/registro`, `/acceso`, `/recuperar-acceso`, `/auth/confirmar`, `/restablecer-clave` y `/privacidad`. Las rutas privadas nuevas son `/perfil`, `/oferentes`, `/oferentes/nuevo`, `/oferentes/:id/editar` y `/administracion/oferentes`. Una URL desconocida muestra la página 404. Los dos placeholders admiten los mismos parámetros de demostración.
+La ruta `/` presenta el inicio y sus accesos; `/citas` conserva una pantalla provisional. `/explorar` muestra establecimientos aprobados en mapa y listado, y `/establecimientos/:id` permite consultar sus fichas y servicios activos. `/cuenta` muestra Mi perfil y permite iniciar sesión, crear cuenta, recuperar acceso y cerrar sesión. Las rutas de autenticación incluyen `/registro`, `/acceso`, `/recuperar-acceso`, `/auth/confirmar`, `/restablecer-clave` y `/privacidad`. Las rutas privadas son `/perfil`, `/oferentes`, `/oferentes/nuevo`, `/oferentes/:id/editar`, `/oferentes/servicios`, `/oferentes/:id/servicios` y `/administracion/oferentes`. Las rutas de servicios incluyen invitaciones, catálogo, equipo, recursos, jornadas y cierres. Una URL desconocida muestra la página 404. El placeholder de Citas admite parámetros de demostración.
 
 ```text
 /citas               Estado vacío
@@ -207,10 +212,9 @@ GitHub Actions ejecuta instalación reproducible, lint, TypeScript, Vitest, buil
 Pendiente para las siguientes fases
 
 - Aplicación y verificación remota de las migraciones y configuración del correo.
-- Perfil y mascotas de HU03, oferentes y aprobación de HU04/HU05 y ficha de HU06.
 - Tablas, restricciones, permisos y RLS de los siguientes dominios.
-- Directorio, mapa, filtros, fichas, favoritos y notas.
-- Disponibilidad, reservas atómicas, agenda y citas.
+- Ubicación y origen manual, filtros avanzados, favoritos, notas y rutas.
+- Reservas atómicas, agenda y gestión de citas sobre la disponibilidad de HU08.
 - Chat, archivos, audios, Storage y Realtime.
 - Llamadas de audio/vídeo y autorización de salas.
 - Protocolo de sincronización, outbox, reintentos y conflictos.

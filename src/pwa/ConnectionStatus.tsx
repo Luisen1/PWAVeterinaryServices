@@ -6,7 +6,7 @@ export function ConnectionStatus() {
     <div
       role="status"
       aria-live="polite"
-      className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium ${online ? 'border-brand-100 bg-brand-50 text-brand-700' : 'border-amber-200 bg-amber-50 text-amber-900'}`}
+      className={`connection-chip ${online ? '' : 'connection-chip--offline'}`}
     >
       <span
         aria-hidden="true"

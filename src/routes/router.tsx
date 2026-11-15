@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router';
 import { Layout } from '@/app/Layout';
 import { PlaceholderPage } from '@/routes/PlaceholderPage';
+import { HomePage } from '@/routes/HomePage';
 import { NotFoundPage } from '@/routes/NotFoundPage';
 import { RouteErrorPage } from '@/routes/RouteErrorPage';
 import { AccountPage } from '@/features/auth/pages/AccountPage';
@@ -16,6 +17,7 @@ import {
   ProviderEditPage,
 } from '@/features/directory/ProviderPages';
 import { AdminPage } from '@/features/directory/AdminPage';
+import { OfferingsPage } from '@/features/offerings/OfferingsPage';
 import {
   DirectoryPage,
   PublicEstablishmentPage,
@@ -28,14 +30,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: '/',
-        element: (
-          <PlaceholderPage
-            home
-            title="Inicio"
-            description="Bienvenido a la base de tu aplicación de servicios veterinarios."
-            emptyDescription="Aquí comenzará la experiencia. Las funcionalidades se incorporarán en las siguientes fases."
-          />
-        ),
+        element: <HomePage />,
       },
       {
         path: '/explorar',
@@ -64,6 +59,8 @@ export const router = createBrowserRouter([
       { path: '/perfil', element: <ProfilePage /> },
       { path: '/oferentes', element: <ProviderPage /> },
       { path: '/oferentes/nuevo', element: <ProviderEditPage /> },
+      { path: '/oferentes/servicios', element: <OfferingsPage /> },
+      { path: '/oferentes/:id/servicios', element: <OfferingsPage /> },
       { path: '/oferentes/:id/editar', element: <ProviderEditPage /> },
       { path: '/administracion/oferentes', element: <AdminPage /> },
       { path: '/establecimientos/:id', element: <PublicEstablishmentPage /> },

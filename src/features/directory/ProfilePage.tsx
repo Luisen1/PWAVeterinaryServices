@@ -11,6 +11,8 @@ import {
 } from '@/features/sync/account-sync';
 import { withAccountWriteLock } from '@/features/sync/account-write-lock';
 import { db } from '@/lib/db';
+import { Icon } from '@/components/ui/Icon';
+import { SectionHeading } from '@/components/ui/PageHeading';
 import {
   petSchema,
   profileSchema,
@@ -84,6 +86,7 @@ function ProfileContent({ userId }: { userId: string }) {
   async function refresh() {
     await Promise.all([
       client.invalidateQueries({ queryKey: ['profile', userId] }),
+      client.invalidateQueries({ queryKey: ['profile-summary', userId] }),
       client.invalidateQueries({ queryKey: ['pets', userId] }),
       client.invalidateQueries({ queryKey: ['account-pending', userId] }),
     ]);
@@ -122,7 +125,7 @@ function ProfileContent({ userId }: { userId: string }) {
     },
   });
   return (
-    <div className="space-y-6">
+    <div className="profile-grid">
       {!!pending.data && (
         <div className={cardClass}>
           <Notice>
@@ -160,8 +163,16 @@ function ProfileContent({ userId }: { userId: string }) {
           onSaved={refresh}
         />
       )}
-      <section className={cardClass}>
-        <h2 className="text-xl font-semibold">Mis mascotas</h2>
+      <section id="mascotas" className={cardClass}>
+        <SectionHeading icon="paw">Mis mascotas</SectionHeading>
+        {pets.data && (
+          <p className="status-badge">
+            {pets.data.length}{' '}
+            {pets.data.length === 1
+              ? 'mascota registrada'
+              : 'mascotas registradas'}
+          </p>
+        )}
         {pets.isPending && online && <Notice>Cargando mascotas…</Notice>}
         {pets.isError && (
           <div>
@@ -176,20 +187,23 @@ function ProfileContent({ userId }: { userId: string }) {
           </div>
         )}
         {pets.data?.length === 0 && (
-          <p className="text-sm text-stone-600">
-            Todavía no tienes mascotas registradas.
-          </p>
+          <div className="empty-state">
+            <span className="empty-state__icon">
+              <Icon name="paw" />
+            </span>
+            <p>Todavía no tienes mascotas registradas.</p>
+          </div>
         )}
         {pets.data?.map((pet) => (
-          <div
-            key={pet.id}
-            className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 pb-4"
-          >
-            <div>
+          <div key={pet.id} className="pet-card">
+            <span className="pet-card__avatar">
+              <Icon name="paw" />
+            </span>
+            <div className="pet-card__body">
               <p className="font-semibold">{pet.name}</p>
               <p className="text-sm text-stone-600">{pet.species}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="pet-card__actions">
               <button
                 className={secondaryClass}
                 onClick={() => {
@@ -197,6 +211,7 @@ function ProfileContent({ userId }: { userId: string }) {
                   setPetFormVersion((v) => v + 1);
                 }}
               >
+                <Icon name="edit" />
                 Editar {pet.name}
               </button>
               <button
@@ -280,10 +295,11 @@ function ProfileForm({
         void form.handleSubmit((values) => mutation.mutate(values))(event)
       }
     >
-      <h2 className="text-xl font-semibold">Mis datos</h2>
+      <SectionHeading icon="user">Mis datos</SectionHeading>
       <AuthField
         label="Nombre de visualización"
         required
+        disabled={mutation.isPending}
         autoComplete="name"
         {...form.register('display_name')}
         error={form.formState.errors.display_name?.message}
@@ -292,6 +308,7 @@ function ProfileForm({
         label="Teléfono personal (opcional)"
         autoComplete="tel"
         type="tel"
+        disabled={mutation.isPending}
         {...form.register('phone')}
         error={form.formState.errors.phone?.message}
       />
@@ -303,6 +320,7 @@ function ProfileForm({
         </Notice>
       )}
       <button className={submitClass} disabled={mutation.isPending || !online}>
+        <Icon name="check" />
         {mutation.isPending ? 'Guardando…' : 'Guardar perfil'}
       </button>
     </form>
@@ -337,17 +355,19 @@ function PetForm({
   return (
     <form
       noValidate
-      className="space-y-4 border-t border-stone-200 pt-5"
+      className="space-y-4 rounded-xl border border-brand-100 bg-brand-50 p-4"
       onSubmit={(event) =>
         void form.handleSubmit((values) => mutation.mutate(values))(event)
       }
     >
-      <h3 className="font-semibold">
+      <h3 className="flex items-center gap-2 font-semibold">
+        <Icon name={pet ? 'edit' : 'plus'} className="size-5 text-brand-700" />
         {pet ? 'Editar mascota' : 'Añadir mascota'}
       </h3>
       <AuthField
         label="Nombre de la mascota"
         required
+        disabled={mutation.isPending}
         {...form.register('name')}
         error={form.formState.errors.name?.message}
       />
@@ -355,6 +375,7 @@ function PetForm({
         Especie
         <select
           aria-label="Especie"
+          disabled={mutation.isPending}
           className={`${fieldClass} mt-2`}
           {...form.register('species')}
         >
@@ -369,6 +390,7 @@ function PetForm({
         </Notice>
       )}
       <button className={submitClass} disabled={mutation.isPending || !online}>
+        <Icon name="check" />
         {mutation.isPending
           ? 'Guardando…'
           : pet

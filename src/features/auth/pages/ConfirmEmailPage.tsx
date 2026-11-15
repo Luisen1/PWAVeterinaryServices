@@ -24,6 +24,7 @@ export function ConfirmEmailPage() {
     <AuthFrame
       title="Verificando enlace"
       description="Estamos comprobando el enlace de tu correo."
+      icon="mail"
     >
       <p role="status" className="text-sm text-stone-600">
         Espera un momento…

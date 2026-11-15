@@ -2,13 +2,13 @@
   "id": "/",
   "name": "Servicios veterinarios",
   "short_name": "Veterinaria",
-  "description": "Base técnica de una PWA de servicios veterinarios.",
+  "description": "Cuida de tus mascotas y encuentra establecimientos veterinarios revisados.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "lang": "es",
-  "theme_color": "#155e54",
-  "background_color": "#f6f7f4",
+  "theme_color": "#0b1f4b",
+  "background_color": "#ffffff",
   "orientation": "portrait-primary",
   "icons": [
     {

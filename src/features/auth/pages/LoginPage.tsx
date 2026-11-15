@@ -12,6 +12,7 @@ import {
   authLinkClass,
   submitClass,
 } from '@/features/auth/components/AuthFrame';
+import { Icon } from '@/components/ui/Icon';
 
 export function LoginPage() {
   const online = useOnline();
@@ -34,7 +35,8 @@ export function LoginPage() {
   return (
     <AuthFrame
       title="Iniciar sesión"
-      description="Accede con el correo y la contraseña de tu cuenta."
+      description="Tu cuenta, tus mascotas y los servicios que necesitan, en un solo lugar."
+      icon="heart"
     >
       {params.get('aviso') === 'enlace-invalido' && (
         <p
@@ -64,6 +66,7 @@ export function LoginPage() {
           autoComplete="email"
           inputMode="email"
           required
+          placeholder="nombre@correo.com"
           error={errors.email?.message}
           {...form.register('email')}
         />
@@ -72,12 +75,13 @@ export function LoginPage() {
           type="password"
           autoComplete="current-password"
           required
+          placeholder="Ingresa tu contraseña"
           error={errors.password?.message}
           {...form.register('password')}
         />
         <Link
           to="/recuperar-acceso"
-          className={`inline-block text-sm ${authLinkClass}`}
+          className={`block text-right text-xs ${authLinkClass}`}
         >
           Olvidé mi contraseña
         </Link>
@@ -94,6 +98,7 @@ export function LoginPage() {
           disabled={isSubmitting || !online || !supabase}
           className={submitClass}
         >
+          <Icon name="logout" />
           {isSubmitting ? 'Iniciando sesión…' : 'Iniciar sesión'}
         </button>
         <p className="text-center text-sm text-stone-600">
@@ -103,6 +108,23 @@ export function LoginPage() {
           </Link>
         </p>
       </form>
+      <div className="auth-guest">
+        <Link to="/explorar" className="button button-secondary w-full">
+          <Icon name="pin" />
+          Explorar sin iniciar sesión
+        </Link>
+        <p>
+          Puedes consultar establecimientos. Para gestionar tus mascotas y
+          registrar un negocio necesitas una cuenta.
+        </p>
+      </div>
+      <div className="auth-help">
+        ¿Ofreces servicios para mascotas?
+        <Link to="/oferentes/nuevo">
+          <Icon name="store" />
+          Registrar mi establecimiento
+        </Link>
+      </div>
     </AuthFrame>
   );
 }

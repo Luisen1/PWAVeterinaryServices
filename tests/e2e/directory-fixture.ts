@@ -30,6 +30,10 @@ export async function mockDirectoryApi(
       const request = route.request();
       const url = new URL(request.url());
       const path = url.pathname;
+      if (path.endsWith('/offering_items')) {
+        await route.fulfill({ json: [] });
+        return;
+      }
       const body =
         request.postData() &&
         request.headers()['content-type']?.includes('json')

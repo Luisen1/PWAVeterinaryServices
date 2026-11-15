@@ -31,6 +31,7 @@ export function RecoveryPage() {
     <AuthFrame
       title="Recuperar acceso"
       description="Solicita un enlace para establecer una nueva contraseña."
+      icon={sent ? 'mail' : 'key'}
     >
       {sent ? (
         <div role="status" className="space-y-4 text-sm leading-6">

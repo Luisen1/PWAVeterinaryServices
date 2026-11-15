@@ -13,6 +13,8 @@ import {
 import { useOnline } from '@/pwa/useOnline';
 import { syncPendingAccountChanges } from '@/features/sync/account-sync';
 import { dataError } from '@/features/directory/api';
+import { PageHeading, SectionHeading } from '@/components/ui/PageHeading';
+import { Icon } from '@/components/ui/Icon';
 
 const roleNames: Record<string, string> = {
   user: 'Usuario',
@@ -30,6 +32,21 @@ export function AccountPage() {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const cancelButton = useRef<HTMLButtonElement>(null);
   const verified = !!auth.user?.email_confirmed_at;
+  const profile = useQuery({
+    queryKey: ['profile-summary', auth.user?.id],
+    enabled: auth.status === 'authenticated' && verified && online,
+    retry: false,
+    queryFn: async ({ signal }) => {
+      const { data, error: profileError } = await authClient()
+        .from('profiles')
+        .select('display_name')
+        .eq('id', auth.user!.id)
+        .abortSignal(signal)
+        .maybeSingle();
+      if (profileError) throw profileError;
+      return data as { display_name: string } | null;
+    },
+  });
   const role = useQuery({
     queryKey: ['account-role', auth.user?.id],
     enabled: auth.status === 'authenticated' && verified && online,
@@ -103,14 +120,19 @@ export function AccountPage() {
   }
 
   return (
-    <section className="mx-auto max-w-lg">
-      <h1 className="text-3xl font-semibold tracking-tight text-brand-900">
-        Cuenta
-      </h1>
-      <p className="mt-3 text-sm leading-6 text-stone-600">
-        Gestiona el acceso a tu cuenta de servicios veterinarios.
-      </p>
-      <div className="mt-7 rounded-3xl border border-stone-200 bg-white p-5 sm:p-8">
+    <section className="mx-auto max-w-4xl">
+      <PageHeading
+        title="Mi perfil"
+        description="Tus datos, tus mascotas y tus establecimientos, siempre a mano."
+        icon="user"
+      />
+      <div
+        className={
+          auth.status === 'authenticated'
+            ? 'space-y-6'
+            : 'sv-card mx-auto max-w-md'
+        }
+      >
         {params.get('aviso') === 'correo-confirmado' && (
           <p
             role="status"
@@ -178,10 +200,7 @@ export function AccountPage() {
             <Link to="/acceso" className={submitClass}>
               Iniciar sesión
             </Link>
-            <Link
-              to="/registro"
-              className="flex min-h-12 items-center justify-center rounded-xl border border-brand-700 px-5 py-3 font-semibold text-brand-700 hover:bg-brand-50"
-            >
+            <Link to="/registro" className="button button-secondary w-full">
               Crear cuenta
             </Link>
             <Link
@@ -193,20 +212,26 @@ export function AccountPage() {
           </div>
         )}
         {auth.status === 'authenticated' && auth.user && (
-          <div className="space-y-5">
-            <div>
-              <p className="text-xs font-medium text-stone-500">
-                Correo electrónico
-              </p>
-              <p className="mt-1 break-words font-medium text-stone-800">
-                {auth.user.email}
-              </p>
+          <div className="space-y-6">
+            <div className="account-summary">
+              <span className="account-avatar">
+                <Icon name="user" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="account-summary__name">
+                  {profile.data?.display_name || 'Mi cuenta'}
+                </h2>
+                <p className="account-summary__email">{auth.user.email}</p>
+                {verified && (
+                  <span className="status-badge">
+                    <Icon name="check" className="size-3.5" />
+                    Correo confirmado
+                  </span>
+                )}
+              </div>
             </div>
             {verified ? (
               <>
-                <p className="rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-900">
-                  Correo confirmado
-                </p>
                 {role.data && (
                   <p className="text-sm text-stone-600">
                     Tipo de cuenta ·{' '}
@@ -215,21 +240,83 @@ export function AccountPage() {
                     </span>
                   </p>
                 )}
-                <div className="space-y-3 border-t border-stone-200 pt-4">
-                  <Link className={`block ${authLinkClass}`} to="/perfil">
-                    Perfil y mascotas
-                  </Link>
-                  <Link className={`block ${authLinkClass}`} to="/oferentes">
-                    Mis establecimientos
-                  </Link>
-                  {role.data === 'admin' && (
-                    <Link
-                      className={`block ${authLinkClass}`}
-                      to="/administracion/oferentes"
-                    >
-                      Revisar solicitudes de oferentes
-                    </Link>
-                  )}
+                <div className="account-grid">
+                  <section>
+                    <SectionHeading icon="user">Mi cuenta</SectionHeading>
+                    <div className="account-menu">
+                      <Link to="/perfil" aria-label="Perfil y mascotas">
+                        <Icon name="user" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Perfil y mascotas</strong>
+                          <small>Actualiza tus datos personales</small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
+                      <Link to="/perfil#mascotas">
+                        <Icon name="paw" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Mis mascotas</strong>
+                          <small>Administra a tus compañeros de vida</small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
+                      <Link to="/privacidad">
+                        <Icon name="shield" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Privacidad y datos</strong>
+                          <small>Conoce cómo protegemos tu información</small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
+                    </div>
+                  </section>
+                  <section>
+                    <SectionHeading icon="store">
+                      Para establecimientos
+                    </SectionHeading>
+                    <div className="account-menu">
+                      <Link to="/oferentes/servicios">
+                        <Icon name="calendar" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Servicios y disponibilidad</strong>
+                          <small>
+                            Catálogo, equipo, horarios e invitaciones
+                          </small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
+                      <Link to="/oferentes">
+                        <Icon name="store" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Mis establecimientos</strong>
+                          <small>
+                            Consulta tus solicitudes y fichas publicadas
+                          </small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
+                      <Link to="/oferentes/nuevo">
+                        <Icon name="plus" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Registrar mi establecimiento</strong>
+                          <small>
+                            Da a conocer tus servicios para mascotas
+                          </small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
+                      {role.data === 'admin' && (
+                        <Link to="/administracion/oferentes">
+                          <Icon name="shield" className="account-menu__icon" />
+                          <span className="account-menu__text">
+                            <strong>Revisar solicitudes de oferentes</strong>
+                            <small>Panel de revisión administrativa</small>
+                          </span>
+                          <Icon name="chevron" className="chevron" />
+                        </Link>
+                      )}
+                    </div>
+                  </section>
                 </div>
                 {role.isFetching && (
                   <p role="status" className="text-sm text-stone-600">
@@ -271,8 +358,9 @@ export function AccountPage() {
               type="button"
               onClick={() => void logout()}
               disabled={busy}
-              className={submitClass}
+              className="button button-danger w-full"
             >
+              <Icon name="logout" />
               {busy ? 'Procesando…' : 'Cerrar sesión'}
             </button>
           </div>

@@ -17,6 +17,7 @@ import {
   EstablishmentDetails,
   PublicLink,
 } from './EstablishmentDetails';
+import { Icon } from '@/components/ui/Icon';
 
 export function ProviderPage() {
   return (
@@ -56,7 +57,11 @@ function ProviderContent({ userId }: { userId: string }) {
         </Notice>
       )}
       <div className="flex flex-wrap gap-3">
+        <Link to="/oferentes/servicios" className={secondaryClass}>
+          Servicios, disponibilidad e invitaciones
+        </Link>
         <Link to="/oferentes/nuevo" className={secondaryClass}>
+          <Icon name="plus" />
           Registrar establecimiento
         </Link>
         <button
@@ -64,6 +69,7 @@ function ProviderContent({ userId }: { userId: string }) {
           className={secondaryClass}
           onClick={() => void rows.refetch()}
         >
+          <Icon name="refresh" />
           Actualizar solicitudes
         </button>
       </div>
@@ -72,7 +78,10 @@ function ProviderContent({ userId }: { userId: string }) {
       )}
       {rows.isError && <Notice error>{dataError(rows.error)}</Notice>}
       {rows.data?.length === 0 && (
-        <div className={cardClass}>
+        <div className={`${cardClass} empty-state`}>
+          <span className="empty-state__icon">
+            <Icon name="store" />
+          </span>
           <p>Aún no has registrado establecimientos.</p>
           <p className="text-sm text-stone-600">
             Prepara nombre, categoría, contacto y la ubicación de tu primera
@@ -83,7 +92,7 @@ function ProviderContent({ userId }: { userId: string }) {
       {rows.data?.map((row) => (
         <article key={row.id} className={cardClass}>
           <p
-            className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${row.status === 'approved' ? 'bg-brand-50 text-brand-900' : 'bg-amber-50 text-amber-900'}`}
+            className={`status-badge ${row.status === 'approved' ? '' : row.status === 'rejected' ? 'status-badge--rejected' : 'status-badge--pending'}`}
           >
             {statusLabels[row.status]} · Revisión {row.revision}
           </p>
@@ -102,6 +111,12 @@ function ProviderContent({ userId }: { userId: string }) {
           <div>
             <PublicLink id={row.id} />
           </div>
+          <Link
+            className={secondaryClass}
+            to={`/oferentes/${row.id}/servicios`}
+          >
+            Administrar servicios y disponibilidad
+          </Link>
         </article>
       ))}
     </div>
