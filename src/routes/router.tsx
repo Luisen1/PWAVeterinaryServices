@@ -21,6 +21,7 @@ import { OfferingsPage } from '@/features/offerings/OfferingsPage';
 import { PublicEstablishmentPage } from '@/features/directory/PublicPages';
 import { DirectoryPage } from '@/features/directory/DirectoryPage';
 import { DirectionsPage } from '@/features/directory/DirectionsPage';
+import { FavoritesPage } from '@/features/preferences/FavoritesPage';
 
 export const router = createBrowserRouter([
   {
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
       { path: '/restablecer-clave', element: <ResetPasswordPage /> },
       { path: '/privacidad', element: <PrivacyPage /> },
       { path: '/perfil', element: <ProfilePage /> },
+      { path: '/favoritos', element: <FavoritesPage /> },
       { path: '/oferentes', element: <ProviderPage /> },
       { path: '/oferentes/nuevo', element: <ProviderEditPage /> },
       { path: '/oferentes/servicios', element: <OfferingsPage /> },

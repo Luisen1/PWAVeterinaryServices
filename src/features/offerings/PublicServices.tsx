@@ -49,6 +49,11 @@ export function PublicServices({
           <p>
             {d.duration} minutos · {d.modality} · {d.species.join(', ')}
           </p>
+          {d.emergency === true && (
+            <p className="status-badge">
+              Urgencias declaradas · confirma atención por teléfono
+            </p>
+          )}
           <p>
             {d.price === null
               ? 'Precio a consultar'

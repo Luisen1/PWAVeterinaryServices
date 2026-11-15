@@ -54,3 +54,26 @@ export interface SyncMetaRecord {
   updated_at: string;
   value: JsonValue;
 }
+
+export interface PreferenceRecord {
+  id: string;
+  owner_id: string;
+  establishment_id: string;
+  favorite: boolean;
+  note: string;
+  remote_revision: number;
+  updated_at: string;
+  pending: boolean;
+  conflict: boolean;
+}
+export interface OfflineSessionRecord {
+  owner_id: string;
+  token_hash: string;
+  expires_at: number;
+  user: { id: string; email?: string; email_confirmed_at?: string };
+}
+export interface PublicSnapshot {
+  key: string;
+  saved_at: string;
+  data: unknown;
+}

@@ -4,6 +4,49 @@
 [hidden] {
   display: none !important;
 }
+.discovery-category-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.discovery-category-bar > .category-chips {
+  flex: 1;
+  min-width: 0;
+}
+.discovery-filters {
+  flex-shrink: 0;
+}
+.discovery-filters-dialog {
+  width: min(430px, calc(100vw - 32px));
+  max-height: calc(100dvh - 70px);
+  margin: auto;
+  border: 1px solid #cce5e5;
+  border-radius: 20px;
+  padding: 24px;
+  background: white;
+  color: #0b1f4b;
+}
+.discovery-filters-dialog::backdrop {
+  background: #0b1f4b66;
+}
+.opening-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.opening-state p {
+  flex-basis: 100%;
+}
+.opening-state[data-state='closed'] > .status-badge {
+  background: #f3f5f7;
+  color: #58667f;
+}
+.opening-state[data-state='unknown'] > .status-badge {
+  background: #fff4da;
+  color: #755014;
+}
 .discovery-workspace {
   display: flex;
   flex-direction: column;

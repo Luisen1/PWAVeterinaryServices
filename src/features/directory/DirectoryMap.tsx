@@ -16,6 +16,8 @@ import { useOnline } from '@/pwa/useOnline';
 import { chooseOrigin, useOrigin } from './origin-store';
 import { publicSitePath } from './discovery';
 import { useLocation } from 'react-router';
+import { OpeningBadge } from './OpeningBadge';
+import { useNow } from './useNow';
 
 const MapCanvas = lazy(() => import('./MapCanvas'));
 export class MapBoundary extends Component<
@@ -47,6 +49,8 @@ export function DirectoryMap({
   picking = false,
   onPicked,
   onUnavailable,
+  active = true,
+  trustedHours = false,
 }: {
   publications: Publication[];
   selection: string | null;
@@ -54,6 +58,8 @@ export function DirectoryMap({
   picking?: boolean;
   onPicked?: () => void;
   onUnavailable?: (unavailable: boolean) => void;
+  active?: boolean;
+  trustedHours?: boolean;
 }) {
   const online = useOnline();
   const sites = useMemo(() => mapSites(publications), [publications]);
@@ -78,6 +84,7 @@ export function DirectoryMap({
         <MapBoundary key={attempt} onFailure={() => onUnavailable?.(true)}>
           <Suspense fallback={<Notice>Cargando mapa…</Notice>}>
             <MapCanvas
+              active={active}
               sites={sites}
               selection={chosen?.key ?? null}
               onSelect={onSelect}
@@ -144,11 +151,18 @@ export function DirectoryMap({
           en el listado.
         </p>
       )}
-      {chosen && <SelectedSite row={chosen} />}
+      {chosen && <SelectedSite row={chosen} trustedHours={trustedHours} />}
     </section>
   );
 }
-function SelectedSite({ row }: { row: MapSite }) {
+function SelectedSite({
+  row,
+  trustedHours,
+}: {
+  row: MapSite;
+  trustedHours: boolean;
+}) {
+  const now = useNow();
   const location = useLocation();
   const path = publicSitePath(
     row.establishment.id,
@@ -172,6 +186,7 @@ function SelectedSite({ row }: { row: MapSite }) {
         {row.establishment.document.name} · {row.site.name}
       </h3>
       <p>{row.site.address}</p>
+      <OpeningBadge site={row.site} now={now} trusted={trustedHours} />
       <a
         className="button button-secondary"
         href={`tel:${row.site.phone.replace(/[^+\d]/g, '')}`}

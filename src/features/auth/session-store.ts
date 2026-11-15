@@ -1,11 +1,17 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/app/query-client';
+import {
+  offlineIdentity,
+  rememberVerifiedSession,
+  type OfflineUser,
+} from './offline-session';
 
 export interface AuthState {
   status: 'loading' | 'anonymous' | 'authenticated' | 'unavailable';
   user: User | null;
   error: string | null;
+  offlineUser?: OfflineUser | null;
 }
 
 let state: AuthState = { status: 'loading', user: null, error: null };
@@ -49,6 +55,19 @@ async function resolveSession(session: Session | null) {
       await clearQueryCache();
     }
     if (!supabase) return;
+    if (!navigator.onLine) {
+      const offlineUser = await offlineIdentity(session);
+      if (currentRevision === revision)
+        publish({
+          status: 'unavailable',
+          user: null,
+          offlineUser,
+          error: offlineUser
+            ? 'Sin conexión. Puedes consultar y editar tus favoritos y notas locales.'
+            : 'Necesitas validar la sesión con conexión antes de acceder a datos privados.',
+        });
+      return;
+    }
     const { data, error } = await supabase.auth.getUser(session.access_token);
     if (currentRevision !== revision) return;
     if (error || !data.user) {
@@ -61,6 +80,12 @@ async function resolveSession(session: Session | null) {
       return;
     }
     owner = data.user.id;
+    try {
+      await rememberVerifiedSession(session, data.user);
+    } catch {
+      /* La sesión online no depende de IndexedDB. */
+    }
+    if (currentRevision !== revision) return;
     publish({ status: 'authenticated', user: data.user, error: null });
   } catch {
     if (currentRevision === revision)

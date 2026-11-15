@@ -432,6 +432,26 @@ function SiteFields({
         <>
           <div className="space-y-3">
             <h3 className="font-semibold">Horario semanal</h3>
+            <button
+              type="button"
+              className={secondaryClass}
+              onClick={() =>
+                hours.replace(
+                  Array.from({ length: 7 }, (_, day) => ({
+                    day,
+                    open: '00:00',
+                    close: '00:00',
+                    next_day: true,
+                  })),
+                )
+              }
+            >
+              Configurar horario de 24 horas
+            </button>
+            <p className="text-xs text-stone-600">
+              24 horas indica apertura de la sede, no disponibilidad
+              profesional. Las excepciones por fecha siguen vigentes.
+            </p>
             <p className="text-xs text-stone-600">
               Los días sin horario se consideran cerrados. Marca el cruce de
               medianoche cuando el cierre ocurra al día siguiente.

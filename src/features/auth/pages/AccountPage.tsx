@@ -275,6 +275,14 @@ export function AccountPage() {
                       Para establecimientos
                     </SectionHeading>
                     <div className="account-menu">
+                      <Link to="/favoritos">
+                        <Icon name="heart" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Favoritos y notas privadas</strong>
+                          <small>Consulta tus establecimientos guardados</small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
                       <Link to="/oferentes/servicios">
                         <Icon name="calendar" className="account-menu__icon" />
                         <span className="account-menu__text">

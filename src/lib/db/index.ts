@@ -8,6 +8,9 @@ import type {
   PublicRecord,
   ServiceRecord,
   SyncMetaRecord,
+  PreferenceRecord,
+  OfflineSessionRecord,
+  PublicSnapshot,
 } from '@/lib/db/schema';
 
 class VeterinaryDatabase extends Dexie {
@@ -21,6 +24,9 @@ class VeterinaryDatabase extends Dexie {
   pending_attachments!: Table<PendingAttachmentRecord, string>;
   outbox!: Table<OutboxRecord, string>;
   sync_meta!: Table<SyncMetaRecord, string>;
+  preferences!: Table<PreferenceRecord, string>;
+  offline_sessions!: Table<OfflineSessionRecord, string>;
+  public_snapshots!: Table<PublicSnapshot, string>;
 
   constructor() {
     super('veterinary-services');
@@ -36,6 +42,11 @@ class VeterinaryDatabase extends Dexie {
       outbox:
         '&operation_id, owner_id, entity_id, status, created_at, next_retry_at, [owner_id+status]',
       sync_meta: '&key, owner_id, updated_at',
+    });
+    this.version(2).stores({
+      preferences: '&id,owner_id,[owner_id+establishment_id],updated_at',
+      offline_sessions: '&owner_id',
+      public_snapshots: '&key,saved_at',
     });
   }
 }
@@ -70,6 +81,8 @@ export async function purgePrivateLocalData(
     db.pending_attachments,
     db.outbox,
     db.sync_meta,
+    db.preferences,
+    db.offline_sessions,
   ];
   await db.transaction('rw', privateTables, async () => {
     // La comprobación y la purga comparten el bloqueo de la misma transacción.

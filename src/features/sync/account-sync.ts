@@ -5,6 +5,7 @@ import { petSchema, profileSchema } from '@/features/directory/model';
 import { savePet, saveProfile } from '@/features/directory/api';
 import type { JsonValue } from '@/lib/db/schema';
 import { withAccountWriteLock } from './account-write-lock';
+import { syncPreferences } from '@/features/preferences/store';
 
 export async function enqueueAccountChange(
   userId: string,
@@ -34,6 +35,7 @@ export async function enqueueAccountChange(
 // Cola acotada a HU03; las operaciones de dominios futuros nunca se descartan ni
 // se marcan como completadas sin un manejador que las haya confirmado.
 export async function syncPendingAccountChanges(userId: string) {
+  await syncPreferences(userId);
   return withAccountWriteLock(userId, () =>
     withAuthOperation(async () => {
       const { data, error } = await authClient().auth.getUser();

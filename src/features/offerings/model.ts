@@ -31,6 +31,7 @@ export const serviceSchema = z.object({
   species: animals,
   price: z.number().min(0).max(100000000).nullable(),
   active: z.boolean(),
+  emergency: z.boolean().optional(),
 });
 export const professionalSchema = z.object({
   site_id: z.uuid(),

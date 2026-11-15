@@ -54,6 +54,88 @@ const service: Item<'service'> = {
     price: null,
   },
 };
+describe('HU13: intersección de filtros declarados', () => {
+  const base = { term: '', category: '', sort: 'nombre' };
+  const emergency = {
+    ...service,
+    document: {
+      ...service.document,
+      emergency: true,
+      modality: 'Domicilio' as const,
+    },
+  };
+  it('combina servicio, especie, categoría, urgencias y domicilio en la misma sede', () => {
+    expect(
+      discoverSites(
+        [publication],
+        [emergency],
+        {
+          ...base,
+          service: 'Vacunacion',
+          species: 'Perro',
+          category: 'Veterinaria',
+          emergency: true,
+          home: true,
+        },
+        null,
+      ),
+    ).toHaveLength(1);
+    expect(
+      discoverSites(
+        [publication],
+        [emergency],
+        { ...base, species: 'Gato', emergency: true },
+        null,
+      ),
+    ).toHaveLength(0);
+  });
+  it('no infiere urgencias ausentes ni mezcla atributos de servicios distintos', () => {
+    expect(
+      discoverSites(
+        [publication],
+        [service],
+        { ...base, emergency: true },
+        null,
+      ),
+    ).toHaveLength(0);
+    const cats = {
+      ...emergency,
+      id: crypto.randomUUID(),
+      document: { ...emergency.document, species: ['Gato' as const] },
+    };
+    expect(
+      discoverSites(
+        [publication],
+        [service, cats],
+        { ...base, species: 'Perro', emergency: true },
+        null,
+      ),
+    ).toHaveLength(0);
+    expect(
+      discoverSites(
+        [publication],
+        [emergency],
+        { ...base, modality: 'Virtual', home: true },
+        null,
+      ),
+    ).toHaveLength(0);
+  });
+  it('limpiar restaura todas las sedes y no afirma apertura offline', () => {
+    expect(discoverSites([publication], [emergency], base, null)).toHaveLength(
+      2,
+    );
+    expect(
+      discoverSites(
+        [publication],
+        [emergency],
+        { ...base, openNow: true },
+        null,
+        new Date(),
+        false,
+      ),
+    ).toHaveLength(0);
+  });
+});
 describe('HU10-HU12: descubrimiento y navegación', () => {
   it('calcula distancia directa sin presentarla como distancia vial', () => {
     expect(distanceMeters(TUNJA, TUNJA)).toBe(0);
