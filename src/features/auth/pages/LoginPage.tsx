@@ -13,11 +13,13 @@ import {
   submitClass,
 } from '@/features/auth/components/AuthFrame';
 import { Icon } from '@/components/ui/Icon';
+import { authWithReturn, safeReturnTo } from '@/features/auth/return-to';
 
 export function LoginPage() {
   const online = useOnline();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const destination = safeReturnTo(params.get('continuar'));
   const form = useZodForm(loginSchema, {
     defaultValues: { email: '', password: '' },
   });
@@ -27,7 +29,7 @@ export function LoginPage() {
       await loginAccount(values.email, values.password);
       await refreshAuthSession();
       form.reset();
-      await navigate('/cuenta', { replace: true });
+      await navigate(destination, { replace: true });
     } catch (error) {
       form.setError('root', { message: authErrorMessage(error) });
     }
@@ -103,7 +105,10 @@ export function LoginPage() {
         </button>
         <p className="text-center text-sm text-stone-600">
           ¿Es tu primera visita?{' '}
-          <Link to="/registro" className={authLinkClass}>
+          <Link
+            to={authWithReturn('/registro', destination)}
+            className={authLinkClass}
+          >
             Crear cuenta
           </Link>
         </p>

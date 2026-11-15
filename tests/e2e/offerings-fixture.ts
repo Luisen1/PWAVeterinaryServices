@@ -22,8 +22,8 @@ export const offeringDocument = {
       id: OFFERING_SITE,
       name: 'Sede central',
       address: 'Calle 20 # 10-30',
-      latitude: 4.6,
-      longitude: -74.1,
+      latitude: 5.5353,
+      longitude: -73.3678,
       coordinates_confirmed: true,
       phone: '3001234567',
       hours: [{ day: 1, open: '08:00', close: '17:00', next_day: false }],
@@ -134,12 +134,21 @@ export async function mockOfferings(
       }
       if (path.endsWith('/offering_items')) {
         let results = items;
+        if (url.searchParams.has('establishment_id'))
+          results = results.filter(
+            (i) =>
+              i.establishment_id ===
+              url.searchParams.get('establishment_id')!.slice(3),
+          );
         if (url.searchParams.has('kind'))
           results = results.filter(
             (i) => i.kind === url.searchParams.get('kind')!.slice(3),
           );
         if (url.searchParams.has('document->>active'))
           results = results.filter((i) => i.document.active);
+        const offset = Number(url.searchParams.get('offset') ?? 0);
+        const limit = Number(url.searchParams.get('limit') ?? results.length);
+        results = results.slice(offset, offset + limit);
         await route.fulfill({ json: results });
         return;
       }

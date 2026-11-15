@@ -2,6 +2,8 @@
 
 Para continuar el desarrollo con un asistente de IA, consultar primero [AGENTS.md](AGENTS.md): contexto, estado de las HU, arquitectura, reglas del dominio y verificación.
 
+El descubrimiento ahora inicia en **Tunja, Boyacá**: permite usar ubicación o marcar un origen, buscar servicios y alternar mapa/lista conservando la selección. Las fichas muestran la sede elegida y **Cómo llegar** abre indicaciones externas desde el punto de salida. Consulta [HU10-HU12 y navegación](docs/hu10-hu12.md) para el recorrido y los límites; reservar y conversar siguen sujetos a las historias posteriores.
+
 PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local y la implementación hasta HU09: cuentas, perfil y mascotas, oferentes, revisión administrativa, fichas, servicios, profesionales, disponibilidad, colaboradores y mapa con agrupación. Citas mantiene una pantalla provisional. Consulta [HU07-HU09](docs/hu07-hu09.md) para usar los nuevos flujos. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
 
 La interfaz utiliza los prototipos y la guía visual del proyecto: Poppins, azul marino, turquesa y verde, junto al emblema SVG original. El inicio contiene accesos funcionales y el registro de establecimientos se organiza en cuatro pasos. Consulta [diseño visual](docs/diseno-visual.md) para conocer los componentes, adaptaciones y validaciones.
@@ -76,6 +78,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 │   ├── autenticacion.md
 │   ├── hu01-hu06.md
 │   ├── hu07-hu09.md
+│   ├── hu10-hu12.md
 │   └── verificacion.md
 ├── public/
 │   ├── icons/                 # PNG 192, 512, maskable y Apple 180
@@ -213,7 +216,7 @@ Pendiente para las siguientes fases
 
 - Aplicación y verificación remota de las migraciones y configuración del correo.
 - Tablas, restricciones, permisos y RLS de los siguientes dominios.
-- Ubicación y origen manual, filtros avanzados, favoritos, notas y rutas.
+- Filtros avanzados, favoritos, notas y rutas/ETA dentro de la PWA. La ubicación/origen y la navegación externa ya están disponibles.
 - Reservas atómicas, agenda y gestión de citas sobre la disponibilidad de HU08.
 - Chat, archivos, audios, Storage y Realtime.
 - Llamadas de audio/vídeo y autorización de salas.

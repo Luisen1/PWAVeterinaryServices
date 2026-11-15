@@ -18,10 +18,9 @@ import {
 } from '@/features/directory/ProviderPages';
 import { AdminPage } from '@/features/directory/AdminPage';
 import { OfferingsPage } from '@/features/offerings/OfferingsPage';
-import {
-  DirectoryPage,
-  PublicEstablishmentPage,
-} from '@/features/directory/PublicPages';
+import { PublicEstablishmentPage } from '@/features/directory/PublicPages';
+import { DirectoryPage } from '@/features/directory/DirectoryPage';
+import { DirectionsPage } from '@/features/directory/DirectionsPage';
 
 export const router = createBrowserRouter([
   {
@@ -64,6 +63,10 @@ export const router = createBrowserRouter([
       { path: '/oferentes/:id/editar', element: <ProviderEditPage /> },
       { path: '/administracion/oferentes', element: <AdminPage /> },
       { path: '/establecimientos/:id', element: <PublicEstablishmentPage /> },
+      {
+        path: '/establecimientos/:id/como-llegar',
+        element: <DirectionsPage />,
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
