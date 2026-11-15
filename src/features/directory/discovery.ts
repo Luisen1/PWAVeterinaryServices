@@ -2,6 +2,7 @@ import type { Item } from '@/features/offerings/model';
 import type { Publication, Site } from './model';
 import { validCoordinates } from './map-model';
 import { safeReturnTo } from '@/features/auth/return-to';
+import { openingAt, declared24Hours } from './opening';
 
 // Referencia de ciudad; no representa la casa ni la ubicación del visitante.
 export const TUNJA = {
@@ -24,6 +25,15 @@ export interface DiscoverySite {
   site: Site;
   services: Item<'service'>[];
   distance: number | null;
+}
+export interface AdvancedFilters {
+  service?: string;
+  species?: string;
+  modality?: string;
+  emergency?: boolean;
+  home?: boolean;
+  openNow?: boolean;
+  allDay?: boolean;
 }
 export function isPoint(point: Point) {
   return (
@@ -59,8 +69,10 @@ export function normalizeSearch(value: string) {
 export function discoverSites(
   publications: Publication[],
   services: Item<'service'>[],
-  filters: { term: string; category: string; sort: string },
+  filters: { term: string; category: string; sort: string } & AdvancedFilters,
   origin: Origin | null,
+  now = new Date(),
+  trustedHours = true,
 ): DiscoverySite[] {
   const bySite = new Map<string, Item<'service'>[]>();
   for (const service of services) {
@@ -86,6 +98,38 @@ export function discoverSites(
       }),
     )
     .filter((row) => {
+      // Todos los atributos de servicio deben coincidir en un mismo servicio,
+      // sin combinar la especie de uno con la modalidad/urgencia de otro.
+      const hasServiceFilters = !!(
+        filters.service ||
+        filters.species ||
+        filters.modality ||
+        filters.emergency ||
+        filters.home
+      );
+      const compatible = row.services.filter(
+        (s) =>
+          (!filters.service ||
+            normalizeSearch(s.document.name) ===
+              normalizeSearch(filters.service)) &&
+          (!filters.species ||
+            s.document.species.includes(
+              filters.species as (typeof s.document.species)[number],
+            )) &&
+          (!filters.modality || s.document.modality === filters.modality) &&
+          (!filters.emergency || s.document.emergency === true) &&
+          (!filters.home || s.document.modality === 'Domicilio') &&
+          (!filters.category ||
+            row.establishment.document.category === filters.category ||
+            s.document.category === filters.category),
+      );
+      if (hasServiceFilters && !compatible.length) return false;
+      if (
+        filters.openNow &&
+        openingAt(row.site, now, trustedHours).state !== 'open'
+      )
+        return false;
+      if (filters.allDay && !declared24Hours(row.site)) return false;
       const matchingCategory =
         !filters.category ||
         row.establishment.document.category === filters.category ||
@@ -147,3 +191,12 @@ export function safeDiscoveryReturn(value: string | null): string {
   const target = safeReturnTo(value);
   return target === '/cuenta' ? '/explorar' : target;
 }
+export const advancedKeys = [
+  'servicio',
+  'especie',
+  'modalidad',
+  'urgencias',
+  'domicilio',
+  'abierto',
+  '24h',
+] as const;

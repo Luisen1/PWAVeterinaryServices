@@ -624,6 +624,14 @@ function ItemEditor({
               'Modalidad',
               modalities.map((v) => ({ value: v, label: v })),
             )}
+            <label className="flex gap-2">
+              <input
+                type="checkbox"
+                checked={document.emergency === true}
+                onChange={(e) => update('emergency', e.target.checked)}
+              />
+              Este servicio atiende urgencias
+            </label>
             {input(
               'price',
               'Precio informativo (COP, opcional)',

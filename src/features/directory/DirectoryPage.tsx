@@ -10,6 +10,11 @@ import { OriginPicker } from './OriginPicker';
 import { DirectoryMap } from './DirectoryMap';
 import { MediaImage } from './Media';
 import { cardClass, Notice, secondaryClass, Workspace } from './Workspace';
+import { DiscoveryFilters } from './DiscoveryFilters';
+import { advancedKeys } from './discovery';
+import { OpeningBadge } from './OpeningBadge';
+import { useNow } from './useNow';
+import { FavoriteButton } from '@/features/preferences/PreferenceControls';
 
 export function DirectoryPage() {
   const online = useOnline();
@@ -24,11 +29,24 @@ export function DirectoryPage() {
   const { origin } = useOrigin();
   const publications = usePublications();
   const services = usePublicServices();
+  const now = useNow();
+  const trustedHours =
+    online &&
+    !publications.fromCache &&
+    !!publications.savedAt &&
+    now.getTime() - new Date(publications.savedAt).getTime() < 300000;
   const term = params.get('q') ?? '';
   const category = params.get('categoria') ?? '';
   const view = params.get('vista') === 'lista' ? 'lista' : 'mapa';
   const sort = params.get('orden') === 'cercania' ? 'cercania' : 'nombre';
   const selection = params.get('seleccion');
+  const service = params.get('servicio') ?? '';
+  const animal = params.get('especie') ?? '';
+  const modality = params.get('modalidad') ?? '';
+  const emergency = params.get('urgencias') === '1';
+  const home = params.get('domicilio') === '1';
+  const openNow = params.get('abierto') === '1';
+  const allDay = params.get('24h') === '1';
   function change(values: Record<string, string>) {
     // React Router no encola los actualizadores de searchParams como setState.
     // Acumular cambios inmediatos evita perder la vista al escribir o limpiar.
@@ -45,10 +63,39 @@ export function DirectoryPage() {
       discoverSites(
         publications.data ?? [],
         services.data ?? [],
-        { term, category, sort },
+        {
+          term,
+          category,
+          sort,
+          service,
+          species: animal,
+          modality,
+          emergency,
+          home,
+          openNow,
+          allDay,
+        },
         origin,
+        now,
+        trustedHours,
       ),
-    [publications.data, services.data, term, category, sort, origin],
+    [
+      publications.data,
+      services.data,
+      term,
+      category,
+      sort,
+      origin,
+      service,
+      animal,
+      modality,
+      emergency,
+      home,
+      openNow,
+      allDay,
+      now,
+      trustedHours,
+    ],
   );
   const mapped = useMemo(
     () =>
@@ -136,27 +183,42 @@ export function DirectoryPage() {
           Lista
         </button>
       </div>
-      <div className="category-chips" aria-label="Filtrar por categoría">
-        <button
-          className="category-chip"
-          aria-pressed={!category}
-          onClick={() => change({ categoria: '' })}
-        >
-          Todos
-        </button>
-        {categories.map((c) => (
+      <div className="discovery-category-bar">
+        <div className="category-chips" aria-label="Filtrar por categoría">
           <button
             className="category-chip"
-            key={c}
-            aria-pressed={category === c}
-            onClick={() => change({ categoria: category === c ? '' : c })}
+            aria-pressed={!category}
+            onClick={() => change({ categoria: '' })}
           >
-            {c}
+            Todos
           </button>
-        ))}
+          {categories.map((c) => (
+            <button
+              className="category-chip"
+              key={c}
+              aria-pressed={category === c}
+              onClick={() => change({ categoria: category === c ? '' : c })}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+        <DiscoveryFilters
+          params={params}
+          services={(services.data ?? []).filter((s) =>
+            publications.data?.some(
+              (p) =>
+                p.id === s.establishment_id &&
+                p.document.sites.some((site) => site.id === s.document.site_id),
+            ),
+          )}
+          change={change}
+        />
       </div>
       <div hidden={view !== 'mapa'}>
         <DirectoryMap
+          trustedHours={trustedHours}
+          active={view === 'mapa'}
           publications={mapped}
           selection={selection}
           onSelect={(key) => change({ seleccion: key })}
@@ -166,6 +228,9 @@ export function DirectoryPage() {
         />
       </div>
       <div className="discovery-results-heading">
+        <Link to="/favoritos" className="category-chip">
+          Mis favoritos y notas
+        </Link>
         <p className="text-sm" role="status">
           {complete
             ? `${results.length} sede(s) encontrada(s)`
@@ -186,6 +251,28 @@ export function DirectoryPage() {
           </select>
         </label>
       </div>
+      {(publications.fromCache || services.fromCache) && (
+        <Notice>
+          Información guardada
+          {publications.savedAt
+            ? ` el ${new Date(publications.savedAt).toLocaleString('es-CO', { timeZone: 'America/Bogota' })} · America/Bogota`
+            : ' no disponible todavía'}
+          . La apertura y los servicios pueden haber cambiado; confirma por
+          teléfono.
+        </Notice>
+      )}
+      {openNow && !trustedHours && (
+        <Notice>
+          Abierto ahora necesita una consulta reciente con conexión. No podemos
+          garantizar apertura con datos guardados.
+          <button
+            className={secondaryClass}
+            onClick={() => change({ abierto: '' })}
+          >
+            Quitar filtro Abierto ahora
+          </button>
+        </Notice>
+      )}
       {origin && (
         <p className="discovery-distance-note">
           <Icon name="info" />
@@ -227,7 +314,7 @@ export function DirectoryPage() {
           </Link>
         </div>
       )}
-      {complete && !!publications.data.length && results.length === 0 && (
+      {complete && !!publications.data?.length && results.length === 0 && (
         <div className={`${cardClass} empty-state`}>
           <span className="empty-state__icon">
             <Icon name="search" />
@@ -236,7 +323,13 @@ export function DirectoryPage() {
           <p>Prueba otro nombre, servicio, dirección o categoría.</p>
           <button
             className={secondaryClass}
-            onClick={() => change({ q: '', categoria: '' })}
+            onClick={() =>
+              change({
+                q: '',
+                categoria: '',
+                ...Object.fromEntries(advancedKeys.map((key) => [key, ''])),
+              })
+            }
           >
             Limpiar búsqueda
           </button>
@@ -282,6 +375,11 @@ export function DirectoryPage() {
                     <Icon name="pin" />
                     {row.site.name}: {row.site.address}
                   </p>
+                  <OpeningBadge
+                    site={row.site}
+                    now={now}
+                    trusted={trustedHours}
+                  />
                   {row.distance !== null && (
                     <p className="distance-badge">
                       A {formatDistance(row.distance)} en línea recta
@@ -302,6 +400,7 @@ export function DirectoryPage() {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <FavoriteButton establishmentId={row.establishment.id} />
                     <Link className="button button-primary" to={path}>
                       Ver ficha de {linkName}
                     </Link>

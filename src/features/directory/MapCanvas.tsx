@@ -16,6 +16,7 @@ export default function MapCanvas({
   picking = false,
   onPick,
   fitSites = false,
+  active = true,
 }: {
   sites: MapSite[];
   selection: string | null;
@@ -25,6 +26,7 @@ export default function MapCanvas({
   picking?: boolean;
   onPick?: (point: Point) => void;
   fitSites?: boolean;
+  active?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -176,11 +178,13 @@ export default function MapCanvas({
     else map.panTo(position);
   }, [origin, sites, fitSites]);
   useEffect(() => {
+    if (!active) return;
+    mapRef.current?.invalidateSize({ pan: false });
     if (!selection) return;
     const marker = markersRef.current.get(selection);
     if (marker)
       clusterRef.current?.zoomToShowLayer(marker, () => marker.openTooltip());
-  }, [selection, sites]);
+  }, [selection, sites, active]);
   return (
     <div
       ref={container}

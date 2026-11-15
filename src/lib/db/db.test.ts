@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import Dexie from 'dexie';
 import {
   db,
   getLocalRecord,
@@ -11,6 +12,45 @@ afterEach(async () => {
 });
 
 describe('base local', () => {
+  it('actualiza v1 a v2 sin perder catálogo ni operaciones existentes', async () => {
+    const legacy = new Dexie(db.name);
+    const added = ['preferences', 'offline_sessions', 'public_snapshots'];
+    legacy
+      .version(1)
+      .stores(
+        Object.fromEntries(
+          db.tables
+            .filter((t) => !added.includes(t.name))
+            .map((t) => [
+              t.name,
+              [
+                t.schema.primKey.src,
+                ...t.schema.indexes.map((i) => i.src),
+              ].join(','),
+            ]),
+        ),
+      );
+    await legacy.open();
+    await legacy.table('catalog').put({
+      id: 'conservar',
+      version: 1,
+      updated_at: new Date().toISOString(),
+      data: { name: 'Catálogo previo' },
+    });
+    await legacy.table('outbox').put({
+      operation_id: 'previa',
+      owner_id: 'owner-a',
+      action: 'pet.save',
+      status: 'pending',
+    });
+    legacy.close();
+    await db.open();
+    expect((await db.catalog.get('conservar'))?.data).toEqual({
+      name: 'Catálogo previo',
+    });
+    expect((await db.outbox.get('previa'))?.status).toBe('pending');
+    expect(await db.preferences.count()).toBe(0);
+  });
   it('abre IndexedDB, escribe y lee un registro tipado', async () => {
     await db.open();
     const record = {
@@ -21,8 +61,8 @@ describe('base local', () => {
     };
     await putLocalRecord(db.catalog, record);
     expect(await getLocalRecord(db.catalog, record.id)).toEqual(record);
-    expect(db.verno).toBe(1);
-    expect(db.tables).toHaveLength(10);
+    expect(db.verno).toBe(2);
+    expect(db.tables).toHaveLength(13);
   });
 
   it('purga una cuenta y conserva otra cuenta y los datos públicos', async () => {

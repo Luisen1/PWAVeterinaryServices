@@ -11,6 +11,9 @@ import { validCoordinates } from './map-model';
 import { Icon } from '@/components/ui/Icon';
 import { PhoneContact } from './PhoneContact';
 import { MediaImage } from './Media';
+import { PreferencePanel } from '@/features/preferences/PreferenceControls';
+import { OpeningBadge } from './OpeningBadge';
+import { useNow } from './useNow';
 
 export function PublicEstablishmentPage() {
   const { id } = useParams();
@@ -19,6 +22,7 @@ export function PublicEstablishmentPage() {
   const auth = useAuth();
   const online = useOnline();
   const row = usePublication(id);
+  const now = useNow();
   const siteId = params.get('sede');
   const site = siteId
     ? row.data?.document.sites.find((s) => s.id === siteId)
@@ -119,6 +123,16 @@ export function PublicEstablishmentPage() {
                   </Link>
                 )}
               </div>
+              <OpeningBadge
+                site={site}
+                now={now}
+                trusted={
+                  online &&
+                  !row.fromCache &&
+                  !!row.savedAt &&
+                  now.getTime() - new Date(row.savedAt).getTime() < 300000
+                }
+              />
               <div
                 className="discovery-view-switch"
                 role="group"
@@ -181,6 +195,7 @@ export function PublicEstablishmentPage() {
                     : 'Conservamos la sede elegida. Este establecimiento todavía no tiene reservas ni chat habilitados en la aplicación.'}
                 </Notice>
               )}
+              <PreferencePanel establishmentId={row.data.id} />
             </>
           )}
         </>
