@@ -1,5 +1,6 @@
 import { authClient, withAuthOperation } from '@/features/auth/api';
 import { grantRecoveryAccess } from '@/features/auth/recovery-access';
+import { consumeAuthReturn } from '@/features/auth/return-to';
 
 let pending: { search: string; result: Promise<string> } | null = null;
 
@@ -29,7 +30,10 @@ export function completeAuthCallback(search: string): Promise<string> {
       );
       return '/restablecer-clave';
     }
-    return '/cuenta?aviso=correo-confirmado';
+    const destination = consumeAuthReturn();
+    return destination === '/cuenta'
+      ? '/cuenta?aviso=correo-confirmado'
+      : destination;
   });
   pending = { search, result };
   void result

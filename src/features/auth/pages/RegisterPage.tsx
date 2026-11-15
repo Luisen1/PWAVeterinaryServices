@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import { authWithReturn, safeReturnTo } from '@/features/auth/return-to';
 import { useZodForm } from '@/lib/forms';
 import { supabase } from '@/lib/supabase';
 import { useOnline } from '@/pwa/useOnline';
@@ -15,6 +16,8 @@ import {
 
 export function RegisterPage() {
   const online = useOnline();
+  const [params] = useSearchParams();
+  const destination = safeReturnTo(params.get('continuar'));
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [resending, setResending] = useState(false);
@@ -30,7 +33,7 @@ export function RegisterPage() {
 
   const submit = form.handleSubmit(async (values) => {
     try {
-      await registerAccount(values.email, values.password);
+      await registerAccount(values.email, values.password, destination);
       setRegisteredEmail(values.email);
       form.reset();
     } catch (error) {
@@ -42,7 +45,7 @@ export function RegisterPage() {
     if (!registeredEmail) return;
     setResending(true);
     try {
-      await resendConfirmation(registeredEmail);
+      await resendConfirmation(registeredEmail, destination);
       setMessage(
         'Si tu cuenta necesita confirmación, recibirás un nuevo enlace.',
       );
@@ -88,7 +91,7 @@ export function RegisterPage() {
           </button>
           <Link
             className={`block text-center text-sm ${authLinkClass}`}
-            to="/acceso"
+            to={authWithReturn('/acceso', destination)}
           >
             Ir a iniciar sesión
           </Link>
@@ -180,7 +183,10 @@ export function RegisterPage() {
           </button>
           <p className="text-center text-sm text-stone-600">
             ¿Ya tienes cuenta?{' '}
-            <Link to="/acceso" className={authLinkClass}>
+            <Link
+              to={authWithReturn('/acceso', destination)}
+              className={authLinkClass}
+            >
               Iniciar sesión
             </Link>
           </p>
