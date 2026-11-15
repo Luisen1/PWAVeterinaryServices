@@ -57,6 +57,9 @@ function ProviderContent({ userId }: { userId: string }) {
         </Notice>
       )}
       <div className="flex flex-wrap gap-3">
+        <Link to="/oferentes/servicios" className={secondaryClass}>
+          Servicios, disponibilidad e invitaciones
+        </Link>
         <Link to="/oferentes/nuevo" className={secondaryClass}>
           <Icon name="plus" />
           Registrar establecimiento
@@ -108,6 +111,12 @@ function ProviderContent({ userId }: { userId: string }) {
           <div>
             <PublicLink id={row.id} />
           </div>
+          <Link
+            className={secondaryClass}
+            to={`/oferentes/${row.id}/servicios`}
+          >
+            Administrar servicios y disponibilidad
+          </Link>
         </article>
       ))}
     </div>

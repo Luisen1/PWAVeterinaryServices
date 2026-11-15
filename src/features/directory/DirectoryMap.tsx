@@ -1,0 +1,149 @@
+import {
+  Component,
+  Suspense,
+  lazy,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { Link } from 'react-router';
+import { categories, type Publication } from './model';
+import { categoryPins, mapSites, type MapSite } from './map-model';
+import { Notice, secondaryClass } from './Workspace';
+import { useOnline } from '@/pwa/useOnline';
+
+const MapCanvas = lazy(() => import('./MapCanvas'));
+class MapBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? (
+      <Notice error>
+        No pudimos iniciar el mapa. Consulta el listado con dirección y
+        contacto.
+      </Notice>
+    ) : (
+      this.props.children
+    );
+  }
+}
+export function DirectoryMap({
+  publications,
+}: {
+  publications: Publication[];
+}) {
+  const online = useOnline();
+  const sites = useMemo(() => mapSites(publications), [publications]);
+  const [selection, setSelection] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const chosen = sites.find((s) => s.key === selection);
+  const unmapped =
+    publications.reduce((sum, p) => sum + p.document.sites.length, 0) -
+    sites.length;
+  return (
+    <section
+      className="directory-map-section space-y-3"
+      aria-label="Mapa de establecimientos"
+    >
+      <h2 className="text-lg font-semibold">Encuentra una sede en el mapa</h2>
+      <p className="text-sm">
+        Los números agrupan sedes cercanas. Acerca el mapa o abre un grupo para
+        explorar sus pines.
+      </p>
+      <ul className="map-legend" aria-label="Leyenda de categorías">
+        {categories.map((c) => (
+          <li key={c}>
+            <span
+              style={{ background: categoryPins[c].color }}
+              aria-hidden="true"
+            >
+              {categoryPins[c].symbol}
+            </span>
+            {c}
+          </li>
+        ))}
+      </ul>
+      {!online ? (
+        <Notice>
+          El mapa necesita conexión. Puedes consultar los resultados que ya
+          están cargados en el listado.
+        </Notice>
+      ) : (
+        <MapBoundary key={attempt}>
+          <Suspense fallback={<Notice>Cargando mapa…</Notice>}>
+            <MapCanvas
+              sites={sites}
+              selection={chosen?.key ?? null}
+              onSelect={setSelection}
+              onFailure={() => setFailed(true)}
+            />
+          </Suspense>
+        </MapBoundary>
+      )}
+      {failed && (
+        <Notice error>
+          El proveedor del mapa no respondió. El listado con dirección y
+          contacto sigue disponible.
+        </Notice>
+      )}
+      <button
+        className={secondaryClass}
+        disabled={!online}
+        onClick={() => {
+          setFailed(false);
+          setAttempt((n) => n + 1);
+        }}
+      >
+        Reintentar mapa
+      </button>
+      {unmapped > 0 && (
+        <p className="text-sm">
+          {unmapped} sede(s) sin coordenadas verificadas: consulta su dirección
+          en el listado.
+        </p>
+      )}
+      {chosen && <SelectedSite row={chosen} />}
+    </section>
+  );
+}
+function SelectedSite({ row }: { row: MapSite }) {
+  const selectedRef = useRef<HTMLElement>(null);
+  // La selección está fuera del mapa: sobrevive a agrupaciones, zoom y errores de teselas.
+  useEffect(() => {
+    selectedRef.current?.focus({ preventScroll: true });
+  }, [row.key]);
+  return (
+    <article
+      ref={selectedRef}
+      tabIndex={-1}
+      className="sv-card space-y-2"
+      aria-label="Sede seleccionada"
+      aria-live="polite"
+    >
+      <h3 className="font-semibold">
+        {row.establishment.document.name} · {row.site.name}
+      </h3>
+      <p>{row.site.address}</p>
+      <a
+        className="button button-secondary"
+        href={`tel:${row.site.phone.replace(/[^+\d]/g, '')}`}
+      >
+        {row.site.phone}
+      </a>
+      <Link
+        className="button button-primary"
+        to={`/establecimientos/${row.establishment.id}?sede=${row.site.id}`}
+      >
+        Ver ficha de la sede seleccionada
+      </Link>
+    </article>
+  );
+}

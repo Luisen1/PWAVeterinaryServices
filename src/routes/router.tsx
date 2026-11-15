@@ -17,6 +17,7 @@ import {
   ProviderEditPage,
 } from '@/features/directory/ProviderPages';
 import { AdminPage } from '@/features/directory/AdminPage';
+import { OfferingsPage } from '@/features/offerings/OfferingsPage';
 import {
   DirectoryPage,
   PublicEstablishmentPage,
@@ -58,6 +59,8 @@ export const router = createBrowserRouter([
       { path: '/perfil', element: <ProfilePage /> },
       { path: '/oferentes', element: <ProviderPage /> },
       { path: '/oferentes/nuevo', element: <ProviderEditPage /> },
+      { path: '/oferentes/servicios', element: <OfferingsPage /> },
+      { path: '/oferentes/:id/servicios', element: <OfferingsPage /> },
       { path: '/oferentes/:id/editar', element: <ProviderEditPage /> },
       { path: '/administracion/oferentes', element: <AdminPage /> },
       { path: '/establecimientos/:id', element: <PublicEstablishmentPage /> },

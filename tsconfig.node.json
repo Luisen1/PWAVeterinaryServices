@@ -23,6 +23,7 @@
     "playwright.config.ts",
     "tests/e2e",
     "tests/database",
-    "src/features/directory/model.ts"
+    "src/features/directory/model.ts",
+    "src/features/offerings/model.ts"
   ]
 }

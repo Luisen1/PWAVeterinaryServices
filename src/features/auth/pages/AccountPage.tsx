@@ -275,6 +275,16 @@ export function AccountPage() {
                       Para establecimientos
                     </SectionHeading>
                     <div className="account-menu">
+                      <Link to="/oferentes/servicios">
+                        <Icon name="calendar" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Servicios y disponibilidad</strong>
+                          <small>
+                            Catálogo, equipo, horarios e invitaciones
+                          </small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
                       <Link to="/oferentes">
                         <Icon name="store" className="account-menu__icon" />
                         <span className="account-menu__text">

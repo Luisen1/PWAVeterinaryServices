@@ -8,6 +8,8 @@ import { MediaImage } from './Media';
 import { EstablishmentDetails } from './EstablishmentDetails';
 import { cardClass, Notice, secondaryClass, Workspace } from './Workspace';
 import { Icon } from '@/components/ui/Icon';
+import { DirectoryMap } from './DirectoryMap';
+import { PublicServices } from '@/features/offerings/PublicServices';
 
 export function DirectoryPage() {
   const online = useOnline();
@@ -113,6 +115,7 @@ export function DirectoryPage() {
           {results?.length} establecimiento(s) encontrado(s)
         </p>
       )}
+      {rows.data && <DirectoryMap publications={results ?? []} />}
       {!!rows.data?.length && results?.length === 0 && (
         <div className={`${cardClass} empty-state`}>
           <span className="empty-state__icon">
@@ -143,12 +146,17 @@ export function DirectoryPage() {
               <p>
                 {row.document.category} · {row.document.sites.length} sede(s)
               </p>
-              {row.document.sites[0] && (
-                <p>
-                  <Icon name="pin" />
-                  {row.document.sites[0].address}
-                </p>
-              )}
+              {row.document.sites.map((site) => (
+                <div key={site.id} className="my-2 text-sm">
+                  <p>
+                    <Icon name="pin" />
+                    {site.name}: {site.address}
+                  </p>
+                  <a href={`tel:${site.phone.replace(/[^+\d]/g, '')}`}>
+                    Teléfono: {site.phone}
+                  </a>
+                </div>
+              ))}
               <Link
                 className="button button-primary"
                 to={`/establecimientos/${row.id}`}
@@ -213,6 +221,12 @@ export function PublicEstablishmentPage() {
             updatedAt={row.data.published_at}
           />
         </article>
+      )}
+      {row.data && (
+        <PublicServices
+          establishmentId={row.data.id}
+          sites={row.data.document.sites}
+        />
       )}
     </Workspace>
   );

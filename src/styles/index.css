@@ -1,5 +1,62 @@
 @import 'tailwindcss';
 
+.directory-map {
+  height: 390px;
+  width: 100%;
+  border-radius: 18px;
+  z-index: 0;
+  background: #e9eeee;
+}
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  font-size: 12px;
+}
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.map-legend span {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: white;
+  border-radius: 50%;
+  font-weight: 700;
+}
+.category-map-pin span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 3px solid white;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 7px #0005;
+  color: white;
+  font: bold 18px sans-serif;
+}
+.category-map-pin {
+  background: transparent;
+}
+.category-map-pin b {
+  transform: rotate(45deg);
+}
+.availability-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  font-size: 12px;
+}
+.availability-slots li {
+  border: 1px solid #cfe8e0;
+  border-radius: 8px;
+  padding: 8px;
+}
+
 @theme {
   --font-sans: 'Poppins', sans-serif;
   --color-brand-50: #effcf8;
