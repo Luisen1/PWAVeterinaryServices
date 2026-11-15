@@ -424,3 +424,120 @@ describe('HU07-HU08: catálogo, disponibilidad y permisos reales en PostgreSQL',
     ).rejects.toThrow('vigente');
   });
 });
+
+describe('HU13-HU15: datos declarados y preferencias privadas', () => {
+  const preference = (
+    favorite = true,
+    note = 'Solo mi cuenta',
+    revision = 0,
+    operation = crypto.randomUUID(),
+  ) =>
+    db.query<{
+      result: {
+        owner_id: string;
+        favorite: boolean;
+        note: string;
+        revision: number;
+      };
+    }>('select public.save_establishment_preference($1,$2,$3,$4,$5) result', [
+      establishment,
+      favorite,
+      note,
+      revision,
+      operation,
+    ]);
+  it('acepta urgencias booleanas sin invalidar servicios anteriores', async () => {
+    await save('service', service, { ...svc, emergency: true }, 1);
+    await asUser(null);
+    const rows = await db.query<{ document: { emergency: boolean } }>(
+      'select document from public.offering_items',
+    );
+    expect(rows.rows[0]!.document.emergency).toBe(true);
+  });
+  it('rechaza urgencias declaradas con un tipo incorrecto', async () => {
+    await expect(
+      save('service', service, { ...svc, emergency: 'si' }, 1),
+    ).rejects.toThrow('Urgencias');
+  });
+  it('guarda sin duplicar y permite reintentos idempotentes', async () => {
+    const operation = crypto.randomUUID();
+    const first = (await preference(true, 'Privada', 0, operation)).rows[0]!
+      .result;
+    expect(first).toMatchObject({
+      owner_id: owner,
+      revision: 1,
+      note: 'Privada',
+    });
+    expect(
+      (await preference(true, 'Privada', 0, operation)).rows[0]!.result
+        .revision,
+    ).toBe(1);
+    expect(
+      (await preference(false, 'Privada', 1)).rows[0]!.result,
+    ).toMatchObject({ favorite: false, revision: 2 });
+    expect(
+      (await db.query('select * from public.establishment_preferences')).rows,
+    ).toHaveLength(1);
+    await expect(preference(true, 'Obsoleta', 1)).rejects.toThrow(
+      'otro dispositivo',
+    );
+  });
+  it('otra cuenta no lee ni reemplaza la nota: la RPC deriva el propietario de Auth', async () => {
+    await preference(true, 'Privada A');
+    await asUser(stranger);
+    expect(
+      (await db.query('select * from public.establishment_preferences')).rows,
+    ).toEqual([]);
+    await preference(true, 'Privada B');
+    const own = (
+      await db.query<{ note: string; owner_id: string }>(
+        'select note,owner_id from public.establishment_preferences',
+      )
+    ).rows;
+    expect(own).toEqual([{ note: 'Privada B', owner_id: stranger }]);
+    await asUser(owner);
+    expect(
+      (
+        await db.query<{ note: string }>(
+          'select note from public.establishment_preferences',
+        )
+      ).rows,
+    ).toEqual([{ note: 'Privada A' }]);
+  });
+  it('deniega escrituras directas incluso a la cuenta propietaria', async () => {
+    await preference();
+    await expect(
+      db.query("update public.establishment_preferences set note='Alterada'"),
+    ).rejects.toThrow('permission denied');
+  });
+  it('deniega lectura anónima', async () => {
+    await preference();
+    await asUser(null);
+    await expect(
+      db.query('select * from public.establishment_preferences'),
+    ).rejects.toThrow('permission denied');
+  });
+  it('deniega la RPC a visitantes', async () => {
+    await asUser(null);
+    await expect(preference()).rejects.toThrow('permission denied');
+  });
+  it('exige correo confirmado también en la base', async () => {
+    await db.exec('reset role');
+    await db.query(
+      'update auth.users set email_confirmed_at=null where id=$1',
+      [owner],
+    );
+    await asUser(owner);
+    await expect(preference()).rejects.toThrow('confirma el correo');
+  });
+  it('limita notas en el servidor', async () => {
+    await expect(preference(true, 'x'.repeat(2001))).rejects.toThrow(
+      '2000 caracteres',
+    );
+  });
+  it('exige una publicación al crear una preferencia', async () => {
+    await db.exec('reset role; delete from public.establishment_publications');
+    await asUser(owner);
+    await expect(preference()).rejects.toThrow('ficha publicada');
+  });
+});
