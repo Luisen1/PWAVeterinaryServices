@@ -1,5 +1,7 @@
 # Diseño visual de HU01 a HU06
 
+Actualización 2026-11-15: el descubrimiento de HU10-HU12 y Cómo llegar siguen la guía de Poppins, azul marino, turquesa y verde. Se revisaron las páginas 10-16 y 21-22 de los prototipos y se adaptó la ciudad a Tunja por solicitud del usuario. La interfaz incorpora selector Mapa/Lista, origen, tarjetas por sede y modo de desplazamiento; conserva solo acciones habilitadas y no muestra ETA ficticia. La implementación y su evidencia se describen en [hu10-hu12.md](hu10-hu12.md).
+
 Fecha: 2026-11-14, America/Bogota. Trabajo realizado en `Luise-Dev`, creada desde `main` antes de modificar archivos.
 
 ## Referencias y alcance
