@@ -124,6 +124,8 @@ test('perfil, directorio y administración se adaptan sin inventar datos', async
       ['/administracion/oferentes', 'administracion'],
     ]) {
       await page.goto(path!);
+      if (path === '/explorar')
+        await page.getByRole('button', { name: 'Lista', exact: true }).click();
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       if (path === '/perfil')
         await expect(page.getByText('Luna', { exact: true })).toBeVisible();
@@ -144,6 +146,7 @@ test('perfil, directorio y administración se adaptan sin inventar datos', async
     }
   }
   await page.goto('/explorar');
+  await page.getByRole('button', { name: 'Lista', exact: true }).click();
   await page
     .getByRole('searchbox', { name: 'Buscar establecimientos' })
     .fill('No existe');

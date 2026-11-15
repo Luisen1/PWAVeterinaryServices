@@ -22,31 +22,37 @@ export function EstablishmentDetails({
   document,
   updatedAt,
   showTimestamp = true,
+  showIdentity = true,
 }: {
   document: Omit<EstablishmentDocument, 'responsible_name'> & {
     responsible_name?: string;
   };
   updatedAt: string;
   showTimestamp?: boolean;
+  showIdentity?: boolean;
 }) {
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4 rounded-xl border border-brand-100 p-4">
-        <MediaImage
-          path={document.logo_path}
-          alt={`Logo de ${document.name}`}
-        />
-        <div className="min-w-0">
-          <h2 className="break-words text-xl font-semibold">{document.name}</h2>
-          <p className="text-sm text-stone-600">{document.category}</p>
-          {!document.responsible_name && (
-            <span className="status-badge mt-2">
-              <Icon name="check" className="size-3" />
-              Ficha publicada
-            </span>
-          )}
+      {showIdentity && (
+        <div className="flex items-center gap-4 rounded-xl border border-brand-100 p-4">
+          <MediaImage
+            path={document.logo_path}
+            alt={`Logo de ${document.name}`}
+          />
+          <div className="min-w-0">
+            <h2 className="break-words text-xl font-semibold">
+              {document.name}
+            </h2>
+            <p className="text-sm text-stone-600">{document.category}</p>
+            {!document.responsible_name && (
+              <span className="status-badge mt-2">
+                <Icon name="check" className="size-3" />
+                Ficha publicada
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       <div className="detail-contact">
         <a
           className="button button-secondary"

@@ -1,199 +1,40 @@
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { Link, useParams } from 'react-router';
-import { authClient } from '@/features/auth/api';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import { useOnline } from '@/pwa/useOnline';
-import { categories, type Publication } from './model';
-import { MediaImage } from './Media';
-import { EstablishmentDetails } from './EstablishmentDetails';
-import { cardClass, Notice, secondaryClass, Workspace } from './Workspace';
-import { Icon } from '@/components/ui/Icon';
-import { DirectoryMap } from './DirectoryMap';
+import { useAuth } from '@/features/auth/useAuth';
+import { authWithReturn } from '@/features/auth/return-to';
 import { PublicServices } from '@/features/offerings/PublicServices';
+import { EstablishmentDetails } from './EstablishmentDetails';
+import { usePublication } from './public-api';
+import { safeDiscoveryReturn } from './discovery';
+import { cardClass, Notice, secondaryClass, Workspace } from './Workspace';
+import { validCoordinates } from './map-model';
+import { Icon } from '@/components/ui/Icon';
+import { PhoneContact } from './PhoneContact';
+import { MediaImage } from './Media';
 
-export function DirectoryPage() {
-  const online = useOnline();
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('');
-  const rows = useQuery({
-    queryKey: ['public-establishments'],
-    enabled: online,
-    queryFn: async ({ signal }) => {
-      const { data, error } = await authClient()
-        .from('establishment_publications')
-        .select('*')
-        .order('published_at', { ascending: false })
-        .abortSignal(signal);
-      if (error) throw error;
-      return data as Publication[];
-    },
-  });
-  const results = rows.data?.filter(
-    (row) =>
-      (!category || row.document.category === category) &&
-      [
-        row.document.name,
-        row.document.category,
-        ...row.document.sites.map((site) => site.address),
-      ]
-        .join(' ')
-        .toLocaleLowerCase('es')
-        .includes(search.trim().toLocaleLowerCase('es')),
-  );
-  return (
-    <Workspace
-      title="Explorar"
-      description="Establecimientos revisados y publicados. Consulta sus sedes, horarios y contacto."
-    >
-      <div className="directory-toolbar">
-        <label className="directory-search">
-          <span className="sr-only">Buscar establecimientos</span>
-          <Icon name="search" />
-          <input
-            type="search"
-            className="sv-input"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Busca un establecimiento o una dirección"
-          />
-        </label>
-        <button
-          className={secondaryClass}
-          disabled={!online}
-          onClick={() => void rows.refetch()}
-        >
-          <Icon name="refresh" />
-          Actualizar establecimientos
-        </button>
-      </div>
-      <div className="category-chips" aria-label="Filtrar por categoría">
-        <button
-          type="button"
-          aria-pressed={!category}
-          className="category-chip"
-          onClick={() => setCategory('')}
-        >
-          Todos
-        </button>
-        {categories.map((value) => (
-          <button
-            type="button"
-            key={value}
-            aria-pressed={category === value}
-            className="category-chip"
-            onClick={() => setCategory(value)}
-          >
-            {value}
-          </button>
-        ))}
-      </div>
-      {rows.isPending && online && <Notice>Cargando establecimientos…</Notice>}
-      {rows.isError && (
-        <Notice error>
-          No pudimos cargar el directorio. Revisa tu conexión e inténtalo de
-          nuevo.
-        </Notice>
-      )}
-      {rows.data?.length === 0 && (
-        <div className={`${cardClass} empty-state`}>
-          <span className="empty-state__icon">
-            <Icon name="store" />
-          </span>
-          <h2 className="font-semibold">
-            Aún no hay establecimientos publicados
-          </h2>
-          <p className="text-sm text-stone-600">
-            Las solicitudes aparecerán aquí cuando administración las apruebe.
-          </p>
-          <Link className={secondaryClass} to="/oferentes">
-            Registrar mi establecimiento
-          </Link>
-        </div>
-      )}
-      {!!rows.data?.length && (
-        <p className="mb-4 text-xs font-medium text-stone-600">
-          {results?.length} establecimiento(s) encontrado(s)
-        </p>
-      )}
-      {rows.data && <DirectoryMap publications={results ?? []} />}
-      {!!rows.data?.length && results?.length === 0 && (
-        <div className={`${cardClass} empty-state`}>
-          <span className="empty-state__icon">
-            <Icon name="search" />
-          </span>
-          <h2>No encontramos resultados</h2>
-          <p>Prueba otro nombre, dirección o categoría.</p>
-          <button
-            className={secondaryClass}
-            onClick={() => {
-              setSearch('');
-              setCategory('');
-            }}
-          >
-            Limpiar búsqueda
-          </button>
-        </div>
-      )}
-      <div className="establishment-list">
-        {results?.map((row) => (
-          <article key={row.id} className="establishment-list-card">
-            <MediaImage
-              path={row.document.logo_path}
-              alt={`Logo de ${row.document.name}`}
-            />
-            <div className="establishment-list-card__body">
-              <h2>{row.document.name}</h2>
-              <p>
-                {row.document.category} · {row.document.sites.length} sede(s)
-              </p>
-              {row.document.sites.map((site) => (
-                <div key={site.id} className="my-2 text-sm">
-                  <p>
-                    <Icon name="pin" />
-                    {site.name}: {site.address}
-                  </p>
-                  <a href={`tel:${site.phone.replace(/[^+\d]/g, '')}`}>
-                    Teléfono: {site.phone}
-                  </a>
-                </div>
-              ))}
-              <Link
-                className="button button-primary"
-                to={`/establecimientos/${row.id}`}
-              >
-                <Icon name="store" />
-                Ver ficha de {row.document.name}
-              </Link>
-            </div>
-          </article>
-        ))}
-      </div>
-    </Workspace>
-  );
-}
 export function PublicEstablishmentPage() {
   const { id } = useParams();
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const auth = useAuth();
   const online = useOnline();
-  const row = useQuery({
-    queryKey: ['public-establishment', id],
-    enabled: online && !!id,
-    queryFn: async ({ signal }) => {
-      const { data, error } = await authClient()
-        .from('establishment_publications')
-        .select('*')
-        .eq('id', id!)
-        .abortSignal(signal)
-        .maybeSingle();
-      if (error) throw error;
-      return data as Publication | null;
-    },
-  });
+  const row = usePublication(id);
+  const siteId = params.get('sede');
+  const site = siteId
+    ? row.data?.document.sites.find((s) => s.id === siteId)
+    : row.data?.document.sites[0];
+  const tab = params.get('tab') === 'servicios' ? 'servicios' : 'informacion';
+  const destination = location.pathname + location.search;
+  const requestedAction = params.get('accion');
   return (
     <Workspace
       title="Ficha del establecimiento"
-      description="Información aprobada por administración."
+      description="Información, servicios y contacto de la sede publicada."
     >
-      <Link to="/explorar" className={secondaryClass}>
+      <Link
+        to={safeDiscoveryReturn(params.get('volver'))}
+        className={secondaryClass}
+      >
         Volver a Explorar
       </Link>
       {row.isPending && online && <Notice>Cargando ficha…</Notice>}
@@ -215,18 +56,134 @@ export function PublicEstablishmentPage() {
         </Notice>
       )}
       {row.data && (
-        <article className={cardClass}>
-          <EstablishmentDetails
-            document={row.data.document}
-            updatedAt={row.data.published_at}
-          />
-        </article>
-      )}
-      {row.data && (
-        <PublicServices
-          establishmentId={row.data.id}
-          sites={row.data.document.sites}
-        />
+        <>
+          <div className="public-establishment-identity">
+            <MediaImage
+              path={row.data.document.logo_path}
+              alt={`Logo de ${row.data.document.name}`}
+            />
+            <div>
+              <h2 className="break-words text-lg font-semibold">
+                {row.data.document.name}
+              </h2>
+              <p className="text-sm">{row.data.document.category}</p>
+              <span className="status-badge mt-2">Ficha publicada</span>
+            </div>
+          </div>
+          <div className="public-site-picker">
+            <label>
+              Sede a consultar
+              <select
+                className="sv-input"
+                aria-label="Sede a consultar"
+                value={site?.id ?? ''}
+                onChange={(e) =>
+                  setParams(
+                    (previous) => {
+                      const next = new URLSearchParams(previous);
+                      next.set('sede', e.target.value);
+                      return next;
+                    },
+                    { replace: true },
+                  )
+                }
+              >
+                {!site && (
+                  <option value="">Selecciona una sede publicada</option>
+                )}
+                {row.data.document.sites.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {!site && (
+            <Notice error>
+              La sede seleccionada no está publicada. Elige una sede disponible
+              antes de continuar.
+            </Notice>
+          )}
+          {site && (
+            <>
+              <div className="public-site-actions">
+                <PhoneContact phone={site.phone} />
+                {validCoordinates(site) && (
+                  <Link
+                    className="button button-primary"
+                    to={`/establecimientos/${id}/como-llegar?${new URLSearchParams({ sede: site.id, volver: destination })}`}
+                  >
+                    <Icon name="pin" />
+                    Cómo llegar
+                  </Link>
+                )}
+              </div>
+              <div
+                className="discovery-view-switch"
+                role="group"
+                aria-label="Contenido de la ficha"
+              >
+                <button
+                  aria-pressed={tab === 'informacion'}
+                  onClick={() =>
+                    setParams(
+                      (p) => {
+                        const next = new URLSearchParams(p);
+                        next.delete('tab');
+                        return next;
+                      },
+                      { replace: true },
+                    )
+                  }
+                >
+                  Información
+                </button>
+                <button
+                  aria-pressed={tab === 'servicios'}
+                  onClick={() =>
+                    setParams(
+                      (p) => {
+                        const next = new URLSearchParams(p);
+                        next.set('tab', 'servicios');
+                        return next;
+                      },
+                      { replace: true },
+                    )
+                  }
+                >
+                  Servicios
+                </button>
+              </div>
+              <article className={cardClass} hidden={tab !== 'informacion'}>
+                <EstablishmentDetails
+                  showIdentity={false}
+                  document={{ ...row.data.document, sites: [site] }}
+                  updatedAt={row.data.published_at}
+                />
+              </article>
+              <div hidden={tab !== 'servicios'}>
+                <PublicServices establishmentId={row.data.id} sites={[site]} />
+              </div>
+              {(!auth.user || !auth.user.email_confirmed_at) && (
+                <Link
+                  className={secondaryClass}
+                  to={authWithReturn('/acceso', destination)}
+                >
+                  Iniciar sesión y conservar esta sede
+                </Link>
+              )}
+              {(requestedAction === 'agendar' ||
+                requestedAction === 'conversar') && (
+                <Notice>
+                  {!auth.user
+                    ? 'Inicia sesión para conservar la sede elegida y continuar cuando esta función esté habilitada.'
+                    : 'Conservamos la sede elegida. Este establecimiento todavía no tiene reservas ni chat habilitados en la aplicación.'}
+                </Notice>
+              )}
+            </>
+          )}
+        </>
       )}
     </Workspace>
   );

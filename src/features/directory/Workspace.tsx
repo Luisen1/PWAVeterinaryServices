@@ -31,17 +31,19 @@ export function Workspace({
   title,
   description,
   children,
+  className = '',
 }: {
   title: string;
   description: string;
   children: ReactNode;
+  className?: string;
 }) {
   const online = useOnline();
   useEffect(() => {
     document.title = `${title} · Servicios veterinarios`;
   }, [title]);
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
+    <section className={`mx-auto max-w-4xl space-y-6 ${className}`}>
       <PageHeading
         title={title}
         description={description}

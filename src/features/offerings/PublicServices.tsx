@@ -1,5 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import { authClient } from '@/features/auth/api';
+import { usePublicServices } from '@/features/directory/public-api';
 import { useOnline } from '@/pwa/useOnline';
 import {
   Notice,
@@ -7,7 +6,6 @@ import {
   secondaryClass,
 } from '@/features/directory/Workspace';
 import type { Site } from '@/features/directory/model';
-import type { Item } from './model';
 
 export function PublicServices({
   establishmentId,
@@ -17,23 +15,11 @@ export function PublicServices({
   sites: Site[];
 }) {
   const online = useOnline();
-  const services = useQuery({
-    queryKey: ['public-services', establishmentId],
-    enabled: online,
-    queryFn: async ({ signal }) => {
-      const { data, error } = await authClient()
-        .from('offering_items')
-        .select('*')
-        .eq('establishment_id', establishmentId)
-        .eq('kind', 'service')
-        .eq('document->>active', 'true')
-        .abortSignal(signal);
-      if (error) throw error;
-      return (data as Item<'service'>[]).filter((s) =>
-        sites.some((site) => site.id === s.document.site_id),
-      );
-    },
-  });
+  const services = usePublicServices(establishmentId);
+  const visible = services.data?.filter(
+    (s) =>
+      s.document.active && sites.some((site) => site.id === s.document.site_id),
+  );
   return (
     <section className={`${cardClass} space-y-4`}>
       <h2 className="text-lg font-semibold">Servicios disponibles</h2>
@@ -50,10 +36,10 @@ export function PublicServices({
           </button>
         </Notice>
       )}
-      {services.data?.length === 0 && (
+      {visible?.length === 0 && (
         <p>Este establecimiento aún no tiene servicios activos publicados.</p>
       )}
-      {services.data?.map(({ id, document: d }) => (
+      {visible?.map(({ id, document: d }) => (
         <article className="site-card space-y-2" key={id}>
           <h3 className="font-semibold">{d.name}</h3>
           <p>

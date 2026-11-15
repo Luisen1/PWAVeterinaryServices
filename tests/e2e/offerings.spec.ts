@@ -173,6 +173,7 @@ test('desactiva servicios, los oculta en la ficha pública y conserva su registr
     },
   });
   await page.goto(`/establecimientos/${OFFERING_ESTABLISHMENT}`);
+  await page.getByRole('button', { name: 'Servicios', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Consulta virtual', exact: true }),
   ).toBeVisible();
@@ -187,6 +188,7 @@ test('desactiva servicios, los oculta en la ficha pública y conserva su registr
     page.getByText('Desactivado · Revisión 2', { exact: true }),
   ).toBeVisible();
   await page.goto(`/establecimientos/${OFFERING_ESTABLISHMENT}`);
+  await page.getByRole('button', { name: 'Servicios', exact: true }).click();
   await expect(
     page.getByText(
       'Este establecimiento aún no tiene servicios activos publicados.',

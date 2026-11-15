@@ -22,8 +22,8 @@ test('muestra categorías, agrupa pines y conserva la selección al alejar el ma
         ...offeringDocument.sites[0]!,
         id: crypto.randomUUID(),
         name: `Sede ${i + 1}`,
-        latitude: 4.6,
-        longitude: -74.1,
+        latitude: 5.5353,
+        longitude: -73.3678,
       })),
     },
     revision: 1,
@@ -119,9 +119,10 @@ test('un fallo del proveedor conserva direcciones, contacto y navegación, y per
   await expect(
     page.getByText('El proveedor del mapa no respondió.', { exact: false }),
   ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Lista', exact: true }).click();
   await page
     .getByRole('link', {
-      name: 'Ver ficha de Veterinaria Horizonte',
+      name: 'Ver ficha de Veterinaria Horizonte · Sede central',
       exact: true,
     })
     .click();
