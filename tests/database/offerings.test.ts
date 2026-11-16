@@ -541,3 +541,188 @@ describe('HU13-HU15: datos declarados y preferencias privadas', () => {
     await expect(preference()).rejects.toThrow('ficha publicada');
   });
 });
+
+describe('HU18: consulta reservable y apartado atomicamente revalidado', () => {
+  const holdId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const at = `${day}T13:00:00.000Z`;
+  const availability = (professionalId: string | null = null) =>
+    db.query<{
+      result: {
+        timezone: string;
+        modality: string;
+        calculated_at: string;
+        professionals: { id: string; name: string }[];
+        slots: {
+          assignment_id: string;
+          starts_at: string;
+          professional_name: string;
+          modality: string;
+        }[];
+      };
+    }>('select public.service_availability($1,$2,$3) result', [
+      service,
+      day,
+      professionalId,
+    ]);
+  const hold = (id = holdId, start = at, linkId = assignment) =>
+    db.query<{ result: { id: string; expires_at: string; owner_id: string } }>(
+      'select public.acquire_slot_hold($1,$2,$3,$4) result',
+      [id, service, linkId, start],
+    );
+  it('expone solo intervalos publicados con profesional, zona, modalidad y fecha de consulta', async () => {
+    await asUser(null);
+    const result = (await availability()).rows[0]!.result;
+    expect(result).toMatchObject({
+      timezone: 'America/Bogota',
+      modality: 'Presencial',
+    });
+    expect(result.calculated_at).toBeTruthy();
+    expect(result.professionals).toEqual([
+      { id: professional, name: 'Profesional Uno' },
+    ]);
+    expect(result.slots).toHaveLength(8);
+    expect(result.slots[0]).toMatchObject({
+      professional_name: 'Profesional Uno',
+      modality: 'Presencial',
+    });
+    expect(JSON.stringify(result)).not.toContain('resource_id');
+    expect(
+      (await availability(crypto.randomUUID())).rows[0]!.result.slots,
+    ).toHaveLength(0);
+  });
+  it('al apartar revalida el servidor y un segundo usuario no puede tomar el mismo intervalo', async () => {
+    const stale = (await availability()).rows[0]!.result.slots;
+    await hold();
+    expect((await availability()).rows[0]!.result.slots).toHaveLength(
+      stale.length - 1,
+    );
+    await asUser(stranger);
+    await expect(hold(crypto.randomUUID())).rejects.toThrow(
+      'acaba de ocuparse',
+    );
+  });
+  it('reintentar la misma operacion no duplica ni extiende su vencimiento', async () => {
+    const first = (await hold()).rows[0]!.result;
+    const again = (await hold()).rows[0]!.result;
+    expect(again.expires_at).toBe(first.expires_at);
+    expect(
+      (await db.query('select * from public.slot_holds')).rows,
+    ).toHaveLength(1);
+  });
+  it('rechaza un inicio adulterado aunque caiga dentro de la jornada', async () => {
+    await expect(hold(holdId, `${day}T13:05:00Z`)).rejects.toThrow(
+      'dejo de estar disponible'.replace('dejo', 'dej\u00f3'),
+    );
+  });
+  it('un recurso compartido bloquea tambien otra asignacion y otro profesional', async () => {
+    const other = crypto.randomUUID();
+    const otherLink = crypto.randomUUID();
+    await save('professional', other, { ...prof, name: 'Otro profesional' });
+    await save('assignment', otherLink, { ...link, professional_id: other });
+    await save('shift', crypto.randomUUID(), {
+      ...jornada,
+      professional_id: other,
+    });
+    await hold();
+    await asUser(stranger);
+    await expect(hold(crypto.randomUUID(), at, otherLink)).rejects.toThrow(
+      'acaba de ocuparse',
+    );
+  });
+  it('admite intervalos adyacentes sin considerarlos solapados', async () => {
+    await hold();
+    await asUser(stranger);
+    expect(
+      (await hold(crypto.randomUUID(), `${day}T13:30:00Z`)).rows[0]!.result
+        .owner_id,
+    ).toBe(stranger);
+  });
+  it('un apartado vencido libera disponibilidad sin depender de un proceso de limpieza', async () => {
+    await hold();
+    await db.exec('reset role');
+    await db.query(
+      "update public.slot_holds set created_at=clock_timestamp()-interval '6 minutes',expires_at=clock_timestamp()-interval '1 minute' where id=$1",
+      [holdId],
+    );
+    await asUser(stranger);
+    expect((await availability()).rows[0]!.result.slots).toHaveLength(8);
+    await hold(crypto.randomUUID());
+  });
+  it('permite liberar solo el apartado propio y no revela el de otra cuenta', async () => {
+    await hold();
+    await asUser(stranger);
+    expect((await db.query('select * from public.slot_holds')).rows).toEqual(
+      [],
+    );
+    expect(
+      (
+        await db.query<{ result: boolean }>(
+          'select public.release_slot_hold($1) result',
+          [holdId],
+        )
+      ).rows[0]!.result,
+    ).toBe(false);
+    await asUser(owner);
+    expect(
+      (
+        await db.query<{ result: boolean }>(
+          'select public.release_slot_hold($1) result',
+          [holdId],
+        )
+      ).rows[0]!.result,
+    ).toBe(true);
+    expect((await availability()).rows[0]!.result.slots).toHaveLength(8);
+  });
+  it('el apartado evita incluso una insercion solapada en referencias de citas', async () => {
+    await hold(holdId, `${day}T14:00:00Z`);
+    await expect(appointment()).rejects.toThrow('acaba de ocuparse');
+  });
+  it('revalida ocupaciones creadas despues de consultar', async () => {
+    await availability();
+    await appointment();
+    await asUser(owner);
+    await expect(hold(holdId, `${day}T14:00:00Z`)).rejects.toThrow(
+      'acaba de ocuparse',
+    );
+  });
+  it('rechaza servicio desactivado y no conserva una disponibilidad ficticia', async () => {
+    await availability();
+    await save('service', service, { ...svc, active: false }, 1);
+    await expect(hold()).rejects.toThrow('no est\u00e1 activo');
+  });
+  it('una seleccion nueva invalida no pierde el apartado anterior', async () => {
+    await hold();
+    await db.exec('savepoint new_choice');
+    await expect(
+      hold(crypto.randomUUID(), `${day}T13:05:00Z`),
+    ).rejects.toThrow();
+    await db.exec('rollback to savepoint new_choice');
+    expect(
+      (
+        await db.query<{ released_at: null }>(
+          'select released_at from public.slot_holds where id=$1',
+          [holdId],
+        )
+      ).rows[0]!.released_at,
+    ).toBeNull();
+  });
+  it('el visitante puede consultar pero no apartar', async () => {
+    await asUser(null);
+    await availability();
+    await expect(hold()).rejects.toThrow('permission denied');
+  });
+  it('el correo sin confirmar no puede apartar', async () => {
+    await db.exec('reset role');
+    await db.query(
+      'update auth.users set email_confirmed_at=null where id=$1',
+      [owner],
+    );
+    await asUser(owner);
+    await expect(hold()).rejects.toThrow('confirma tu correo');
+  });
+  it('no permite escrituras directas desde un cliente', async () => {
+    await expect(db.query('delete from public.slot_holds')).rejects.toThrow(
+      'permission denied',
+    );
+  });
+});
