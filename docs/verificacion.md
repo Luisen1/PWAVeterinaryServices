@@ -167,3 +167,7 @@ La revisión de seguridad conserva solo los dos informativos de tablas privadas 
 Build con `.env.local` real, sin exponer claves: 16 entradas de precache (~1166 KiB), mapa diferido ~27.5 kB y chunk principal ~1028 kB sin comprimir. Permanecen los avisos conocidos de tamaño/Workbox. El preview real 4173 comprobó cuatro rutas privadas con requisito de cuenta confirmada, lectura pública de reglas y cinco RPC nuevas denegadas a anon con `42501`, sin errores JavaScript. No se hicieron consultas reales de Google en esta entrega.
 
 Pendiente operativo: aceptación con cuentas reales de cliente/equipo, Android/iPhone físicos y despliegue HTTPS. Adjuntos, videollamadas, push y notificaciones fuera de la app siguen en sus HU posteriores. Ver [guía HU22-HU24](hu22-hu24.md).
+
+## Corrección del puerto del chat en CI
+
+El test de chat entre dos cuentas fijaba `http://localhost:4174` al crear sus contextos, mientras CI inicia el servidor en 4173. Se sustituyó ese valor por la fixture `baseURL` de Playwright en ambos contextos. La suite completa con la configuración de CI pasó: **69 E2E**, incluidos los recorridos PWA. Los **cuatro E2E de chat** también pasaron con servidor/build aislados en 4174, comprobando independencia del puerto. Tipos y lint correctos; el build final se regeneró con el entorno real después de las pruebas. El cambio afecta únicamente al test; no cambia mapas, rutas ni servicios externos.

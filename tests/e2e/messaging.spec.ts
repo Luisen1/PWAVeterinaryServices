@@ -112,12 +112,13 @@ function server() {
 }
 test('HU24 conversa entre dos cuentas, confirma lectura y recupera mensajes al reconectar sin duplicarlos', async ({
   browser,
+  baseURL,
 }, testInfo) => {
   const api = server();
   const customer = await browser.newContext({
-    baseURL: 'http://localhost:4174',
+    baseURL,
   });
-  const staff = await browser.newContext({ baseURL: 'http://localhost:4174' });
+  const staff = await browser.newContext({ baseURL });
   try {
     await api.setup(customer);
     await api.setup(staff, true);
