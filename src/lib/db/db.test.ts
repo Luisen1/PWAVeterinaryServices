@@ -14,7 +14,12 @@ afterEach(async () => {
 describe('base local', () => {
   it('actualiza v1 a v2 sin perder catálogo ni operaciones existentes', async () => {
     const legacy = new Dexie(db.name);
-    const added = ['preferences', 'offline_sessions', 'public_snapshots'];
+    const added = [
+      'preferences',
+      'offline_sessions',
+      'public_snapshots',
+      'availability_drafts',
+    ];
     legacy
       .version(1)
       .stores(
@@ -61,8 +66,8 @@ describe('base local', () => {
     };
     await putLocalRecord(db.catalog, record);
     expect(await getLocalRecord(db.catalog, record.id)).toEqual(record);
-    expect(db.verno).toBe(2);
-    expect(db.tables).toHaveLength(13);
+    expect(db.verno).toBe(3);
+    expect(db.tables).toHaveLength(14);
   });
 
   it('purga una cuenta y conserva otra cuenta y los datos públicos', async () => {

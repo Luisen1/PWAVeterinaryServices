@@ -388,8 +388,10 @@ export function AccountPage() {
               className="text-sm leading-6 text-amber-950"
             >
               Hay borradores, adjuntos u operaciones guardados en este
-              dispositivo. Puedes sincronizar los cambios de perfil y mascotas,
-              conservar la sesión o descartar los pendientes explícitamente.
+              dispositivo. Puedes sincronizar perfil, mascotas, favoritos y
+              notas. Los borradores de horario se conservan en este dispositivo
+              y no se envían al sincronizar. Puedes conservar la sesión o
+              descartar los pendientes explícitamente.
             </p>
             <button
               type="button"

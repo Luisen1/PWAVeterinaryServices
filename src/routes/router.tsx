@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router';
 import { Layout } from '@/app/Layout';
-import { PlaceholderPage } from '@/routes/PlaceholderPage';
+import { AvailabilityPage } from '@/features/appointments/AvailabilityPage';
 import { HomePage } from '@/routes/HomePage';
 import { NotFoundPage } from '@/routes/NotFoundPage';
 import { RouteErrorPage } from '@/routes/RouteErrorPage';
@@ -11,6 +11,7 @@ import { RecoveryPage } from '@/features/auth/pages/RecoveryPage';
 import { ConfirmEmailPage } from '@/features/auth/pages/ConfirmEmailPage';
 import { ResetPasswordPage } from '@/features/auth/pages/ResetPasswordPage';
 import { PrivacyPage } from '@/features/auth/pages/PrivacyPage';
+import { TermsPage } from '@/features/auth/pages/TermsPage';
 import { ProfilePage } from '@/features/directory/ProfilePage';
 import {
   ProviderPage,
@@ -38,13 +39,7 @@ export const router = createBrowserRouter([
       },
       {
         path: '/citas',
-        element: (
-          <PlaceholderPage
-            title="Citas"
-            description="El futuro espacio para la agenda de atención."
-            emptyDescription="La gestión de citas se incorporará en una siguiente fase. Esta pantalla es provisional."
-          />
-        ),
+        element: <AvailabilityPage />,
       },
       {
         path: '/cuenta',
@@ -56,6 +51,7 @@ export const router = createBrowserRouter([
       { path: '/auth/confirmar', element: <ConfirmEmailPage /> },
       { path: '/restablecer-clave', element: <ResetPasswordPage /> },
       { path: '/privacidad', element: <PrivacyPage /> },
+      { path: '/terminos', element: <TermsPage /> },
       { path: '/perfil', element: <ProfilePage /> },
       { path: '/favoritos', element: <FavoritesPage /> },
       { path: '/oferentes', element: <ProviderPage /> },

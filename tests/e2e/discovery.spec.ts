@@ -427,7 +427,9 @@ test('abre indicaciones desde la casa elegida a la sede correcta y permite cambi
     ),
   ).toBe('walking');
   await expect(
-    page.getByText('Esta aplicación no calcula una ruta', { exact: false }),
+    page.getByText('La navegación paso a paso se abre en Google Maps', {
+      exact: false,
+    }),
   ).toBeVisible();
   for (const width of [360, 1280]) {
     await page.setViewportSize({ width, height: 900 });

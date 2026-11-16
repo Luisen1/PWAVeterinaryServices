@@ -99,7 +99,10 @@ test('rutas, estados y navegación accesible a 360 px', async ({ page }) => {
     ).toBeVisible();
     if (path === '/citas')
       await expect(
-        page.getByText('Pantalla provisional', { exact: true }),
+        page.getByText(
+          'Selecciona un establecimiento, una sede y un servicio',
+          { exact: false },
+        ),
       ).toBeVisible();
     expect(
       await page.evaluate(
@@ -113,14 +116,11 @@ test('rutas, estados y navegación accesible a 360 px', async ({ page }) => {
       continue;
     }
     if (path === '/') continue;
-    await page.goto(`${path}?estado=carga`);
-    await expect(page.getByText('Cargando este espacio…')).toBeVisible();
-    await page.goto(`${path}?estado=error`);
-    await expect(page.getByRole('alert')).toContainText(
-      'No pudimos cargar este espacio',
-    );
-    await page.getByRole('button', { name: 'Reintentar' }).click();
-    await expect(page.getByText('Un espacio por construir')).toBeVisible();
+    await expect(
+      page.getByRole('combobox', {
+        name: 'Establecimiento para consultar horarios',
+      }),
+    ).toBeVisible();
   }
   await page.goto('/cuenta');
   await expect(

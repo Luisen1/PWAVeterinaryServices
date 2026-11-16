@@ -1,4 +1,5 @@
 import { usePublicServices } from '@/features/directory/public-api';
+import { Link } from 'react-router';
 import { useOnline } from '@/pwa/useOnline';
 import {
   Notice,
@@ -59,6 +60,12 @@ export function PublicServices({
               ? 'Precio a consultar'
               : `${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(d.price)} · Precio informativo`}
           </p>
+          <Link
+            className={secondaryClass}
+            to={`/citas?${new URLSearchParams({ establecimiento: establishmentId, sede: d.site_id, servicio: id })}`}
+          >
+            Consultar horarios de {d.name}
+          </Link>
         </article>
       ))}
     </section>

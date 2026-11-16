@@ -25,6 +25,32 @@ export function PrivacyPage() {
           correo y el registro de aceptación son accesibles por la cuenta
           correspondiente bajo controles de acceso.
         </p>
+        <section className="space-y-3">
+          <h2 className="font-semibold">
+            Información adicional de mapas y disponibilidad
+          </h2>
+          <p>
+            El origen GPS o manual permanece en memoria y se elimina al
+            recargar. Al pulsar Calcular ruta se envían el origen y el destino a
+            Google Maps; al abrir la navegación externa también se comparten los
+            puntos elegidos. Google procesa esas consultas según su{' '}
+            <a
+              className="underline"
+              href="https://policies.google.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Política de Privacidad
+            </a>
+            . No guardamos trazados ni estimaciones de Google en IndexedDB.
+          </p>
+          <p>
+            Las notas privadas, favoritos y borradores de horario se guardan por
+            cuenta en este dispositivo. Los apartados temporales se validan y
+            almacenan en Supabase. Los datos privados locales se purgan al
+            salir, tras decidir sobre los pendientes.
+          </p>
+        </section>
         <p>
           Este entorno se encuentra en desarrollo. La información del
           responsable, el contacto para solicitudes y los plazos de conservación
