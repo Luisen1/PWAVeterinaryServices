@@ -6,7 +6,9 @@ El descubrimiento ahora inicia en **Tunja, Boyacá**: permite usar ubicación o 
 
 Las [HU13-HU15](docs/hu13-hu15.md) añaden filtros combinados, apertura según horario y zona de sede, urgencias declaradas, favoritos y notas privadas. Las preferencias admiten recarga y edición offline con sesión local vigente, sincronización al recuperar conexión y resolución explícita de conflictos. Explorar mantiene el mapa visible en la primera pantalla móvil; los filtros avanzados se abren en un diálogo.
 
-PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local, cuentas, perfil y mascotas, oferentes, revisión administrativa, fichas, servicios, profesionales, disponibilidad, colaboradores y mapa con agrupación. Citas mantiene una pantalla provisional. Consulta [HU07-HU09](docs/hu07-hu09.md) para configurar la oferta. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
+Las [HU17-HU18](docs/hu17-hu18.md) incorporan consulta de horarios por sede/servicio/profesional, apartados temporales revalidados y borradores offline en Citas. Cómo llegar integra trazado y ETA con Google Maps; falta configurar una clave real y habilitar Maps JavaScript API/Routes API para activarlo. La navegación externa sigue disponible. Un apartado no es una cita solicitada ni confirmada: las solicitudes con mascota y sus estados quedan para HU19 y siguientes.
+
+PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local, cuentas, perfil y mascotas, oferentes, revisión administrativa, fichas, servicios, profesionales, disponibilidad, colaboradores y mapa con agrupación. Consulta [HU07-HU09](docs/hu07-hu09.md) para configurar la oferta. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
 
 La interfaz utiliza los prototipos y la guía visual del proyecto: Poppins, azul marino, turquesa y verde, junto al emblema SVG original. El inicio contiene accesos funcionales y el registro de establecimientos se organiza en cuatro pasos. Consulta [diseño visual](docs/diseno-visual.md) para conocer los componentes, adaptaciones y validaciones.
 
@@ -43,7 +45,9 @@ Ambas pueden quedar vacías para ejecutar y probar el shell. `supabase` se expor
 
 El cliente admite una clave pública publishable (`sb_publishable_`) en `VITE_SUPABASE_ANON_KEY`, además de la clave anon legacy. La sesión persiste y se refresca mediante el SDK. Los enlaces de correo usan PKCE y se procesan en `/auth/confirmar`.
 
-Para habilitar un proyecto nuevo, aplicar las seis migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` las seis migraciones ya están aplicadas. La migración de identidad incluye perfiles, aceptación del aviso de privacidad y roles protegidos con RLS. La quinta añade catálogo, disponibilidad y colaboradores; la sexta incorpora urgencias declaradas y preferencias privadas. Las variables opcionales `VITE_MAP_TILE_URL` y `VITE_MAP_ATTRIBUTION` permiten configurar otro proveedor de mapas; por defecto se usa OpenStreetMap.
+Para habilitar un proyecto nuevo, aplicar las ocho migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` las ocho migraciones ya están aplicadas. La quinta añade catálogo/disponibilidad, la sexta preferencias privadas y las dos últimas consulta reservable, apartados e índices. `VITE_MAP_TILE_URL` y `VITE_MAP_ATTRIBUTION` permiten otro proveedor para el mapa del directorio; por defecto se usa OpenStreetMap.
+
+HU17 añade la variable opcional `VITE_GOOGLE_MAPS_API_KEY`: clave pública de navegador restringida por dominios y a Maps JavaScript API/Routes API. No usar claves privadas ni confirmar facturación sin revisar cuotas. La [guía HU17-HU18](docs/hu17-hu18.md) detalla la activación y los límites. Sin configurarla funciona el resto de la aplicación y la alternativa de navegación externa.
 
 ## Comandos
 

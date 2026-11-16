@@ -27,9 +27,11 @@ La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_vet
 | HU14      | Apertura por zona de sede, cruce de medianoche/excepciones, horario semanal 24h y advertencias sobre datos guardados y disponibilidad profesional            |
 | HU15      | Favoritos y notas privadas por cuenta, recarga/edición offline, pendientes, sincronización, revisiones y resolución explícita de conflictos                  |
 | HU16      | Contacto con llamada/copia y navegación externa desde un origen elegido hasta la sede publicada                                                              |
+| HU17      | Integración de trazado/ETA con Maps JavaScript Routes, tráfico y fallbacks; probada con SDK controlado, pendiente de clave/APIs reales para activarse        |
+| HU18      | Consulta publicada por sede/servicio/fecha/profesional, apartados temporales revalidados, prevención de solapes y borradores locales offline                 |
 | Base PWA  | Instalación, shell offline, actualización confirmada, precache y persistencia IndexedDB                                                                      |
 
-**No confundir disponibilidad con reservas terminadas.** `/citas` sigue siendo una pantalla provisional. La reserva atómica, la agenda y la gestión de estados pertenecen a HU18 y siguientes. Chat, llamadas, push y sincronización general también siguen pendientes. Tener infraestructura PWA no significa que todas las HU posteriores de continuidad estén aceptadas.
+**No confundir apartado con cita solicitada o confirmada.** `/citas` ya consulta disponibilidad y prepara borradores/apartados temporales de cinco minutos. La solicitud con mascota, sus estados y agenda pertenecen a HU19 y siguientes. Chat, llamadas, push y sincronización general siguen pendientes. HU17 tiene la integración preparada, pero falta configurar Google para comprobar rutas reales. Tener infraestructura PWA no significa que todas las HU de continuidad estén aceptadas.
 
 ## 2. Lecturas recomendadas
 
@@ -42,6 +44,7 @@ La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_vet
 7. [supabase/migrations/README.md](supabase/migrations/README.md): orden de migraciones y estado remoto registrado.
 8. [docs/hu10-hu12.md](docs/hu10-hu12.md): descubrimiento en Tunja, origen, búsqueda, ficha por sede y Cómo llegar; diferencia entre navegación externa y ruta/ETA internas.
 9. [docs/hu13-hu15.md](docs/hu13-hu15.md): criterios, filtros combinados, apertura, favoritos/notas, persistencia offline, modelo privado y límites de sincronización.
+10. [docs/hu17-hu18.md](docs/hu17-hu18.md): activar Google Maps, cálculo/privacidad de rutas, horarios reservables, apartados temporales, protocolo de ocupación y borradores.
 
 Algunos README de dominios y pasajes históricos describen una fase anterior. Por ejemplo, la disponibilidad ya existe en `offerings`, aunque el README de `appointments` la enumere como futura; hay sincronización acotada de cuentas aunque el README inicial de IndexedDB describa solo un esqueleto. La fuente visual actual es **Poppins**, no la DM Sans mencionada en decisiones iniciales.
 
@@ -61,7 +64,7 @@ Las versiones exactas están en `package.json` y `package-lock.json`. Conservar 
 | Ubicación                                                                 | Responsabilidad                                                                                      |
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `src/app/`                                                                | Layout, proveedores y única instancia de QueryClient                                                 |
-| `src/routes/router.tsx`                                                   | Registro central de rutas y pantallas provisionales                                                  |
+| `src/routes/router.tsx`                                                   | Registro central de rutas y pantallas de la aplicacion                                               |
 | `src/features/auth/`                                                      | API de cuenta, sesión validada, recuperación, cierre y pantallas                                     |
 | `src/features/directory/`                                                 | Perfil/mascotas, establecimientos, revisión, fichas y mapa                                           |
 | `src/features/directory/discovery.ts`, `origin-store.ts`, `public-api.ts` | Referencia de Tunja, búsqueda por sede, distancias, origen en memoria y consultas públicas paginadas |
@@ -70,7 +73,7 @@ Las versiones exactas están en `package.json` y `package-lock.json`. Conservar 
 | `src/features/offerings/`                                                 | Modelos, API, configuración de catálogo/equipo/horarios y catálogo público                           |
 | `src/features/preferences/`                                               | Favoritos/notas, persistencia local, sincronización y resolución de conflictos por cuenta            |
 | `src/features/sync/`                                                      | Cola de perfil/mascotas y coordinación por cuenta                                                    |
-| `src/features/appointments/`, `messaging/`, `calls/`                      | Alcance documentado para desarrollos posteriores                                                     |
+| `src/features/appointments/`, `messaging/`, `calls/`                      | Disponibilidad/borradores en appointments; mensajeria/llamadas pendientes                            |
 | `src/lib/supabase.ts`                                                     | Cliente Supabase único, nullable sin configuración                                                   |
 | `src/lib/db/`                                                             | Instancia Dexie, esquema y purga de datos privados                                                   |
 | `src/pwa/` y `src/sw.ts`                                                  | Instalación, conexión, bloqueos de recarga, actualización y service worker                           |
@@ -82,10 +85,10 @@ El alias `@/` apunta a `src/`. Hay proyectos TypeScript separados para app, herr
 
 ## 4. Rutas y recorrido principal
 
-- Públicas: `/`, `/explorar`, `/establecimientos/:id`, `/establecimientos/:id/como-llegar`, `/cuenta` y `/privacidad`. `/favoritos` tiene shell accesible y contenido privado condicionado a la cuenta/sesión local válida.
+- Públicas: `/`, `/explorar`, `/establecimientos/:id`, `/establecimientos/:id/como-llegar`, `/cuenta`, `/privacidad`, `/terminos` y `/citas`. Favoritos y borradores/apartados de Citas tienen contenido privado condicionado a su cuenta/sesión local válida.
 - Cuenta: `/registro`, `/acceso`, `/recuperar-acceso`, `/auth/confirmar` y `/restablecer-clave`.
 - Privadas: `/perfil`, `/oferentes`, `/oferentes/nuevo`, `/oferentes/:id/editar`, `/oferentes/servicios`, `/oferentes/:id/servicios` y `/administracion/oferentes`.
-- Provisional: `/citas`; admite `?estado=carga` y `?estado=error` como demostración del shell.
+- `/citas` tiene consulta real de HU18. Ya no usa `PlaceholderPage` ni los parámetros de demostración `estado=carga/error`. Conserva `establecimiento`, `sede`, `servicio`, `fecha` y `profesional` en URL; el acceso permite volver a esa ruta o a Cómo llegar, con validación del destino.
 
 Un responsable registra una solicitud; administración aprueba su publicación. Después configura servicios, profesionales y recursos, crea asignaciones y jornadas, y registra cierres. Un visitante consulta fichas y servicios de sedes publicadas desde el mapa o el listado. Un colaborador acepta su invitación en **Cuenta → Servicios y disponibilidad**.
 
@@ -95,7 +98,7 @@ En Explorar se conservan `q`, `categoria`, `vista`, `orden`, `seleccion`, `servi
 
 Proyecto de desarrollo registrado y verificado el 2026-11-15: **`veterinary-services-dev`**, referencia **`osoljaiqizmcxxlirrwo`**. Es un identificador público, no una credencial. Antes de una futura operación remota, comprobar que sigue siendo el proyecto previsto; el registro histórico no demuestra el estado actual de otra base.
 
-Hay seis migraciones aplicadas y alineadas con el historial remoto en esa fecha:
+Hay ocho migraciones aplicadas y alineadas con el historial remoto en esa fecha:
 
 1. `20261114000000_enable_extensions.sql`: PostGIS y btree_gist.
 2. `20261114010000_identity_and_access.sql`: perfiles, consentimiento, roles y acceso.
@@ -103,6 +106,8 @@ Hay seis migraciones aplicadas y alineadas con el historial remoto en esa fecha:
 4. `20261114194307_account_data_guards.sql`: validación de perfil y consulta protegida de rol.
 5. `20261115192045_services_availability_and_collaborators.sql`: catálogo, equipo, disponibilidad y colaboradores.
 6. `20261115210218_discovery_filters_and_private_preferences.sql`: urgencias explícitas en servicios y preferencias privadas, RLS y RPC con revisión/idempotencia.
+7. `20261116002733_reservable_availability_and_slot_holds.sql`: motor común, consulta publicada y apartados temporales con guardas de ocupación.
+8. `20261116002913_index_slot_hold_references.sql`: índices completos de FK de profesional/recurso de apartados. Las dos versiones usan fecha UTC 2026-11-16; se aplicaron el 2026-11-15 en `America/Bogota`.
 
 Crear migraciones nuevas para cambios posteriores y preservar las ya aplicadas. No repetir estas migraciones sobre desarrollo ni reiniciar la base para añadir una funcionalidad.
 
@@ -127,7 +132,7 @@ Crear migraciones nuevas para cambios posteriores y preservar las ya aplicadas. 
 - Los servicios admiten `emergency?: boolean`, validado también en PostgreSQL. La ausencia conserva el atributo desconocido; filtrar urgencias requiere `true`. No inferirlo del nombre ni de la categoría. Los filtros de servicio/especie/modalidad/urgencias/domicilio deben cumplirse en un mismo servicio activo de la sede publicada.
 - Los intervalos consideran zona horaria IANA de sede, jornadas semanales, cruce de medianoche, horarios/excepciones de sede, bloqueos y ocupaciones confirmadas. Consulta hasta 180 días; se excluyen intervalos pasados.
 - Desactivar conserva referencias históricas y elimina disponibilidad. Los cierres avisan del número de citas afectadas sin cancelarlas automáticamente. No retirar una sede referenciada por el catálogo.
-- `offering_appointments` es una base de referencias y ocupaciones para integrar citas posteriormente. No hay endpoint de reserva ni escrituras del cliente; no presentarla como sistema de citas terminado.
+- `offering_appointments` sigue siendo la base de referencias y ocupaciones para integrar solicitudes de cita en HU19. HU18 añade `slot_holds` y sus RPC de apartado temporal, no un endpoint de solicitud/confirmación de cita. No presentar el dominio como sistema de citas terminado.
 - `establishment_collaborators` maneja invitaciones de 7 días con permisos `services`, `schedule` y `read`. La aceptación exige el correo confirmado correspondiente. La vinculación da lectura de configuración y edición solo de áreas asignadas; no permite invitar a otros. El responsable puede revocar inmediatamente.
 - Las invitaciones son internas a la aplicación; no hay envío automático de correo de colaboradores.
 
@@ -144,14 +149,26 @@ Conservar RLS, privilegios mínimos y aislamiento entre cuentas/establecimientos
 
 ## 6. PWA, datos locales y mapa
 
+### Disponibilidad reservable y apartados (HU18)
+
+- `appointments/model.ts`, `api.ts` y `AvailabilityPage.tsx` implementan `/citas`. Los servicios publicados enlazan con establecimiento/sede/servicio elegidos. La consulta devuelve zona IANA, modalidad, nombres de profesionales asignados y fecha de consulta.
+- RPC pública `service_availability` usa `private.available_service_slots(...,true)` para consultar exclusivamente la sede publicada. La previsualización de responsables mediante `offering_slots` conserva el modo de borrador privado. Ambos motores descuentan citas confirmadas y apartados no vencidos/liberados.
+- `slot_holds` permite SELECT solo al propietario con correo confirmado y no admite escrituras directas. `acquire_slot_hold`, `release_slot_hold` y `current_slot_hold` son fachadas públicas invoker con auxiliares privados que validan Auth. Un apartado dura cinco minutos y no crea una cita.
+- Al apartar se bloquean cuenta y establecimientos afectados en orden estable; se recalcula el intervalo y sus datos se derivan del servidor. UUID estable permite reintento sin extender vencimiento. Cambiar selección reemplaza el apartado anterior atómicamente; si falla se conserva el anterior.
+- Los triggers de apartados y referencias de citas comparten bloqueo de establecimiento y rechazan solapes de profesional o recurso con `23P01`. Los extremos son semiabiertos y se admiten intervalos adyacentes. No desactivar estas guardas en desarrollos futuros. HU19 debe revalidar/consumir el apartado e insertar su solicitud dentro de la misma transacción, añadiendo mascota/propietario/estados.
+- El servidor decide vencimiento; no requiere cron para dejar de ocupar. La UI consulta el apartado vigente y usa la hora del servidor para su contador. Conflictos conservan fecha/servicio/selección como referencia.
+- Las consultas públicas se guardan con antigüedad. Offline o ante fallback solo habilitan borrador privado local; no permiten apartar. Los borradores no entran en outbox ni se envían al reconectar. El cierre los cuenta como pendientes y requiere decisión antes de purgarlos.
+
+### Persistencia y mapas
+
 - El SW está desactivado en `npm run dev`. Probar instalación, offline y actualización con build/preview o HTTPS.
 - `src/sw.ts` precachea recursos propios y mantiene navegación SPA offline. No cachea automáticamente datos de API, imágenes remotas ni teselas.
 - La actualización espera confirmación. Usar `acquireReloadBlock(...)` y liberar en `finally` durante operaciones sensibles; proteger formularios con cambios sin guardar.
-- IndexedDB tiene esquema v2; conserva las diez tablas de v1 y añade `preferences`, `offline_sessions` y `public_snapshots`. Se probó la actualización conservando catálogo y outbox previos. Añadir una versión para cambios posteriores; no borrar datos como estrategia de migración. Las antiguas tablas `favorites`/`private_notes` siguen como esqueleto: el dominio actual usa `preferences` para una escritura atómica junto a outbox.
+- IndexedDB tiene esquema v3. Conserva v1/v2 (`preferences`, `offline_sessions`, `public_snapshots`) y añade `availability_drafts`, privada por cuenta/servicio. Se probó actualización conservando catálogo y outbox previos. No borrar datos para migrar. `favorites`/`private_notes` siguen como esqueleto; preferencias usa `preferences` junto a outbox.
 - La sincronización actual procesa `profile.update`, `pet.save` y `preference.save`. No marcar operaciones desconocidas como completadas ni anunciar sincronización general del catálogo, citas o adjuntos. Preferencias consulta/envía al validar sesión, reconectar y cada 30 segundos con la app abierta; también tiene reintento manual. Un fallo conserva el pendiente y un conflicto exige elección explícita.
 - Los guardados de favorito/nota consolidan un pendiente por cuenta/establecimiento y conservan la revisión remota. La transacción de IndexedDB abarca preferencia y outbox. No sustituir cambios pendientes al descargar datos remotos. `liveQuery` mantiene la interfaz al día entre pestañas; las consultas/mutaciones locales usan `networkMode: 'always'` para no quedar pausadas offline.
-- Tras recargar offline, solo se habilitan favoritos/notas si la sesión del SDK está vigente y coincide con un comprobante persistido después de validar `getUser`: propietario, vencimiento, SHA-256 del token y datos mínimos del usuario. No se duplica el token en IndexedDB. `offlineUser` no habilita otras funciones privadas; sincronizar exige validar de nuevo con el servidor. Al vencer la sesión se requiere conexión. RLS aísla cuentas en servidor; IndexedDB no está cifrado.
-- `public-cache.ts` conserva publicaciones/servicios públicos y fecha en `public_snapshots`, con fallback explícito ante desconexión/error de red. No cachea notas junto al catálogo ni teselas. La apertura almacenada se muestra sin verificar. Los snapshots públicos se conservan al salir; preferencias y comprobantes se purgan con los demás datos privados.
+- Tras recargar offline, favoritos/notas y borradores de horario requieren sesión SDK vigente y comprobante persistido tras validar `getUser`: propietario, vencimiento, SHA-256 del token y datos mínimos. No se duplica el token en IndexedDB. `offlineUser` no autoriza apartados ni solicitudes remotas; sincronizar/revalidar exige conexión y validación de servidor. RLS aísla cuentas en servidor; IndexedDB no está cifrado.
+- `public-cache.ts` conserva publicaciones, servicios y consultas públicas de disponibilidad con fecha en `public_snapshots`. El fallback es explícito. No cachea notas junto al catálogo, teselas ni rutas/ETA de Google. La apertura guardada es desconocida y la disponibilidad guardada solo sirve de referencia/borrador. Al salir se conservan snapshots públicos y se purgan preferencias, comprobantes y borradores privados.
 - `account-write-lock.ts` coordina por cuenta con Web Locks; su fallback solo coordina una pestaña. El cierre cancela consultas, limpia caché y exige una decisión sobre pendientes antes de purgar datos privados. El cambio de cuenta también limpia la caché remota.
 - El mapa usa publicaciones aprobadas y omite coordenadas no finitas, fuera de rango o sin confirmar. La selección vive fuera del lienzo para sobrevivir a agrupaciones y zoom.
 - La ciudad inicial es **Tunja, Boyacá**, referencia `5.5353, -73.3678`, por solicitud explícita del usuario. Los prototipos que nombran Bogotá se adaptan a Tunja. No inventar una ubicación GPS ni presentar el centro de ciudad como la casa del visitante; una ubicación real obtenida no se fuerza a esas coordenadas. La referencia inicial no constituye un límite municipal ni importa negocios externos.
@@ -160,7 +177,8 @@ Conservar RLS, privilegios mínimos y aislamiento entre cuentas/establecimientos
 - El origen se obtiene con permiso bajo acción explícita, se marca en el mapa o se introduce con coordenadas. Se conserva solo en memoria mientras vive la página y se elimina al recargar; no se guarda en backend, IndexedDB, localStorage ni URL. Una respuesta GPS tardía no puede reemplazar una elección manual posterior.
 - La búsqueda reúne publicaciones/servicios activos mediante consultas paginadas en bloques de 500 con orden estable, y filtra por sede publicada en el cliente. Mapa y lista representan el mismo conjunto; alternar conserva filtros y selección. El catálogo grande requerirá búsqueda en servidor. Un fallo de consulta no debe presentarse como cero coincidencias.
 - La ficha mantiene identidad y sede elegida; sus servicios se filtran por esa sede. No cambiar silenciosamente un destino inexistente por otra sede ni generar indicaciones con coordenadas no verificadas.
-- **Cómo llegar** abre una Maps URL con destino exacto y origen manual/GPS cuando esté disponible, en carro o a pie. El centro de ciudad no se envía como si fuera la casa. Google Maps realiza la navegación y muestra sus tiempos; la PWA no calcula trazado, tráfico ni ETA propios (HU17 pendiente). No se requieren nuevas API keys para este enlace.
+- **Cómo llegar** mantiene la Maps URL externa sin requerir claves y añade el cálculo integrado de HU17 mediante `RoutePlanner`, `google-routes.ts` y `GoogleRouteMap`. Usa `Route.computeRoutes`, mapa Google con atribución, campos mínimos y tráfico opcional desactivado por defecto. Muestra fecha/estimación/avisos y fallback de tráfico, nunca hora garantizada. Origen/destino se comparten con Google bajo acción explícita. Un resultado se descarta al cambiar contexto/conexión; no se persiste y respuestas demoradas no reemplazan la elección nueva. El centro de ciudad no se envía como casa.
+- HU17 requiere **Maps JavaScript API + Routes API**, facturación y `VITE_GOOGLE_MAPS_API_KEY`, pública y restringida por dominio/APIs. Esta clave todavía no está configurada en el entorno real; la integración se verificó con SDK controlado. No habilitar facturación ni inventar una ruta de éxito. Fallos de cuota/cobertura/red/configuración mantienen la alternativa externa online. No hay Edge Function nueva. La guía HU17-HU18 contiene los pasos de activación.
 - El acceso conserva el destino público en `continuar`; el registro conserva solo esa ruta pública en `localStorage` (`veterinary.public-return`), con caducidad de una hora y consumo único. Esto permite confirmar correo en otra pestaña del mismo navegador/origen sin ampliar las Redirect URLs autorizadas de Supabase. No guardar el origen GPS en ese contexto. Si el almacenamiento está bloqueado/vencido, la confirmación vuelve a Cuenta. Los retornos se validan contra rutas públicas propias.
 - Proveedor predeterminado: OpenStreetMap, con atribución visible y política de referencia compatible. No añadir descargas masivas ni precarga offline de teselas. El listado con dirección y teléfono debe seguir disponible ante fallos.
 - Para fechas generales se usa `America/Bogota`; la disponibilidad respeta la zona específica de cada sede. Los instantes se almacenan como UTC y se presentan con zona explícita.
@@ -172,6 +190,7 @@ Variables públicas en `.env.local`, según `.env.example`:
 - `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`: configurar ambas o dejar ambas vacías para el shell. La segunda admite clave publishable o anon legacy.
 - `VITE_MAP_TILE_URL` y `VITE_MAP_ATTRIBUTION`: opcionales para otro proveedor.
 - `BUILD_ID`: identificador público opcional del build.
+- `VITE_GOOGLE_MAPS_API_KEY`: opcional para HU17; clave pública de navegador restringida a dominios propios y Maps JavaScript API/Routes API. No usar claves privadas de servidor. Sin ella siguen funcionando directorio, disponibilidad y navegación externa.
 
 Todo `VITE_` llega al navegador. No añadir secretos, `service_role`, contraseñas ni tokens privados; no copiar `.env.local` a documentación o pruebas. Cambiar estas variables requiere recompilar.
 
@@ -201,6 +220,8 @@ Corrección posterior de visibilidad del mapa (2026-11-15): 19 E2E de descubrimi
 
 Verificación de HU13-HU15 (2026-11-15): **103 pruebas de lógica/PostgreSQL en 16 archivos**, suite ampliada a **44 E2E**, lint, tipos y build correctos. Incluye filtros combinados/limpieza, medianoche, excepciones, DST, apertura desconocida offline, 24h con contacto desde selección, favoritos/notas tras recarga offline, reconexión, conflictos, purga, migración IndexedDB y aislamiento de cuenta. La suite completa pasó; tras añadir apertura a la selección del mapa se ajustó una aserción que coincidía con el listado y el panel oculto, y se repitieron los cuatro recorridos de HU13-HU15. El build final se regenera con el entorno real después de E2E. Se revisaron capturas de mapa/lista a 320/360 px. `supabase/tests/hu13_hu15.sql` pasó en desarrollo con rollback y el historial remoto quedó alineado con las seis migraciones. No se añadieron avisos de seguridad; los dos informativos privados previos permanecen. El detalle y los avisos de rendimiento están en `docs/hu13-hu15.md`.
 
+Verificación de HU17-HU18 (2026-11-15): **129 pruebas de lógica/PostgreSQL en 18 archivos y 52 E2E**, lint, tipos y build. Tras ajustar el alcance del aviso de fallo OSM al mostrar una ruta Google, se repitieron los recorridos nuevos y de descubrimiento. Capturas revisadas en Citas a 320/1280 px y ruta con SDK controlado a 360 px. Las ocho migraciones están aplicadas/alineadas y `supabase/tests/hu18.sql` pasó con rollback. Se corrigieron los dos avisos nuevos de FK sin índice; quedan los informativos privados e índices sin uso y la política permisiva histórica de oferta. El build se regenera con el entorno real después de E2E. **Pendiente:** clave/APIs y prueba real de Google, dispositivos físicos y solicitudes HU19. No se afirmó haber ejecutado tráfico real, solicitudes HTTP simultáneas ni consumo facturable.
+
 ## 8. Convenciones para continuar
 
 - Revisar `git status` antes de editar y conservar cambios existentes del usuario. No asumir que el trabajo de una sesión anterior ya está confirmado en Git.
@@ -214,9 +235,9 @@ Verificación de HU13-HU15 (2026-11-15): **103 pruebas de lógica/PostgreSQL en 
 
 ## 9. Pendientes y próximos desarrollos
 
-- Trazado y ETA dentro de la PWA (HU17) siguen pendientes. La ubicación/origen manual, búsqueda/filtros, apertura declarada, favoritos/notas y navegación externa ya existen. No se importan automáticamente establecimientos de proveedores de mapas.
+- Activar HU17 con clave de navegador restringida, Maps JavaScript API/Routes API y cuotas revisadas; verificar cobertura/ETA reales en Tunja. La integración y fallbacks están implementados; no se importan automáticamente establecimientos de proveedores de mapas.
 - Completar el recorrido real de HU11 CA3 cuando se implementen las reservas y el chat. El contexto y retorno de autenticación están preparados y probados; no habilitar botones que simulen esos dominios.
-- Reservas atómicas, agenda y estados de citas, integrando disponibilidad y referencias existentes; prevenir dobles asignaciones también en el servidor.
+- HU19 y siguientes: solicitudes atómicas con mascota, agenda y estados. Integrar el apartado de HU18 y revalidar dentro de la misma transacción, conservando las guardas contra solapes de profesional/recurso.
 - Chat, imágenes/audio, Realtime, llamadas autorizadas, notificaciones push y recordatorios.
 - Sincronización general, reintentos, conflictos y adjuntos; la cola actual de cuentas no cubre estos dominios.
 - Aceptación con correos reales de confirmación/recuperación, validación piloto y Android/iPhone físicos. El aviso de privacidad de desarrollo necesita datos operativos definitivos antes de publicación general.
