@@ -4,7 +4,7 @@ begin;
 do $$
 <<check_hu>>
 declare
-  owner_id uuid:=gen_random_uuid(); colleague uuid:=gen_random_uuid(); stranger uuid:=gen_random_uuid(); admin_id uuid:=gen_random_uuid();
+  customer uuid:=gen_random_uuid(); owner_id uuid:=gen_random_uuid(); colleague uuid:=gen_random_uuid(); stranger uuid:=gen_random_uuid(); admin_id uuid:=gen_random_uuid();
   site_id uuid:=gen_random_uuid(); est uuid; svc uuid:=gen_random_uuid(); prof uuid:=gen_random_uuid(); resource_id uuid:=gen_random_uuid();
   assignment uuid:=gen_random_uuid(); shift_id uuid:=gen_random_uuid(); closure uuid:=gen_random_uuid(); invitation uuid;
   pet_id uuid:=gen_random_uuid(); other_pet uuid:=gen_random_uuid(); appt uuid:=gen_random_uuid(); virtual_svc uuid:=gen_random_uuid(); virtual_assignment uuid:=gen_random_uuid(); requested_at timestamptz;
@@ -12,8 +12,8 @@ declare
   day_date date:=current_date+7; counter integer; result jsonb; doc jsonb; service_doc jsonb; prof_doc jsonb; resource_doc jsonb;
 begin
   insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data)
-    select id,id::text||'@example.invalid',now(),'{"privacy_accepted":true,"privacy_policy_version":"2026-11-14"}'::jsonb
-    from unnest(array[owner_id,colleague,stranger,admin_id]) id;
+    select id,id::text||'@example.invalid',now(),jsonb_build_object('privacy_accepted',true,'privacy_policy_version','2026-11-14','account_type',case when id in (owner_id,colleague) then 'veterinary' else 'pet_owner' end)
+    from unnest(array[owner_id,colleague,stranger,admin_id,customer]) id;
   update private.account_roles set role='admin' where user_id=admin_id;
   doc:=jsonb_build_object('name','Integración HU18','category','Veterinaria','phone','3001234567',
     'email','contacto@example.invalid','responsible_name','Responsable prueba','logo_path',null,
@@ -40,12 +40,16 @@ begin
 
   requested_at:=(day_date+time '08:00') at time zone 'America/Bogota';
   perform public.save_appointment_policy(est,60,60,0);
-  perform public.save_pet(pet_id,owner_id,'Luna','Perro');
+  perform set_config('request.jwt.claim.sub',customer::text,true);
+  perform public.save_pet(pet_id,customer,'Luna','Perro');
+  perform set_config('request.jwt.claim.sub',customer::text,true);
   result:=public.request_appointment(appt,svc,assignment,requested_at,pet_id,'Presencial',null);
   if result->'snapshot'->>'cancel_minutes'<>'60' then raise exception 'No se conservó la regla'; end if;
+  perform set_config('request.jwt.claim.sub',owner_id::text,true);
   perform public.decide_appointment(appt,1,'confirmed','');
   perform set_config('request.jwt.claim.sub',stranger::text,true);
   perform public.save_pet(other_pet,stranger,'Milo','Perro');
+  perform set_config('request.jwt.claim.sub',stranger::text,true);
   perform public.request_appointment(other_appt,svc,assignment,requested_at+interval '30 minutes',other_pet,'Presencial',null);
   begin
     perform public.change_appointment(gen_random_uuid(),appt,2,'cancelled','Sin permiso');
@@ -63,10 +67,13 @@ begin
   result:=public.change_appointment(operation,appt,2,'rescheduled','Cambio de horario',assignment,requested_at+interval '1 hour');
   if result<>doc or result->>'status'<>'requested' or jsonb_array_length(result->'events')<>3 then raise exception 'Cambio duplicado o no auditado'; end if;
   perform public.change_appointment(gen_random_uuid(),appt,3,'cancelled','No puedo asistir');
+  perform set_config('request.jwt.claim.sub',customer::text,true);
   result:=public.appointment_agenda('mine',est,day_date,day_date,'Presencial','cancelled','history');
   if jsonb_array_length(result)<>1 then raise exception 'Filtros de agenda incorrectos'; end if;
   appt:=gen_random_uuid();
+  perform set_config('request.jwt.claim.sub',customer::text,true);
   perform public.request_appointment(appt,svc,assignment,requested_at+interval '2 hours',pet_id,'Presencial',null);
+  perform set_config('request.jwt.claim.sub',owner_id::text,true);
   perform public.decide_appointment(appt,1,'confirmed','');
   begin
     perform public.change_appointment(gen_random_uuid(),appt,2,'completed','');

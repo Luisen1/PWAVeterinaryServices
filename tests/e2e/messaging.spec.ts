@@ -35,7 +35,11 @@ function server() {
   const uploadIds: string[] = [];
   let loseUpload = false;
   async function setup(context: BrowserContext, asTeam = false) {
-    await mockAuthApi(context, { userId: asTeam ? team : TEST_USER_ID });
+    await mockAuthApi(context, {
+      userId: asTeam ? team : TEST_USER_ID,
+      accountType: asTeam ? 'veterinary' : 'pet_owner',
+      canMessageTeam: asTeam,
+    });
     await context.route(
       `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/chat_media_uploads*`,
       (route) => route.fulfill({ json: [] }),

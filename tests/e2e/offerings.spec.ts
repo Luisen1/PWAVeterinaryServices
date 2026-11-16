@@ -27,7 +27,7 @@ test('configura catálogo, equipo, jornadas y cierres con persistencia y aviso d
   page,
   context,
 }, testInfo) => {
-  const auth = await mockAuthApi(context);
+  const auth = await mockAuthApi(context, { accountType: 'veterinary' });
   await mockDirectoryApi(context, auth.getRole);
   const api = await mockOfferings(context);
   await login(page);
@@ -145,7 +145,7 @@ test('desactiva servicios, los oculta en la ficha pública y conserva su registr
   page,
   context,
 }) => {
-  const auth = await mockAuthApi(context);
+  const auth = await mockAuthApi(context, { accountType: 'veterinary' });
   const directory = await mockDirectoryApi(context, auth.getRole);
   const api = await mockOfferings(context);
   directory.publications.push({
@@ -201,7 +201,7 @@ test('crea y revoca invitaciones con permisos explícitos', async ({
   page,
   context,
 }) => {
-  const auth = await mockAuthApi(context);
+  const auth = await mockAuthApi(context, { accountType: 'veterinary' });
   await mockDirectoryApi(context, auth.getRole);
   const api = await mockOfferings(context);
   await login(page);
@@ -225,7 +225,7 @@ test('acepta una vinculación de consulta sin ofrecer controles de edición', as
   page,
   context,
 }) => {
-  const auth = await mockAuthApi(context);
+  const auth = await mockAuthApi(context, { accountType: 'veterinary' });
   await mockDirectoryApi(context, auth.getRole);
   await mockOfferings(context, { owner: false, invited: true });
   await login(page);

@@ -48,6 +48,7 @@ begin
     insert into auth.users(id, email, email_confirmed_at, raw_user_meta_data)
     select account.id, account.email, now(), jsonb_build_object(
       'privacy_accepted', true, 'privacy_policy_version', '2026-11-14',
+      'account_type', case when account.id=owner_id then 'veterinary' else 'pet_owner' end,
       'development_fixture', fixture,
       'seed_anchor_date', (now() at time zone 'America/Bogota')::date)
     where not exists (select 1 from auth.users where id = account.id);
@@ -109,6 +110,7 @@ begin
         raise exception 'El establecimiento DEMO % cambió. No se sobrescribirá.', business_id;
       end if;
     else
+      perform set_config('request.jwt.claim.sub', owner_id::text, true);
       insert into public.establishments(id, owner_id, document) values (business_id, owner_id, seed_document);
       -- La revisión usa la RPC real. El privilegio técnico solo existe dentro de esta
       -- transacción y se retira antes de confirmar; no queda un administrador nuevo.

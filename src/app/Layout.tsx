@@ -5,8 +5,9 @@ import { ConnectionStatus } from '@/pwa/ConnectionStatus';
 import { InstallApp } from '@/pwa/InstallApp';
 import { UpdatePrompt } from '@/pwa/UpdatePrompt';
 import { Brand } from '@/components/ui/Brand';
+import { useAccountContext } from '@/features/auth/useAccountContext';
 
-const links: { to: string; label: string; icon: IconName }[] = [
+const publicLinks: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Inicio', icon: 'home' },
   { to: '/explorar', label: 'Explorar', icon: 'compass' },
   { to: '/citas', label: 'Citas', icon: 'calendar' },
@@ -14,6 +15,36 @@ const links: { to: string; label: string; icon: IconName }[] = [
 ];
 
 export function Layout() {
+  const account = useAccountContext();
+  const context = !account.isError ? account.data : undefined;
+  const links = publicLinks.map((link) => {
+    if (link.to === '/citas' && context?.role === 'admin')
+      return { ...link, to: '/administracion/oferentes', label: 'Revisión' };
+    if (context?.account_type === 'veterinary' && context.role !== 'admin') {
+      if (link.to === '/explorar')
+        return {
+          ...link,
+          to: '/oferentes',
+          label: 'Veterinaria',
+          icon: 'store' as const,
+        };
+      if (link.to === '/citas')
+        return {
+          ...link,
+          to: context.can_read_appointments
+            ? '/oferentes/agenda'
+            : context.can_message_team
+              ? '/oferentes/mensajes'
+              : '/oferentes/servicios',
+          label: context.can_read_appointments
+            ? 'Agenda'
+            : context.can_message_team
+              ? 'Mensajes'
+              : 'Servicios',
+        };
+    }
+    return link;
+  });
   const location = useLocation();
   const main = useRef<HTMLElement>(null);
   const previousPath = useRef(location.pathname);

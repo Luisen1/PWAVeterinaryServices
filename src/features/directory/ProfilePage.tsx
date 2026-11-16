@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useAccountContext } from '@/features/auth/useAccountContext';
+import { canUseArea } from '@/features/auth/account-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useZodForm } from '@/lib/forms';
 import { authClient, withAuthOperation } from '@/features/auth/api';
@@ -33,8 +35,8 @@ import {
 export function ProfilePage() {
   return (
     <Workspace
-      title="Perfil y mascotas"
-      description="Actualiza tus datos y registra las mascotas que podrás seleccionar al agendar."
+      title="Mi perfil"
+      description="Actualiza tus datos de contacto. Las opciones disponibles corresponden a tu tipo de cuenta."
     >
       <Verified>{(userId) => <ProfileContent userId={userId} />}</Verified>
     </Workspace>
@@ -42,6 +44,9 @@ export function ProfilePage() {
 }
 function ProfileContent({ userId }: { userId: string }) {
   const online = useOnline();
+  const context = useAccountContext();
+  const petOwner =
+    !!context.data && !context.isError && canUseArea(context.data, 'pet_owner');
   const client = useQueryClient();
   const [editing, setEditing] = useState<Pet | null>(null);
   const [petFormVersion, setPetFormVersion] = useState(0);
@@ -62,7 +67,7 @@ function ProfileContent({ userId }: { userId: string }) {
   });
   const pets = useQuery({
     queryKey: ['pets', userId],
-    enabled: online,
+    enabled: online && petOwner,
     queryFn: async ({ signal }) => {
       const { data, error } = await authClient()
         .from('pets')
@@ -163,107 +168,111 @@ function ProfileContent({ userId }: { userId: string }) {
           onSaved={refresh}
         />
       )}
-      <section id="mascotas" className={cardClass}>
-        <SectionHeading icon="paw">Mis mascotas</SectionHeading>
-        {pets.data && (
-          <p className="status-badge">
-            {pets.data.length}{' '}
-            {pets.data.length === 1
-              ? 'mascota registrada'
-              : 'mascotas registradas'}
-          </p>
-        )}
-        {pets.isPending && online && <Notice>Cargando mascotas…</Notice>}
-        {pets.isError && (
-          <div>
-            <Notice error>{dataError(pets.error)}</Notice>
-            <button
-              className={secondaryClass}
-              onClick={() => void pets.refetch()}
-              disabled={!online}
-            >
-              Reintentar
-            </button>
-          </div>
-        )}
-        {pets.data?.length === 0 && (
-          <div className="empty-state">
-            <span className="empty-state__icon">
-              <Icon name="paw" />
-            </span>
-            <p>Todavía no tienes mascotas registradas.</p>
-          </div>
-        )}
-        {pets.data?.map((pet) => (
-          <div key={pet.id} className="pet-card">
-            <span className="pet-card__avatar">
-              <Icon name="paw" />
-            </span>
-            <div className="pet-card__body">
-              <p className="font-semibold">{pet.name}</p>
-              <p className="text-sm text-stone-600">{pet.species}</p>
-            </div>
-            <div className="pet-card__actions">
+      {petOwner && (
+        <section id="mascotas" className={cardClass}>
+          <SectionHeading icon="paw">Mis mascotas</SectionHeading>
+          {pets.data && (
+            <p className="status-badge">
+              {pets.data.length}{' '}
+              {pets.data.length === 1
+                ? 'mascota registrada'
+                : 'mascotas registradas'}
+            </p>
+          )}
+          {pets.isPending && online && <Notice>Cargando mascotas…</Notice>}
+          {pets.isError && (
+            <div>
+              <Notice error>{dataError(pets.error)}</Notice>
               <button
                 className={secondaryClass}
-                onClick={() => {
-                  setEditing(pet);
-                  setPetFormVersion((v) => v + 1);
-                }}
+                onClick={() => void pets.refetch()}
+                disabled={!online}
               >
-                <Icon name="edit" />
-                Editar {pet.name}
-              </button>
-              <button
-                className={secondaryClass}
-                disabled={!online || deletion.isPending}
-                onClick={() => setDeleteId(pet.id)}
-              >
-                Eliminar {pet.name}
+                Reintentar
               </button>
             </div>
-          </div>
-        ))}
-        {deleteId && (
-          <div
-            role="alertdialog"
-            aria-label="Eliminar mascota"
-            className="space-y-3 rounded-xl bg-amber-50 p-4"
-          >
-            <p>¿Eliminar esta mascota de tu perfil?</p>
-            <button
-              className={secondaryClass}
-              disabled={deletion.isPending}
-              onClick={() => setDeleteId(null)}
+          )}
+          {pets.data?.length === 0 && (
+            <div className="empty-state">
+              <span className="empty-state__icon">
+                <Icon name="paw" />
+              </span>
+              <p>Todavía no tienes mascotas registradas.</p>
+            </div>
+          )}
+          {pets.data?.map((pet) => (
+            <div key={pet.id} className="pet-card">
+              <span className="pet-card__avatar">
+                <Icon name="paw" />
+              </span>
+              <div className="pet-card__body">
+                <p className="font-semibold">{pet.name}</p>
+                <p className="text-sm text-stone-600">{pet.species}</p>
+              </div>
+              <div className="pet-card__actions">
+                <button
+                  className={secondaryClass}
+                  onClick={() => {
+                    setEditing(pet);
+                    setPetFormVersion((v) => v + 1);
+                  }}
+                >
+                  <Icon name="edit" />
+                  Editar {pet.name}
+                </button>
+                <button
+                  className={secondaryClass}
+                  disabled={!online || deletion.isPending}
+                  onClick={() => setDeleteId(pet.id)}
+                >
+                  Eliminar {pet.name}
+                </button>
+              </div>
+            </div>
+          ))}
+          {deleteId && (
+            <div
+              role="alertdialog"
+              aria-label="Eliminar mascota"
+              className="space-y-3 rounded-xl bg-amber-50 p-4"
             >
-              Cancelar eliminación
-            </button>
-            <button
-              className={`${secondaryClass} ml-2`}
-              disabled={deletion.isPending || !online}
-              onClick={() => deletion.mutate(deleteId)}
-            >
-              Confirmar eliminación
-            </button>
-          </div>
-        )}
-        {deletion.isError && <Notice error>{dataError(deletion.error)}</Notice>}
-        <PetForm
-          key={`${editing?.id ?? 'new'}-${petFormVersion}`}
-          userId={userId}
-          pet={editing}
-          onSaved={async () => {
-            setEditing(null);
-            setPetFormVersion((v) => v + 1);
-            await refresh();
-          }}
-          onCancel={() => {
-            setEditing(null);
-            setPetFormVersion((v) => v + 1);
-          }}
-          onQueued={refresh}
-        />
-      </section>
+              <p>¿Eliminar esta mascota de tu perfil?</p>
+              <button
+                className={secondaryClass}
+                disabled={deletion.isPending}
+                onClick={() => setDeleteId(null)}
+              >
+                Cancelar eliminación
+              </button>
+              <button
+                className={`${secondaryClass} ml-2`}
+                disabled={deletion.isPending || !online}
+                onClick={() => deletion.mutate(deleteId)}
+              >
+                Confirmar eliminación
+              </button>
+            </div>
+          )}
+          {deletion.isError && (
+            <Notice error>{dataError(deletion.error)}</Notice>
+          )}
+          <PetForm
+            key={`${editing?.id ?? 'new'}-${petFormVersion}`}
+            userId={userId}
+            pet={editing}
+            onSaved={async () => {
+              setEditing(null);
+              setPetFormVersion((v) => v + 1);
+              await refresh();
+            }}
+            onCancel={() => {
+              setEditing(null);
+              setPetFormVersion((v) => v + 1);
+            }}
+            onQueued={refresh}
+          />
+        </section>
+      )}
     </div>
   );
 }

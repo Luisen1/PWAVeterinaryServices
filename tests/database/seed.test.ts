@@ -193,11 +193,26 @@ it('permite consultar horarios públicos, bloqueos, cierres y atención nocturna
 });
 
 it('revalida un apartado real sobre los intervalos sembrados', async () => {
+  const customer = crypto.randomUUID();
+  await db.query(
+    'insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data) values($1,$2,now(),$3)',
+    [
+      customer,
+      'customer@example.test',
+      {
+        privacy_accepted: true,
+        privacy_policy_version: '2026-11-14',
+        account_type: 'pet_owner',
+      },
+    ],
+  );
   const selectedDate = await date(7);
   const [slot] = await availability(1, selectedDate);
   expect(slot).toBeDefined();
   await db.exec('set local role authenticated;');
-  await db.query("select set_config('request.jwt.claim.sub',$1,true)", [owner]);
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)", [
+    customer,
+  ]);
   await db.query('select public.acquire_slot_hold($1,$2,$3,$4)', [
     'de179000-0000-4000-8000-000000000001',
     service(1),

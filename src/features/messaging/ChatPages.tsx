@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { z } from 'zod';
+import { useAccountContext } from '@/features/auth/useAccountContext';
 import {
   Notice,
   secondaryClass,
@@ -195,17 +196,19 @@ function Start({
   );
 }
 export function ConversationPage() {
+  const account = useAccountContext();
+  const team = account.data?.account_type === 'veterinary';
   const { id } = useParams();
   return (
     <Workspace
       title="Conversación"
       description="Texto privado con el equipo de la sede."
     >
-      <Link className={secondaryClass} to="/mensajes">
-        Mis conversaciones
-      </Link>
-      <Link className={secondaryClass} to="/oferentes/mensajes">
-        Chats del establecimiento
+      <Link
+        className={secondaryClass}
+        to={team ? '/oferentes/mensajes' : '/mensajes'}
+      >
+        {team ? 'Chats del establecimiento' : 'Mis conversaciones'}
       </Link>
       <Verified allowOffline>
         {(owner) =>

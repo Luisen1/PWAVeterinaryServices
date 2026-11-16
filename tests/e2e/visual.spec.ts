@@ -123,6 +123,13 @@ test('perfil, directorio y administración se adaptan sin inventar datos', async
       ['/oferentes', 'oferentes'],
       ['/administracion/oferentes', 'administracion'],
     ]) {
+      auth.setRole(
+        path === '/administracion/oferentes'
+          ? 'admin'
+          : path === '/oferentes'
+            ? 'provider'
+            : 'user',
+      );
       await page.goto(path!);
       if (path === '/explorar')
         await page.getByRole('button', { name: 'Lista', exact: true }).click();
@@ -163,7 +170,7 @@ test('el registro por pasos preserva datos y exige verificar cada cambio de ubic
   page,
   context,
 }, testInfo) => {
-  const auth = await mockAuthApi(context);
+  const auth = await mockAuthApi(context, { accountType: 'veterinary' });
   const api = await mockDirectoryApi(context, auth.getRole);
   await login(page);
   await page.goto('/oferentes/nuevo');

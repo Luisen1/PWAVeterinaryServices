@@ -3,6 +3,7 @@ import { PRIVACY_POLICY_VERSION } from '@/features/auth/schemas';
 import { acquireReloadBlock } from '@/pwa/reload-safety';
 import { clearRecoveryAccess } from '@/features/auth/recovery-access';
 import { rememberAuthReturn } from '@/features/auth/return-to';
+import { accountTypeSchema, type AccountType } from './account-types';
 
 export function authClient() {
   if (!supabase)
@@ -36,8 +37,10 @@ export function authRedirect(
 export async function registerAccount(
   email: string,
   password: string,
+  accountType: AccountType,
   destination?: string,
 ) {
+  const kind = accountTypeSchema.parse(accountType);
   return withAuthOperation(async () => {
     const { data, error } = await authClient().auth.signUp({
       email,
@@ -47,6 +50,7 @@ export async function registerAccount(
         data: {
           privacy_accepted: true,
           privacy_policy_version: PRIVACY_POLICY_VERSION,
+          account_type: kind,
         },
       },
     });

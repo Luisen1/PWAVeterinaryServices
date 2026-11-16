@@ -551,6 +551,7 @@ test('el registro conserva la sede tras confirmar correo sin cambiar la URL auto
       redirect = new URL(request.url()).searchParams.get('redirect_to') ?? '';
   });
   await page.goto(`/registro?${new URLSearchParams({ continuar: target })}`);
+  await page.getByRole('radio', { name: /Dueño de mascota/ }).check();
   await page.getByLabel('Correo electrónico', { exact: true }).fill(TEST_EMAIL);
   await page.getByLabel('Contraseña', { exact: true }).fill(TEST_PASSWORD);
   await page

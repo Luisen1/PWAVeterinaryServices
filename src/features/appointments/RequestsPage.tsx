@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { z } from 'zod';
 import {
   Notice,
@@ -29,6 +29,7 @@ import { AppointmentChanges } from './AppointmentChanges';
 import { readSavedAppointment, rememberAppointment } from './change-store';
 import { AppointmentPolicy } from './AppointmentPolicy';
 import { CallPanel } from '@/features/calls/CallPanel';
+import { useAccountContext } from '@/features/auth/useAccountContext';
 
 export function RequestsPage({
   team = false,
@@ -55,8 +56,11 @@ export function RequestsPage({
           : 'Consulta la respuesta de tu veterinario y los detalles de tus solicitudes.'
       }
     >
-      <Link className={secondaryClass} to="/citas">
-        Consultar horarios
+      <Link
+        className={secondaryClass}
+        to={team ? '/oferentes/servicios' : '/citas'}
+      >
+        {team ? 'Servicios y disponibilidad' : 'Consultar horarios'}
       </Link>
       <Link
         className={secondaryClass}
@@ -319,7 +323,7 @@ function RequestList({
 
 export function AppointmentDetailsPage() {
   const { id } = useParams();
-  const [params] = useSearchParams();
+  const account = useAccountContext();
   return (
     <Workspace
       title="Detalle de la solicitud"
@@ -328,7 +332,7 @@ export function AppointmentDetailsPage() {
       <Link
         className={secondaryClass}
         to={
-          params.get('equipo') === '1'
+          account.data?.account_type === 'veterinary'
             ? '/oferentes/citas'
             : '/citas/solicitudes'
         }

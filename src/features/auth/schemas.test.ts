@@ -15,6 +15,7 @@ it('exige correo válido, confirmación de contraseña y aceptación del aviso',
     }).success,
   ).toBe(false);
   const result = registrationSchema.safeParse({
+    accountType: 'pet_owner',
     email: ' correo@example.com ',
     password: 'UnaClave123!',
     confirmPassword: 'UnaClave123!',
@@ -37,4 +38,21 @@ it('preserva los espacios de la contraseña y comprueba su confirmación', () =>
       confirmPassword: 'OtraClave123!',
     }).success,
   ).toBe(false);
+});
+
+it('exige elegir un tipo de cuenta y rechaza tipos administrativos', () => {
+  const values = {
+    email: 'persona@example.test',
+    password: 'UnaClave123!',
+    confirmPassword: 'UnaClave123!',
+    privacyAccepted: true,
+  };
+  expect(registrationSchema.safeParse(values).success).toBe(false);
+  expect(
+    registrationSchema.safeParse({ ...values, accountType: 'admin' }).success,
+  ).toBe(false);
+  expect(
+    registrationSchema.safeParse({ ...values, accountType: 'veterinary' })
+      .success,
+  ).toBe(true);
 });

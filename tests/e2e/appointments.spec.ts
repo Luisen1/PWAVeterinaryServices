@@ -28,7 +28,11 @@ async function setup(
     existing?: boolean;
   } = {},
 ) {
-  const auth = await mockAuthApi(context);
+  const auth = await mockAuthApi(context, {
+    accountType: options.staff ? 'veterinary' : 'pet_owner',
+    canReadAppointments: !!options.staff,
+    canMessageTeam: !!options.staff,
+  });
   const directory = await mockDirectoryApi(context, auth.getRole);
   const offer = await mockOfferings(context);
   directory.publications.push({

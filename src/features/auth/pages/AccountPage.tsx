@@ -13,14 +13,12 @@ import {
 import { useOnline } from '@/pwa/useOnline';
 import { syncPendingAccountChanges } from '@/features/sync/account-sync';
 import { dataError } from '@/features/directory/api';
-import { PageHeading, SectionHeading } from '@/components/ui/PageHeading';
+import { PageHeading } from '@/components/ui/PageHeading';
+import { useAccountContext } from '../useAccountContext';
+import { accountTypeLabels } from '../account-types';
+import { AccountMenu } from '../components/AccountMenu';
+import { AccountTypePicker } from '../components/AccountTypePicker';
 import { Icon } from '@/components/ui/Icon';
-
-const roleNames: Record<string, string> = {
-  user: 'Usuario',
-  provider: 'Oferente',
-  admin: 'Administrador',
-};
 
 export function AccountPage() {
   const auth = useAuth();
@@ -47,20 +45,7 @@ export function AccountPage() {
       return data as { display_name: string } | null;
     },
   });
-  const role = useQuery({
-    queryKey: ['account-role', auth.user?.id],
-    enabled: auth.status === 'authenticated' && verified && online,
-    retry: false,
-    queryFn: async ({ signal }) => {
-      const { data, error: queryError } = await authClient()
-        .rpc('current_account_role')
-        .abortSignal(signal);
-      if (queryError) throw queryError;
-      if (typeof data !== 'string' || !roleNames[data])
-        throw new Error('No se pudo consultar el rol de la cuenta.');
-      return data;
-    },
-  });
+  const role = useAccountContext();
 
   useEffect(() => {
     document.title = 'Cuenta · Servicios veterinarios';
@@ -123,7 +108,7 @@ export function AccountPage() {
     <section className="mx-auto max-w-4xl">
       <PageHeading
         title="Mi perfil"
-        description="Tus datos, tus mascotas y tus establecimientos, siempre a mano."
+        description="Tus datos y las opciones correspondientes a tu tipo de cuenta."
         icon="user"
       />
       <div
@@ -236,146 +221,23 @@ export function AccountPage() {
                   <p className="text-sm text-stone-600">
                     Tipo de cuenta ·{' '}
                     <span className="font-medium text-stone-800">
-                      {roleNames[role.data]}
+                      {!role.data.account_type_selected &&
+                      role.data.role !== 'admin'
+                        ? 'Por definir'
+                        : role.data.role === 'admin'
+                          ? 'Administrador'
+                          : accountTypeLabels[role.data.account_type]}
                     </span>
                   </p>
                 )}
-                <div className="account-grid">
-                  <section>
-                    <SectionHeading icon="user">Mi cuenta</SectionHeading>
-                    <div className="account-menu">
-                      <Link to="/perfil" aria-label="Perfil y mascotas">
-                        <Icon name="user" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Perfil y mascotas</strong>
-                          <small>Actualiza tus datos personales</small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/perfil#mascotas">
-                        <Icon name="paw" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Mis mascotas</strong>
-                          <small>Administra a tus compañeros de vida</small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/privacidad">
-                        <Icon name="shield" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Privacidad y datos</strong>
-                          <small>Conoce cómo protegemos tu información</small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                    </div>
-                  </section>
-                  <section>
-                    <SectionHeading icon="store">
-                      Para establecimientos
-                    </SectionHeading>
-                    <div className="account-menu">
-                      <Link to="/favoritos">
-                        <Icon name="heart" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Favoritos y notas privadas</strong>
-                          <small>Consulta tus establecimientos guardados</small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/oferentes/servicios">
-                        <Icon name="calendar" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Servicios y disponibilidad</strong>
-                          <small>
-                            Catálogo, equipo, horarios e invitaciones
-                          </small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/citas/agenda">
-                        <Icon name="calendar" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Mi agenda e historial</strong>
-                          <small>Filtra citas y gestiona cambios</small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/oferentes/agenda">
-                        <Icon name="calendar" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Agenda del establecimiento</strong>
-                          <small>Consulta la atención y su historial</small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/mensajes">
-                        <Icon name="store" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Mis conversaciones</strong>
-                          <small>Texto y confirmaciones de lectura</small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/oferentes/mensajes">
-                        <Icon name="store" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Chats del establecimiento</strong>
-                          <small>Atiende conversaciones autorizadas</small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/citas/solicitudes">
-                        <Icon name="calendar" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Mis solicitudes y avisos de citas</strong>
-                          <small>Consulta respuestas e instrucciones</small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/oferentes/citas">
-                        <Icon name="calendar" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Solicitudes del establecimiento</strong>
-                          <small>
-                            Confirma o rechaza solicitudes autorizadas
-                          </small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/oferentes">
-                        <Icon name="store" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Mis establecimientos</strong>
-                          <small>
-                            Consulta tus solicitudes y fichas publicadas
-                          </small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      <Link to="/oferentes/nuevo">
-                        <Icon name="plus" className="account-menu__icon" />
-                        <span className="account-menu__text">
-                          <strong>Registrar mi establecimiento</strong>
-                          <small>
-                            Da a conocer tus servicios para mascotas
-                          </small>
-                        </span>
-                        <Icon name="chevron" className="chevron" />
-                      </Link>
-                      {role.data === 'admin' && (
-                        <Link to="/administracion/oferentes">
-                          <Icon name="shield" className="account-menu__icon" />
-                          <span className="account-menu__text">
-                            <strong>Revisar solicitudes de oferentes</strong>
-                            <small>Panel de revisión administrativa</small>
-                          </span>
-                          <Icon name="chevron" className="chevron" />
-                        </Link>
-                      )}
-                    </div>
-                  </section>
-                </div>
+                {role.data &&
+                  !role.isError &&
+                  (role.data.account_type_selected ||
+                  role.data.role === 'admin' ? (
+                    <AccountMenu context={role.data} />
+                  ) : (
+                    <AccountTypePicker />
+                  ))}
                 {role.isFetching && (
                   <p role="status" className="text-sm text-stone-600">
                     Consultando permisos…

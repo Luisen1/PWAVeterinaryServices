@@ -21,6 +21,7 @@ test('valida registro y envía aceptación y desafío PKCE al servicio de autent
     api.calls.filter((call) => call.path.endsWith('/signup')),
   ).toHaveLength(0);
   await page.getByLabel('Correo electrónico', { exact: true }).fill(TEST_EMAIL);
+  await page.getByRole('radio', { name: /Dueño de mascota/ }).check();
   await page.getByLabel('Contraseña', { exact: true }).fill(TEST_PASSWORD);
   await page
     .getByLabel('Confirmar contraseña', { exact: true })
@@ -44,7 +45,11 @@ test('valida registro y envía aceptación y desafío PKCE al servicio de autent
   const request = api.calls.find((call) => call.path.endsWith('/signup'));
   expect(request?.body).toMatchObject({
     email: TEST_EMAIL,
-    data: { privacy_accepted: true, privacy_policy_version: '2026-11-14' },
+    data: {
+      privacy_accepted: true,
+      privacy_policy_version: '2026-11-14',
+      account_type: 'pet_owner',
+    },
     code_challenge_method: 's256',
   });
   expect(typeof request?.body?.code_challenge).toBe('string');
@@ -79,7 +84,9 @@ test('rechaza credenciales inválidas y recupera una sesión tras recargar', asy
     .getByRole('button', { name: 'Iniciar sesión', exact: true })
     .click();
   await expect(page.getByText(TEST_EMAIL, { exact: true })).toBeVisible();
-  await expect(page.getByText('Usuario', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Dueño de mascota', { exact: true }),
+  ).toBeVisible();
   await page.reload();
   await expect(page.getByText(TEST_EMAIL, { exact: true })).toBeVisible();
   const otherTab = await context.newPage();

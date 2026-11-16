@@ -81,9 +81,7 @@ test('guarda perfil, conserva formulario inválido y administra mascotas', async
   const auth = await mockAuthApi(context);
   const api = await mockDirectoryApi(context, auth.getRole);
   await login(page);
-  await page
-    .getByRole('link', { name: 'Perfil y mascotas', exact: true })
-    .click();
+  await page.getByRole('link', { name: 'Mi perfil', exact: true }).click();
   await page.getByLabel('Nombre de visualización').fill('Luis de prueba');
   await page
     .getByRole('button', { name: 'Guardar perfil', exact: true })
@@ -162,7 +160,7 @@ test('registro, logo, corrección, aprobación y cambio pendiente conservan publ
   page,
   context,
 }, testInfo) => {
-  const auth = await mockAuthApi(context);
+  const auth = await mockAuthApi(context, { accountType: 'veterinary' });
   const api = await mockDirectoryApi(context, auth.getRole);
   await login(page);
   await page.goto('/oferentes/nuevo');
@@ -224,6 +222,7 @@ test('registro, logo, corrección, aprobación y cambio pendiente conservan publ
   await expect(
     page.getByText('No hay solicitudes en este estado.'),
   ).toBeVisible();
+  auth.setRole('user');
   await page.goto('/oferentes');
   await expect(
     page.getByText('Motivo: Corrige la dirección de la sede.'),
@@ -234,6 +233,7 @@ test('registro, logo, corrección, aprobación y cambio pendiente conservan publ
   await expect(
     page.getByText('Pendiente de revisión · Revisión 2'),
   ).toBeVisible();
+  auth.setRole('admin');
   await page.goto('/administracion/oferentes');
   await page.getByLabel('Decisión', { exact: true }).selectOption('approved');
   await page.getByLabel('Verifiqué identidad').check();
@@ -242,6 +242,7 @@ test('registro, logo, corrección, aprobación y cambio pendiente conservan publ
     page.getByText('No hay solicitudes en este estado.'),
   ).toBeVisible();
   expect(api.publications).toHaveLength(1);
+  auth.setRole('provider');
   await page.goto(`/establecimientos/${api.establishments[0]!.id}`);
   await expect(
     page.getByRole('heading', { name: 'Veterinaria Camino' }),
