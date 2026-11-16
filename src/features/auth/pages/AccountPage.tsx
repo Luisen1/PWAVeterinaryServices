@@ -293,6 +293,24 @@ export function AccountPage() {
                         </span>
                         <Icon name="chevron" className="chevron" />
                       </Link>
+                      <Link to="/citas/solicitudes">
+                        <Icon name="calendar" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Mis solicitudes y avisos de citas</strong>
+                          <small>Consulta respuestas e instrucciones</small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
+                      <Link to="/oferentes/citas">
+                        <Icon name="calendar" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Solicitudes del establecimiento</strong>
+                          <small>
+                            Confirma o rechaza solicitudes autorizadas
+                          </small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
                       <Link to="/oferentes">
                         <Icon name="store" className="account-menu__icon" />
                         <span className="account-menu__text">

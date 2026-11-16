@@ -52,6 +52,13 @@ export function PrivacyPage() {
             almacenan en Supabase. Los datos privados locales se purgan al
             salir, tras decidir sobre los pendientes.
           </p>
+          <p>
+            Las solicitudes de cita registran en Supabase la mascota, el
+            servicio, el horario y la modalidad, junto con los estados, motivos
+            y fechas de sus cambios. Solo tu cuenta y el personal autorizado del
+            establecimiento pueden consultarlas. Sus avisos se muestran dentro
+            de la aplicación; esta versión no envía correos ni push de citas.
+          </p>
         </section>
         <p>
           Este entorno se encuentra en desarrollo. La información del

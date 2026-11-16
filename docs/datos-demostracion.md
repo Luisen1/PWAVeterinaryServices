@@ -10,7 +10,7 @@ Ya se cargó y se repitió correctamente en **`veterinary-services-dev`**, refer
 
 Para otra base **de desarrollo**:
 
-1. Aplicar las ocho [migraciones](../supabase/migrations/README.md) en orden.
+1. Aplicar las once [migraciones](../supabase/migrations/README.md) en orden.
 2. Abrir el **SQL Editor** del proyecto de desarrollo en Supabase y comprobar el nombre del proyecto seleccionado.
 3. Copiar y ejecutar completo `supabase/seed.sql` con el acceso de operador `postgres`. No requiere claves privadas en la aplicación, cambios de `.env.local` ni un proveedor adicional de mapas.
 4. Abrir `/explorar`, quitar búsquedas/filtros previos y pulsar **Actualizar establecimientos**. Deben aparecer siete sedes; los pines cercanos pueden estar agrupados.
@@ -49,6 +49,7 @@ Estos dos escenarios excepcionales son fechas fijas del fixture; no avanzan al r
 4. En **Citas**, elegir Centro / Consulta general y una fecha futura normal: deben aparecer veinte intervalos de treinta minutos entre 08:00 y 18:00. En la fecha del bloqueo aparecen dieciocho. En Norte, el día del cierre no debe haber intervalos.
 5. Con **tu propia cuenta confirmada**, elegir un intervalo, apartarlo y liberarlo. En otra sesión, actualizar y comprobar que el apartado activo oculta ese intervalo. Un apartado dura cinco minutos y no equivale a una solicitud de cita.
 6. Guardar un favorito y una nota con tu cuenta y comprobar su recuperación offline. Las cuentas del fixture no incluyen credenciales de acceso.
+7. Con HU19-HU21 se puede elegir mascota y enviar una solicitud presencial/virtual desde un intervalo. Un oferente debe confirmarla o rechazarla; el apartado por sí solo no la crea. Las cuentas técnicas DEMO no tienen acceso de inicio de sesión: para probar la decisión, usar un establecimiento propio aprobado o una invitación `schedule` aceptada. Ver [recorrido completo](hu19-hu21.md).
 
 Enlace directo a un ejemplo de disponibilidad (cambiar la fecha cuando corresponda):
 

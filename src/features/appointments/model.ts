@@ -41,6 +41,7 @@ export interface SlotHold {
   establishment_id: string;
   service_id: string;
   starts_at: string;
+  assignment_id: string;
   ends_at: string;
   expires_at: string;
   server_now: string;

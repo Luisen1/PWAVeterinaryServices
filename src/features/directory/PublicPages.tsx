@@ -187,12 +187,23 @@ export function PublicEstablishmentPage() {
                   Iniciar sesión y conservar esta sede
                 </Link>
               )}
-              {(requestedAction === 'agendar' ||
-                requestedAction === 'conversar') && (
+              <Link
+                className="button button-primary"
+                to={`/citas?${new URLSearchParams({ establecimiento: row.data.id, sede: site.id })}`}
+              >
+                Solicitar una cita en esta sede
+              </Link>
+              {requestedAction === 'agendar' && (
+                <Notice>
+                  Conservamos la sede elegida. Elige un servicio y un horario
+                  para solicitar atención presencial o virtual.
+                </Notice>
+              )}
+              {requestedAction === 'conversar' && (
                 <Notice>
                   {!auth.user
                     ? 'Inicia sesión para conservar la sede elegida y continuar cuando esta función esté habilitada.'
-                    : 'Conservamos la sede elegida. Este establecimiento todavía no tiene reservas ni chat habilitados en la aplicación.'}
+                    : 'Conservamos la sede elegida. El chat todavía no está habilitado en la aplicación.'}
                 </Notice>
               )}
               <PreferencePanel establishmentId={row.data.id} />

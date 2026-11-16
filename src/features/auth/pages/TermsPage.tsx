@@ -17,6 +17,14 @@ export function TermsPage() {
           sigue la señalización y verifica las condiciones de acceso.
         </p>
         <p>
+          Apartar un horario durante cinco minutos no envía una solicitud ni
+          confirma la atención. Una solicitud enviada debe ser confirmada por el
+          establecimiento; si llega su hora de inicio sin respuesta, vence.
+          Revisa el estado y las instrucciones antes de desplazarte. Las citas
+          virtuales incluyen requisitos de preparación; esta versión no ofrece
+          videollamadas dentro de la aplicación.
+        </p>
+        <p>
           Al utilizar las funciones de Google Maps se aplican los{' '}
           <a
             className="underline"

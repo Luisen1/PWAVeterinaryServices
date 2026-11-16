@@ -357,7 +357,7 @@ test('busca servicios y conserva término, categoría y selección entre mapa, l
   }
 });
 
-test('mantiene la sede durante acceso y registro y oculta reservas y chat no implementados', async ({
+test('mantiene la sede durante acceso y registro, permite solicitar y conserva el chat pendiente', async ({
   page,
   context,
 }) => {
@@ -365,6 +365,9 @@ test('mantiene la sede durante acceso y registro y oculta reservas y chat no imp
   const path = `/establecimientos/${OFFERING_ESTABLISHMENT}?sede=${secondSite}&accion=agendar`;
   await page.goto(path);
   await expect(page.getByRole('button', { name: /^Agendar/ })).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Solicitar una cita en esta sede' }),
+  ).toHaveAttribute('href', new RegExp(`sede=${secondSite}`));
   await expect(
     page.getByRole('link', { name: 'Chat', exact: true }),
   ).toHaveCount(0);

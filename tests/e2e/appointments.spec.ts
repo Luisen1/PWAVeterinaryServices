@@ -1,0 +1,387 @@
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { login, mockAuthApi, TEST_USER_ID } from './auth-fixture';
+import { mockDirectoryApi } from './directory-fixture';
+import {
+  mockOfferings,
+  offeringDocument,
+  OFFERING_ESTABLISHMENT,
+  OFFERING_SITE,
+} from './offerings-fixture';
+import { E2E_ENVIRONMENT } from './environment';
+
+const service = '77777777-7777-4777-8777-777777777777';
+const professional = '88888888-8888-4888-8888-888888888888';
+const assignment = '99999999-9999-4999-8999-999999999999';
+const pet = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const day = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+const starts = `${day}T13:00:00Z`,
+  ends = `${day}T13:30:00Z`;
+const path = `/citas?${new URLSearchParams({ establecimiento: OFFERING_ESTABLISHMENT, sede: OFFERING_SITE, servicio: service, fecha: day })}`;
+
+async function setup(
+  context: BrowserContext,
+  options: {
+    virtual?: boolean;
+    staff?: boolean;
+    conflict?: boolean;
+    lostResponse?: boolean;
+  } = {},
+) {
+  const auth = await mockAuthApi(context);
+  const directory = await mockDirectoryApi(context, auth.getRole);
+  const offer = await mockOfferings(context);
+  directory.publications.push({
+    id: OFFERING_ESTABLISHMENT,
+    document: offeringDocument,
+    revision: 1,
+    published_at: new Date().toISOString(),
+  });
+  directory.pets.push({
+    id: pet,
+    owner_id: TEST_USER_ID,
+    name: 'Luna',
+    species: 'Perro',
+    updated_at: new Date().toISOString(),
+  });
+  const modality = options.virtual ? 'Virtual' : 'Presencial';
+  offer.items.push({
+    id: service,
+    establishment_id: OFFERING_ESTABLISHMENT,
+    kind: 'service',
+    revision: 1,
+    updated_at: new Date().toISOString(),
+    document: {
+      site_id: OFFERING_SITE,
+      name: 'Consulta general',
+      category: 'Veterinaria',
+      description: 'Consulta de prueba',
+      duration: 30,
+      modality,
+      species: ['Perro'],
+      price: null,
+      active: true,
+    },
+  });
+  const now = () => new Date().toISOString();
+  const event = (kind: string, revision: number, reason = '') => ({
+    id: crypto.randomUUID(),
+    revision,
+    kind,
+    reason,
+    actor_id: TEST_USER_ID,
+    created_at: now(),
+  });
+  const makeAppointment = (id: string) => ({
+    id,
+    owner_id: TEST_USER_ID,
+    pet_id: pet,
+    establishment_id: OFFERING_ESTABLISHMENT,
+    site_id: OFFERING_SITE,
+    service_id: service,
+    assignment_id: assignment,
+    professional_id: professional,
+    resource_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    starts_at: starts,
+    ends_at: ends,
+    status: 'requested',
+    revision: 1,
+    modality,
+    created_at: now(),
+    updated_at: now(),
+    can_decide: !!options.staff,
+    snapshot: {
+      establishment_name: 'Veterinaria Horizonte',
+      site_name: 'Sede central',
+      site_address: 'Calle de prueba 123',
+      timezone: 'America/Bogota',
+      service_name: 'Consulta general',
+      pet_name: 'Luna',
+      pet_species: 'Perro',
+      professional_name: 'Dra. Laura',
+      instructions: options.virtual
+        ? 'Conexión estable, cámara y micrófono. Esta versión no incluye videollamadas.'
+        : 'Asiste con tu mascota después de recibir confirmación.',
+    },
+    events: [event('requested', 1)],
+  });
+  let appointment: ReturnType<typeof makeAppointment> | null = options.staff
+    ? makeAppointment('cccccccc-cccc-4ccc-8ccc-cccccccccccc')
+    : null;
+  let held: Record<string, unknown> | null = null;
+  let conflict = !!options.conflict,
+    lost = !!options.lostResponse;
+  const requestIds: string[] = [];
+  await context.route(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/rpc/**`,
+    async (route) => {
+      const name = new URL(route.request().url()).pathname.split('/').at(-1);
+      const body = route.request().postDataJSON();
+      if (name === 'service_availability') {
+        await route.fulfill({
+          json: {
+            establishment_id: OFFERING_ESTABLISHMENT,
+            service_id: service,
+            site_id: OFFERING_SITE,
+            service_name: 'Consulta general',
+            site_name: 'Sede central',
+            timezone: 'America/Bogota',
+            modality,
+            date: body.p_date,
+            calculated_at: now(),
+            professionals: [{ id: professional, name: 'Dra. Laura' }],
+            slots:
+              appointment || held
+                ? []
+                : [
+                    {
+                      assignment_id: assignment,
+                      professional_id: professional,
+                      professional_name: 'Dra. Laura',
+                      starts_at: starts,
+                      ends_at: ends,
+                      timezone: 'America/Bogota',
+                      modality,
+                    },
+                  ],
+          },
+        });
+        return;
+      }
+      if (name === 'current_slot_hold') {
+        await route.fulfill({ json: { hold: held, server_now: now() } });
+        return;
+      }
+      if (name === 'acquire_slot_hold') {
+        held = {
+          id: body.p_id,
+          assignment_id: assignment,
+          owner_id: TEST_USER_ID,
+          service_id: service,
+          establishment_id: OFFERING_ESTABLISHMENT,
+          starts_at: starts,
+          ends_at: ends,
+          expires_at: new Date(Date.now() + 300000).toISOString(),
+        };
+        await route.fulfill({ json: { ...held, server_now: now() } });
+        return;
+      }
+      if (name === 'request_appointment') {
+        requestIds.push(body.p_id);
+        if (conflict) {
+          await route.fulfill({
+            status: 409,
+            json: { code: '23P01', message: 'Horario ocupado' },
+          });
+          return;
+        }
+        appointment ??= makeAppointment(body.p_id);
+        held = null;
+        if (lost) {
+          lost = false;
+          await route.abort('failed');
+          return;
+        }
+        await route.fulfill({ json: appointment });
+        return;
+      }
+      if (name === 'appointment_detail') {
+        if (!appointment || body.p_id !== appointment.id) {
+          await route.fulfill({ status: 403, json: { code: '42501' } });
+          return;
+        }
+        await route.fulfill({ json: appointment });
+        return;
+      }
+      if (name === 'appointment_requests') {
+        await route.fulfill({ json: appointment ? [appointment] : [] });
+        return;
+      }
+      if (name === 'decide_appointment') {
+        if (!options.staff || !appointment) {
+          await route.fulfill({ status: 403, json: { code: '42501' } });
+          return;
+        }
+        if (appointment.status !== 'requested') {
+          await route.fulfill({ status: 409, json: { code: '40001' } });
+          return;
+        }
+        appointment = {
+          ...appointment,
+          status: body.p_decision,
+          revision: 2,
+          events: [
+            ...appointment.events,
+            event(body.p_decision, 2, body.p_reason),
+          ],
+        };
+        await route.fulfill({ json: appointment });
+        return;
+      }
+      await route.fallback();
+    },
+  );
+  return {
+    requests: requestIds,
+    unblock: () => {
+      conflict = false;
+    },
+    id: () => appointment?.id,
+  };
+}
+async function choose(page: Page) {
+  await login(page);
+  await page.goto(path);
+  await page
+    .getByRole('group', { name: 'Intervalos disponibles' })
+    .getByRole('button')
+    .click();
+  await page.getByLabel('Mascota para la cita').selectOption(pet);
+}
+
+test('HU19 solicita con mascota, consume el apartado y muestra detalle y aviso', async ({
+  page,
+  context,
+}, testInfo) => {
+  const api = await setup(context);
+  await choose(page);
+  await page
+    .getByRole('button', { name: 'Revalidar y apartar 5 minutos' })
+    .click();
+  await expect(
+    page.getByText('Apartado activo:', { exact: false }),
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Confirmar solicitud de cita' })
+    .click();
+  await expect(
+    page.getByText('Solicitud registrada.', { exact: false }),
+  ).toBeVisible();
+  expect(api.requests).toHaveLength(1);
+  await page.getByRole('link', { name: 'Ver detalle de la solicitud' }).click();
+  await expect(
+    page.getByRole('region', { name: 'Historial y avisos de la solicitud' }),
+  ).toContainText('Solicitada');
+  await expect(
+    page.getByText('Pendiente de confirmación del establecimiento.', {
+      exact: false,
+    }),
+  ).toBeVisible();
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath(`solicitud-${width}.png`),
+      fullPage: true,
+    });
+  }
+});
+test('HU19 conserva mascota y selección ante conflicto y reintenta sin duplicar el ID', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context, { conflict: true });
+  await choose(page);
+  await page
+    .getByRole('button', { name: 'Confirmar solicitud de cita' })
+    .click();
+  await expect(page.getByRole('alert')).toContainText('Conservamos tu mascota');
+  await expect(page.getByLabel('Mascota para la cita')).toHaveValue(pet);
+  api.unblock();
+  await page
+    .getByRole('button', { name: 'Confirmar solicitud de cita' })
+    .click();
+  await expect(
+    page.getByText('Solicitud registrada.', { exact: false }),
+  ).toBeVisible();
+  expect(new Set(api.requests).size).toBe(1);
+});
+test('HU19 un resultado de red incierto reutiliza la misma operación al reintentar', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context, { lostResponse: true });
+  await choose(page);
+  await page
+    .getByRole('button', { name: 'Confirmar solicitud de cita' })
+    .click();
+  await expect(page.getByRole('alert')).toContainText(
+    'No pudimos confirmar el resultado',
+  );
+  await page
+    .getByRole('button', { name: 'Confirmar solicitud de cita' })
+    .click();
+  await expect(
+    page.getByText('Solicitud registrada.', { exact: false }),
+  ).toBeVisible();
+  expect(api.requests).toHaveLength(2);
+  expect(new Set(api.requests).size).toBe(1);
+});
+test('HU20 muestra modalidad e instrucciones virtuales sin ofrecer una llamada ficticia', async ({
+  page,
+  context,
+}) => {
+  await setup(context, { virtual: true });
+  await choose(page);
+  await expect(
+    page.getByRole('heading', { name: 'Solicitar cita virtual' }),
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Confirmar solicitud de cita' })
+    .click();
+  await page.getByRole('link', { name: 'Ver detalle de la solicitud' }).click();
+  await expect(
+    page.getByRole('region', { name: 'Instrucciones de la cita' }),
+  ).toContainText('no incluye videollamadas');
+  await expect(
+    page.getByRole('button', { name: /Iniciar llamada|Entrar a videollamada/ }),
+  ).toHaveCount(0);
+});
+for (const reject of [false, true])
+  test(`HU21 ${reject ? 'rechaza con motivo' : 'confirma'} y conserva el historial`, async ({
+    page,
+    context,
+  }) => {
+    await setup(context, { staff: true });
+    await login(page);
+    await page.goto('/oferentes/citas');
+    await page.getByRole('link', { name: 'Ver detalle de Luna' }).click();
+    if (reject) {
+      await expect(
+        page.getByRole('button', { name: 'Rechazar solicitud' }),
+      ).toBeDisabled();
+      await page
+        .getByLabel('Motivo o instrucciones adicionales')
+        .fill('Profesional no disponible');
+    }
+    await page
+      .getByRole('button', {
+        name: reject ? 'Rechazar solicitud' : 'Confirmar cita',
+        exact: true,
+      })
+      .click();
+    await expect(
+      page.getByRole('region', { name: 'Historial y avisos de la solicitud' }),
+    ).toContainText(reject ? 'Rechazada' : 'Confirmada');
+    await expect(
+      page.getByRole('region', { name: 'Resolver solicitud' }),
+    ).toHaveCount(0);
+  });
+test('sin conexión no envía solicitudes y un detalle ajeno explica el acceso denegado', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context);
+  await choose(page);
+  await context.setOffline(true);
+  await expect(
+    page.getByRole('button', { name: 'Confirmar solicitud de cita' }),
+  ).toBeDisabled();
+  expect(api.requests).toHaveLength(0);
+  await context.setOffline(false);
+  await page.goto('/citas/solicitudes/dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+  await expect(page.getByRole('alert')).toContainText('No tienes acceso');
+});
