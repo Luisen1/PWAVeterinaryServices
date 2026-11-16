@@ -1,11 +1,20 @@
-import { useEffect, useRef } from 'react';
-import L from 'leaflet';
-import 'leaflet.markercluster';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+/// <reference types="google.maps" />
+import { useEffect, useRef, useState } from 'react';
+import {
+  MarkerClusterer,
+  SuperClusterAlgorithm,
+  type Cluster,
+} from '@googlemaps/markerclusterer';
 import { categoryPins, type MapSite } from './map-model';
-import { TUNJA, type Origin, type Point } from './discovery';
+import { type Origin, type Point } from './discovery';
+import {
+  googleMapOptions,
+  loadGoogleMaps,
+  onGoogleMapsFailure,
+  RouteFailure,
+} from './google-maps';
+import type { RouteEstimate } from './google-routes';
+import { Notice } from './Workspace';
 
 export default function MapCanvas({
   sites,
@@ -17,6 +26,7 @@ export default function MapCanvas({
   onPick,
   fitSites = false,
   active = true,
+  route = null,
 }: {
   sites: MapSite[];
   selection: string | null;
@@ -27,171 +37,278 @@ export default function MapCanvas({
   onPick?: (point: Point) => void;
   fitSites?: boolean;
   active?: boolean;
+  route?: RouteEstimate | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
-  const markersRef = useRef(new Map<string, L.Marker>());
-  const selectRef = useRef(onSelect);
-  const failureRef = useRef(onFailure);
-  const pickRef = useRef({ picking, onPick });
-  const originLayer = useRef<L.LayerGroup | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const callbacks = useRef({ onSelect, onFailure, picking, onPick });
   useEffect(() => {
-    selectRef.current = onSelect;
-    failureRef.current = onFailure;
-    pickRef.current = { picking, onPick };
+    callbacks.current = { onSelect, onFailure, picking, onPick };
   }, [onSelect, onFailure, picking, onPick]);
+
   useEffect(() => {
-    if (!container.current) return;
-    const reducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
-    ).matches;
-    const map = L.map(container.current, {
-      scrollWheelZoom: false,
-      maxZoom: 19,
-      zoomAnimation: !reducedMotion,
-    }).setView([TUNJA.latitude, TUNJA.longitude], 13);
-    mapRef.current = map;
-    const clusters = L.markerClusterGroup({
-      maxClusterRadius: 55,
-      showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
-      animate: !reducedMotion,
-    });
-    clusterRef.current = clusters;
-    map.addLayer(clusters);
-    originLayer.current = L.layerGroup().addTo(map);
-    map.on('click', (event: L.LeafletMouseEvent) => {
-      if (pickRef.current.picking)
-        pickRef.current.onPick?.({
-          latitude: event.latlng.lat,
-          longitude: event.latlng.lng,
+    let disposed = false;
+    let instance: google.maps.Map | undefined;
+    let timeout: number | undefined;
+    const fail = () => {
+      if (disposed) return;
+      setLoading(false);
+      callbacks.current.onFailure();
+    };
+    const unsubscribe = onGoogleMapsFailure(fail);
+    void (async () => {
+      try {
+        await loadGoogleMaps();
+        const [library] = await Promise.all([
+          google.maps.importLibrary('maps') as Promise<google.maps.MapsLibrary>,
+          google.maps.importLibrary('marker'),
+        ]);
+        if (disposed || !container.current) return;
+        instance = new library.Map(container.current, googleMapOptions());
+        instance.addListener('click', (event: google.maps.MapMouseEvent) => {
+          if (callbacks.current.picking && event.latLng)
+            callbacks.current.onPick?.({
+              latitude: event.latLng.lat(),
+              longitude: event.latLng.lng(),
+            });
         });
-    });
-    const tiles = L.tileLayer(
-      import.meta.env.VITE_MAP_TILE_URL ||
-        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      {
-        maxZoom: 19,
-        attribution:
-          import.meta.env.VITE_MAP_ATTRIBUTION ||
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      },
-    );
-    let loaded = false;
-    let failures = 0;
-    const timeout = window.setTimeout(() => {
-      if (!loaded) failureRef.current();
-    }, 12000);
-    tiles.on('tileload', () => {
-      loaded = true;
-      window.clearTimeout(timeout);
-    });
-    tiles.on('tileerror', () => {
-      failures++;
-      if (failures === 3) failureRef.current();
-    });
-    tiles.addTo(map);
-    const observer = new ResizeObserver(() => map.invalidateSize());
-    observer.observe(container.current);
+        instance.addListener('tilesloaded', () => {
+          if (disposed) return;
+          window.clearTimeout(timeout);
+          setLoading(false);
+        });
+        timeout = window.setTimeout(fail, 15000);
+        setMap(instance);
+      } catch (failure) {
+        if (!disposed) {
+          setError(
+            failure instanceof RouteFailure
+              ? failure.message
+              : 'No pudimos iniciar Google Maps. Consulta el listado o las indicaciones externas.',
+          );
+          fail();
+        }
+      }
+    })();
     return () => {
+      disposed = true;
+      unsubscribe();
       window.clearTimeout(timeout);
-      observer.disconnect();
-      map.remove();
-      mapRef.current = null;
-      clusterRef.current = null;
+      if (instance) google.maps.event.clearInstanceListeners(instance);
     };
   }, []);
+
   useEffect(() => {
-    const clusters = clusterRef.current;
-    const map = mapRef.current;
-    if (!clusters || !map) return;
-    clusters.clearLayers();
-    markersRef.current.clear();
-    for (const row of sites) {
+    if (!map) return;
+    const { AdvancedMarkerElement } = google.maps.marker;
+    const info = new google.maps.InfoWindow();
+    const markers = sites.map((row) => {
       const pin =
         categoryPins[row.establishment.document.category] ?? categoryPins.Otro;
-      const marker = L.marker([row.site.latitude, row.site.longitude], {
+      const content = document.createElement('div');
+      content.className = 'category-map-pin';
+      content.innerHTML = '<span><b></b></span>';
+      content.firstElementChild!.setAttribute(
+        'style',
+        `background:${pin.color}`,
+      );
+      content.querySelector('b')!.textContent = pin.symbol;
+      const marker = new AdvancedMarkerElement({
+        position: { lat: row.site.latitude, lng: row.site.longitude },
         title: `${row.establishment.document.name} · ${row.site.name}`,
-        alt: `${row.establishment.document.category}: ${row.establishment.document.name}, ${row.site.name}`,
-        icon: L.divIcon({
-          className: 'category-map-pin',
-          html: `<span style="background:${pin.color}"><b>${pin.symbol}</b></span>`,
-          iconSize: [34, 42],
-          iconAnchor: [17, 42],
-        }),
+        content,
+        gmpClickable: true,
       });
-      const label = document.createElement('span');
-      label.textContent = `${row.establishment.document.name} · ${row.site.name}`;
-      marker.bindTooltip(label);
-      marker.on('click', () => {
-        if (pickRef.current.picking)
-          pickRef.current.onPick?.({
+      marker.addEventListener('gmp-click', () => {
+        if (callbacks.current.picking)
+          callbacks.current.onPick?.({
             latitude: row.site.latitude,
             longitude: row.site.longitude,
           });
-        else selectRef.current(row.key);
+        else callbacks.current.onSelect(row.key);
       });
-      markersRef.current.set(row.key, marker);
-      clusters.addLayer(marker);
+      return marker;
+    });
+    const openCluster = (cluster: Cluster) => {
+      const bounds = cluster.bounds;
+      if (!bounds) return;
+      const northEast = bounds.getNorthEast();
+      const southWest = bounds.getSouthWest();
+      // El centro calculado por la agrupación puede redondear las coordenadas.
+      const coincident =
+        Math.abs(northEast.lat() - southWest.lat()) < 0.00001 &&
+        Math.abs(northEast.lng() - southWest.lng()) < 0.00001;
+      if (!coincident && (map.getZoom() ?? 13) < 19) {
+        map.fitBounds(bounds, 60);
+        return;
+      }
+      const list = document.createElement('div');
+      list.className = 'map-cluster-choices';
+      for (const marker of cluster.markers) {
+        const index = markers.indexOf(
+          marker as google.maps.marker.AdvancedMarkerElement,
+        );
+        const row = sites[index];
+        if (!row) continue;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = `${row.establishment.document.name} · ${row.site.name}`;
+        button.addEventListener('click', () => {
+          if (callbacks.current.picking)
+            callbacks.current.onPick?.({
+              latitude: row.site.latitude,
+              longitude: row.site.longitude,
+            });
+          else callbacks.current.onSelect(row.key);
+          info.close();
+        });
+        list.append(button);
+      }
+      info.setContent(list);
+      info.setPosition(cluster.position);
+      info.open({ map });
+    };
+    const clusterer = new MarkerClusterer({
+      map,
+      markers,
+      algorithm: new SuperClusterAlgorithm({ radius: 55, maxZoom: 20 }),
+      renderer: {
+        render: (cluster) => {
+          const content = document.createElement('div');
+          content.className = 'map-cluster';
+          content.textContent = String(cluster.count);
+          const marker = new AdvancedMarkerElement({
+            position: cluster.position,
+            content,
+            gmpClickable: true,
+            title: `Ver ${cluster.count} sedes cercanas`,
+          });
+          marker.addEventListener('gmp-click', () => openCluster(cluster));
+          return marker;
+        },
+      },
+      // La activación accesible usa el evento DOM gmp-click del marcador.
+      onClusterClick: () => undefined,
+    });
+    return () => {
+      info.close();
+      clusterer.setMap(null);
+      markers.forEach((marker) => {
+        marker.map = null;
+        google.maps.event.clearInstanceListeners(marker);
+      });
+    };
+  }, [map, sites]);
+
+  useEffect(() => {
+    if (!map) return;
+    const circles: google.maps.Circle[] = [];
+    if (origin) {
+      const center = { lat: origin.latitude, lng: origin.longitude };
+      if (origin.accuracy !== null)
+        circles.push(
+          new google.maps.Circle({
+            map,
+            center,
+            radius: origin.accuracy,
+            strokeColor: '#2455ae',
+            fillColor: '#2455ae',
+            fillOpacity: 0.08,
+            strokeWeight: 1,
+            clickable: false,
+          }),
+        );
+      circles.push(
+        new google.maps.Circle({
+          map,
+          center,
+          radius: 10,
+          strokeColor: '#ffffff',
+          fillColor: '#2455ae',
+          fillOpacity: 1,
+          strokeWeight: 3,
+          clickable: false,
+        }),
+      );
     }
-    if (fitSites && sites.length)
-      map.fitBounds(
-        L.latLngBounds(sites.map((r) => [r.site.latitude, r.site.longitude])),
-        { padding: [35, 35], maxZoom: 14 },
-      );
-  }, [sites, fitSites]);
+    return () => circles.forEach((circle) => circle.setMap(null));
+  }, [map, origin]);
+
   useEffect(() => {
-    const layer = originLayer.current;
-    const map = mapRef.current;
-    if (!layer || !map) return;
-    layer.clearLayers();
-    if (!origin) return;
-    const position: L.LatLngTuple = [origin.latitude, origin.longitude];
-    if (origin.accuracy !== null)
-      L.circle(position, {
-        radius: origin.accuracy,
-        color: '#2455ae',
-        fillOpacity: 0.08,
-        weight: 1,
-      }).addTo(layer);
-    L.circleMarker(position, {
-      radius: 8,
-      color: '#fff',
-      weight: 3,
-      fillColor: '#2455ae',
-      fillOpacity: 1,
-    })
-      .bindTooltip(origin.label)
-      .addTo(layer);
-    if (fitSites && sites.length)
-      map.fitBounds(
-        L.latLngBounds([
-          position,
-          ...sites.map((s): L.LatLngTuple => [
-            s.site.latitude,
-            s.site.longitude,
-          ]),
-        ]),
-        { paddingTopLeft: [55, 65], paddingBottomRight: [55, 55], maxZoom: 15 },
+    if (!map || route) return;
+    if (fitSites && sites.length) {
+      const bounds = new google.maps.LatLngBounds();
+      sites.forEach((s) =>
+        bounds.extend({ lat: s.site.latitude, lng: s.site.longitude }),
       );
-    else map.panTo(position);
-  }, [origin, sites, fitSites]);
+      if (origin)
+        bounds.extend({ lat: origin.latitude, lng: origin.longitude });
+      map.fitBounds(bounds, 55);
+    } else if (origin)
+      map.panTo({ lat: origin.latitude, lng: origin.longitude });
+  }, [map, sites, fitSites, origin, route]);
+
   useEffect(() => {
-    if (!active) return;
-    mapRef.current?.invalidateSize({ pan: false });
-    if (!selection) return;
-    const marker = markersRef.current.get(selection);
-    if (marker)
-      clusterRef.current?.zoomToShowLayer(marker, () => marker.openTooltip());
-  }, [selection, sites, active]);
+    if (!map || !active) return;
+    google.maps.event.trigger(map, 'resize');
+    const row = sites.find((s) => s.key === selection);
+    if (!row) return;
+    const position = { lat: row.site.latitude, lng: row.site.longitude };
+    map.panTo(position);
+    const content = document.createElement('span');
+    content.textContent = `${row.establishment.document.name} · ${row.site.name}`;
+    const info = new google.maps.InfoWindow({ content, position });
+    info.open({ map, shouldFocus: false });
+    return () => info.close();
+  }, [map, selection, sites, active]);
+
+  useEffect(() => {
+    if (!map) return;
+    map.setOptions({ draggableCursor: picking ? 'crosshair' : null });
+  }, [map, picking]);
+
+  useEffect(() => {
+    if (!map || !route) return;
+    const line = new google.maps.Polyline({
+      path: route.path,
+      map,
+      strokeColor: '#0b1f4b',
+      strokeOpacity: 0.9,
+      strokeWeight: 5,
+    });
+    const bounds = new google.maps.LatLngBounds();
+    route.path.forEach((point) => bounds.extend(point));
+    map.fitBounds(bounds, 40);
+    return () => line.setMap(null);
+  }, [map, route]);
+
   return (
-    <div
-      ref={container}
-      className="directory-map"
-      data-picking={picking}
-      role="region"
-      aria-label="Mapa interactivo de sedes aprobadas"
-    />
+    <div className="space-y-2">
+      <div
+        ref={container}
+        className="directory-map"
+        data-picking={picking}
+        role="region"
+        aria-label={
+          route
+            ? 'Ruta calculada en Google Maps'
+            : 'Mapa interactivo de sedes aprobadas'
+        }
+      />
+      {loading && (
+        <p role="status" className="text-sm">
+          Cargando Google Maps…
+        </p>
+      )}
+      {error && <Notice error>{error}</Notice>}
+      {route && (
+        <p className="text-xs">
+          Azul: salida · Pin: llegada. Trazado y estimación proporcionados por
+          Google Maps.
+        </p>
+      )}
+    </div>
   );
 }

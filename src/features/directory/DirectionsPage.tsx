@@ -120,46 +120,54 @@ export function DirectionsPage() {
               mode={mode}
               picking={picking}
             >
-              {online && (
-                <MapBoundary key={attempt} onFailure={() => setFailed(true)}>
-                  <Suspense
-                    fallback={<Notice>Cargando mapa del destino…</Notice>}
-                  >
-                    <MapCanvas
-                      sites={mapSites}
-                      selection={null}
-                      onSelect={() => undefined}
+              {(route) => (
+                <>
+                  {online && (
+                    <MapBoundary
+                      key={attempt}
                       onFailure={() => setFailed(true)}
-                      origin={origin}
-                      picking={picking}
-                      fitSites
-                      onPick={(point) => {
-                        chooseOrigin({
-                          ...point,
-                          source: 'manual',
-                          label: 'Mi punto de partida',
-                          accuracy: null,
-                        });
-                        setPicking(false);
-                      }}
-                    />
-                  </Suspense>
-                </MapBoundary>
-              )}
-              {failed && (
-                <Notice error>
-                  No pudimos cargar el mapa. Puedes introducir coordenadas o
-                  abrir las indicaciones externas.
-                  <button
-                    className={secondaryClass}
-                    onClick={() => {
-                      setFailed(false);
-                      setAttempt((v) => v + 1);
-                    }}
-                  >
-                    Reintentar mapa del destino
-                  </button>
-                </Notice>
+                    >
+                      <Suspense
+                        fallback={<Notice>Cargando mapa del destino…</Notice>}
+                      >
+                        <MapCanvas
+                          sites={mapSites}
+                          selection={null}
+                          onSelect={() => undefined}
+                          onFailure={() => setFailed(true)}
+                          origin={origin}
+                          picking={picking}
+                          fitSites
+                          route={route}
+                          onPick={(point) => {
+                            chooseOrigin({
+                              ...point,
+                              source: 'manual',
+                              label: 'Mi punto de partida',
+                              accuracy: null,
+                            });
+                            setPicking(false);
+                          }}
+                        />
+                      </Suspense>
+                    </MapBoundary>
+                  )}
+                  {failed && (
+                    <Notice error>
+                      No pudimos cargar el mapa. Puedes introducir coordenadas o
+                      abrir las indicaciones externas.
+                      <button
+                        className={secondaryClass}
+                        onClick={() => {
+                          setFailed(false);
+                          setAttempt((v) => v + 1);
+                        }}
+                      >
+                        Reintentar mapa del destino
+                      </button>
+                    </Notice>
+                  )}
+                </>
               )}
             </RoutePlanner>
           )}

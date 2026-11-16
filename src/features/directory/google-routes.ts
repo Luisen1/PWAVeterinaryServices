@@ -1,5 +1,6 @@
 /// <reference types="google.maps" />
 import { isPoint, type Origin, type Point } from './discovery';
+import { loadGoogleMaps, RouteFailure } from './google-maps';
 
 export interface RouteEstimate {
   path: google.maps.LatLngLiteral[];
@@ -9,87 +10,7 @@ export interface RouteEstimate {
   traffic: boolean;
   warnings: string[];
 }
-export class RouteFailure extends Error {
-  constructor(
-    public code:
-      'configuration' | 'network' | 'coverage' | 'quota' | 'provider',
-    message: string,
-  ) {
-    super(message);
-  }
-}
-let loading: Promise<void> | null = null;
-export function loadGoogleMaps(): Promise<void> {
-  if (
-    typeof google !== 'undefined' &&
-    typeof google.maps?.importLibrary === 'function'
-  )
-    return Promise.resolve();
-  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-  if (!key)
-    return Promise.reject(
-      new RouteFailure(
-        'configuration',
-        'El cálculo de rutas todavía no está configurado. Puedes abrir las indicaciones externas.',
-      ),
-    );
-  if (loading) return loading;
-  loading = new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script');
-    const global = window as Window & {
-      __svGoogleMapsReady?: () => void;
-      gm_authFailure?: () => void;
-    };
-    const finish = (error?: Error) => {
-      window.clearTimeout(timeout);
-      delete global.__svGoogleMapsReady;
-      if (error) {
-        loading = null;
-        script.remove();
-        reject(error);
-      } else resolve();
-    };
-    const timeout = window.setTimeout(
-      () =>
-        finish(
-          new RouteFailure(
-            'network',
-            'Google Maps tardó demasiado en responder. Reintenta o usa las indicaciones externas.',
-          ),
-        ),
-      20000,
-    );
-    global.__svGoogleMapsReady = () => finish();
-    global.gm_authFailure = () =>
-      finish(
-        new RouteFailure(
-          'configuration',
-          'Google Maps no pudo autorizar este dominio o proyecto. Usa las indicaciones externas.',
-        ),
-      );
-    const url = new URL('https://maps.googleapis.com/maps/api/js');
-    url.search = new URLSearchParams({
-      key,
-      v: 'quarterly',
-      loading: 'async',
-      callback: '__svGoogleMapsReady',
-      language: 'es',
-      region: 'CO',
-    }).toString();
-    script.src = url.toString();
-    script.async = true;
-    script.referrerPolicy = 'strict-origin-when-cross-origin';
-    script.onerror = () =>
-      finish(
-        new RouteFailure(
-          'network',
-          'No pudimos cargar Google Maps. Comprueba la conexión o usa las indicaciones externas.',
-        ),
-      );
-    document.head.append(script);
-  });
-  return loading;
-}
+export { loadGoogleMaps, RouteFailure } from './google-maps';
 export function routeError(error: unknown): string {
   if (error instanceof RouteFailure) return error.message;
   const code =

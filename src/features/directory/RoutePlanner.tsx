@@ -1,10 +1,9 @@
-import { lazy, Suspense, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useOnline } from '@/pwa/useOnline';
 import { computeRoute, routeError, type RouteEstimate } from './google-routes';
 import { type Origin, type Point, formatDistance } from './discovery';
 import { Notice, secondaryClass } from './Workspace';
 
-const GoogleRouteMap = lazy(() => import('./GoogleRouteMap'));
 export function RoutePlanner({
   origin,
   destination,
@@ -16,7 +15,7 @@ export function RoutePlanner({
   destination: Point;
   mode: 'driving' | 'walking';
   picking: boolean;
-  children: ReactNode;
+  children: (route: RouteEstimate | null) => ReactNode;
 }) {
   const [traffic, setTraffic] = useState(false);
   const online = useOnline();
@@ -59,7 +58,7 @@ function RouteRequest({
   mode: 'driving' | 'walking';
   traffic: boolean;
   picking: boolean;
-  children: ReactNode;
+  children: (route: RouteEstimate | null) => ReactNode;
 }) {
   const online = useOnline();
   const [result, setResult] = useState<RouteEstimate | null>(null);
@@ -141,13 +140,7 @@ function RouteRequest({
           </div>
         )}
       </div>
-      {result ? (
-        <Suspense fallback={<Notice>Cargando trazado…</Notice>}>
-          <GoogleRouteMap route={result} />
-        </Suspense>
-      ) : (
-        children
-      )}
+      {children(result)}
     </section>
   );
 }

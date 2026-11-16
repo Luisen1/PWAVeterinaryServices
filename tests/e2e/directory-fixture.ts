@@ -1,6 +1,7 @@
 import type { BrowserContext } from '@playwright/test';
 import { TEST_USER_ID } from './auth-fixture';
 import { E2E_ENVIRONMENT } from './environment';
+import { mockGoogleMaps } from './google-maps-fixture';
 import type {
   Decision,
   Establishment,
@@ -13,6 +14,7 @@ export async function mockDirectoryApi(
   context: BrowserContext,
   getRole: () => string,
 ) {
+  await mockGoogleMaps(context);
   let profile = {
     id: TEST_USER_ID,
     display_name: 'Persona de prueba',

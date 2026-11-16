@@ -8,6 +8,7 @@ import {
   OFFERING_SITE,
 } from './offerings-fixture';
 import { E2E_ENVIRONMENT } from './environment';
+import { mockGoogleMaps } from './google-maps-fixture';
 
 const serviceId = '77777777-7777-4777-8777-777777777777';
 const professionalId = '88888888-8888-4888-8888-888888888888';
@@ -143,9 +144,6 @@ async function setup(context: BrowserContext) {
       taken = false;
       await route.fulfill({ json: true });
     },
-  );
-  await context.route('https://tile.openstreetmap.org/**', (route) =>
-    route.abort(),
   );
   return {
     fail: () => {
@@ -315,38 +313,6 @@ test('un fallo inicial de disponibilidad ofrece reintento y no se presenta como 
   ).toBeEnabled();
 });
 
-async function googleFixture(
-  context: BrowserContext,
-  options: { quota?: boolean; empty?: boolean; delayed?: boolean } = {},
-) {
-  await context.route(
-    'https://maps.googleapis.com/maps/api/js**',
-    async (route) => {
-      const callback = new URL(route.request().url()).searchParams.get(
-        'callback',
-      )!;
-      await route.fulfill({
-        contentType: 'text/javascript',
-        body: `
-      (() => {
-      window.__routeCalls = []; window.__routeDrawn = 0;
-      const Route = { computeRoutes: async (request) => { window.__routeCalls.push(request);
-        ${options.delayed ? 'await new Promise(resolve => setTimeout(resolve, 1200));' : ''}
-        ${options.quota ? "throw Object.assign(new Error('quota'), {code:'RESOURCE_EXHAUSTED'});" : ''}
-        return {routes: ${options.empty ? '[]' : "[{distanceMeters:3200,durationMillis:540000,path:[{lat:5.54,lng:-73.36},{lat:5.5353,lng:-73.3678}],warnings:['Precaución: verifica el acceso a la sede.']}]"}};
-      }};
-      class Map { constructor(container) { container.textContent='Google Maps (prueba controlada)'; } fitBounds(){} }
-      class Polyline { constructor() {window.__routeDrawn++;} setMap(){} }
-      class Circle { setMap(){} }
-      class LatLngBounds { extend(){} }
-      window.google={maps:{importLibrary:async name=>name==='routes'?{Route}:{Map,Polyline,Circle},LatLngBounds,event:{clearInstanceListeners(){}}}};
-      window.${callback}();
-      })();
-    `,
-      });
-    },
-  );
-}
 async function directions(page: Page) {
   await page.goto(
     `/establecimientos/${OFFERING_ESTABLISHMENT}/como-llegar?sede=${OFFERING_SITE}`,
@@ -363,12 +329,15 @@ test('calcula trazado, distancia, ETA, fecha y tráfico bajo acción explícita'
   context,
 }, testInfo) => {
   await setup(context);
-  await googleFixture(context);
+  await mockGoogleMaps(context);
   await directions(page);
   await expect(
     page.getByRole('region', { name: 'Ruta calculada en Google Maps' }),
   ).toHaveCount(0);
   await page.getByLabel('Tener en cuenta el tráfico al calcular').check();
+  const canvas = page.locator('.directory-map');
+  await expect(canvas).toHaveAttribute('data-map-instance', /\d+/);
+  const mapInstance = await canvas.getAttribute('data-map-instance');
   await page.getByRole('button', { name: 'Calcular ruta en la PWA' }).click();
   await expect(
     page.getByText('9 min estimados', { exact: false }),
@@ -384,6 +353,7 @@ test('calcula trazado, distancia, ETA, fecha y tráfico bajo acción explícita'
   await expect(
     page.getByRole('region', { name: 'Ruta calculada en Google Maps' }),
   ).toBeVisible();
+  await expect(canvas).toHaveAttribute('data-map-instance', mapInstance!);
   await expect(
     page.getByText('No pudimos cargar el mapa. Puedes introducir coordenadas', {
       exact: false,
@@ -416,6 +386,13 @@ test('calcula trazado, distancia, ETA, fecha y tráfico bajo acción explícita'
     path: testInfo.outputPath('ruta-calculada-360.png'),
     fullPage: true,
   });
+  await page
+    .getByRole('button', { name: 'Volver al mapa de selección' })
+    .click();
+  await expect(canvas).toHaveAttribute('data-map-instance', mapInstance!);
+  await expect(page.getByText('9 min estimados', { exact: false })).toHaveCount(
+    0,
+  );
   await page.getByRole('button', { name: 'A pie', exact: true }).click();
   await expect(page.getByText('9 min estimados', { exact: false })).toHaveCount(
     0,
@@ -435,7 +412,7 @@ for (const error of ['quota', 'empty'] as const)
     context,
   }) => {
     await setup(context);
-    await googleFixture(context, { [error]: true });
+    await mockGoogleMaps(context, { [error]: true });
     await directions(page);
     await page.getByRole('button', { name: 'Calcular ruta en la PWA' }).click();
     await expect(
@@ -452,7 +429,7 @@ test('un cálculo demorado no reemplaza una modalidad elegida después', async (
   context,
 }) => {
   await setup(context);
-  await googleFixture(context, { delayed: true });
+  await mockGoogleMaps(context, { delayed: true });
   await directions(page);
   await page.getByRole('button', { name: 'Calcular ruta en la PWA' }).click();
   await page.getByRole('button', { name: 'A pie', exact: true }).click();

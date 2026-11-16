@@ -31,9 +31,11 @@ export function PrivacyPage() {
           </h2>
           <p>
             El origen GPS o manual permanece en memoria y se elimina al
-            recargar. Al pulsar Calcular ruta se envían el origen y el destino a
-            Google Maps; al abrir la navegación externa también se comparten los
-            puntos elegidos. Google procesa esas consultas según su{' '}
+            recargar. Los mapas de la aplicación se cargan desde Google Maps; al
+            mostrarlos, Google recibe consultas de la zona visible. Al pulsar
+            Calcular ruta se envían el origen y el destino; al abrir la
+            navegación externa también se comparten los puntos elegidos. Google
+            procesa esas consultas según su{' '}
             <a
               className="underline"
               href="https://policies.google.com/privacy"

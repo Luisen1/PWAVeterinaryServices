@@ -8,12 +8,9 @@ import {
   OFFERING_SITE,
 } from './offerings-fixture';
 import { E2E_ENVIRONMENT } from './environment';
+import { mockGoogleMaps } from './google-maps-fixture';
 
 const secondSite = '66666666-6666-4666-8666-666666666666';
-const tile = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ1kAAAAASUVORK5CYII=',
-  'base64',
-);
 
 for (const unavailable of [false, true]) {
   test(`el mapa tiene prioridad en la primera pantalla con catálogo ${unavailable ? 'fallido' : 'vacío'}`, async ({
@@ -137,9 +134,6 @@ async function setup(context: BrowserContext) {
       },
     },
   );
-  await context.route('https://tile.openstreetmap.org/**', (route) =>
-    route.fulfill({ contentType: 'image/png', body: tile }),
-  );
   return { auth, directory, api, publication };
 }
 async function manualOrigin(page: Page) {
@@ -232,9 +226,7 @@ test('recupera una solicitud que demora y acepta coordenadas cuando falla el map
       value: { getCurrentPosition: () => undefined },
     }),
   );
-  await context.route('https://tile.openstreetmap.org/**', (route) =>
-    route.abort(),
-  );
+  await mockGoogleMaps(context, { failLoad: true });
   await page.clock.install();
   await page.goto('/explorar');
   await page.getByRole('button', { name: 'Mi ubicación', exact: true }).click();
@@ -558,7 +550,9 @@ test('el registro conserva la sede tras confirmar correo sin cambiar la URL auto
   await expect(
     page.getByRole('button', { name: 'Reenviar confirmación' }),
   ).toBeVisible();
-  expect(redirect).toBe('http://localhost:4173/auth/confirmar?tipo=signup');
+  expect(redirect).toBe(
+    `${new URL(page.url()).origin}/auth/confirmar?tipo=signup`,
+  );
   const confirmation = await context.newPage();
   await confirmation.goto(
     '/auth/confirmar?code=valid-recovery-code&tipo=signup',
