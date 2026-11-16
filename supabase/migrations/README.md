@@ -24,3 +24,5 @@ HU07-HU09 se documentan en `docs/hu07-hu09.md`, con integración remota en `supa
 HU13-HU15 se documentan en `docs/hu13-hu15.md`. `supabase/tests/hu13_hu15.sql` pasó contra desarrollo con rollback y comprueba urgencias tipadas, privacidad entre cuentas, accesos denegados, revisión e idempotencia. La cobertura local amplía `tests/database/offerings.test.ts`.
 
 HU18 se verifica con `supabase/tests/hu18.sql`, ejecutado en desarrollo con rollback, y las pruebas locales de oferta. El apartado temporal no crea una solicitud de cita; HU19 deberá consumirlo/revalidarlo dentro de su transacción de reserva.
+
+Los datos ficticios de Tunja están separados en `supabase/seed.sql`; no forman parte de estas migraciones. Ver [carga, escenarios e idempotencia](../../docs/datos-demostracion.md). Ya se cargaron en el proyecto de desarrollo: seis establecimientos publicados y siete sedes.
