@@ -24,6 +24,7 @@
     "tests/e2e",
     "tests/database",
     "src/features/directory/model.ts",
-    "src/features/offerings/model.ts"
+    "src/features/offerings/model.ts",
+    "src/features/appointments/requests-model.ts"
   ]
 }
