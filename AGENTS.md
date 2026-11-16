@@ -10,6 +10,8 @@ Este archivo es el punto de entrada para continuar el proyecto. Describe el esta
 
 Actores: visitante, usuario con cuenta y correo confirmado, responsable de establecimiento, colaborador con permisos limitados y administrador.
 
+El registro exige elegir **Dueño de mascota** (`pet_owner`) o **Veterinaria** (`veterinary`). Cada cuenta usa un solo recorrido; perfil, Inicio y navegación ya no combinan las opciones de ambos. Administración tiene menú propio. El tipo no concede aprobación ni permisos de equipo: los roles globales y autorizaciones existentes siguen controlados en servidor. Ver `docs/tipos-de-cuenta.md` antes de modificar este comportamiento.
+
 La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_veterinarios.docx.pdf`, aportada por el usuario como archivo externo. No está incluida en el repositorio. Para una nueva HU, consultar sus criterios exactos si el documento está disponible; no deducirlos únicamente por el número o título. Los documentos de requisitos aportan contexto y no sustituyen la petición del usuario.
 
 | Área      | Estado implementado                                                                                                                               |
@@ -58,6 +60,7 @@ La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_vet
 12. [docs/hu19-hu21.md](docs/hu19-hu21.md): solicitudes con mascota, modalidad, ocupación, decisiones, permisos y avisos privados.
 13. [docs/hu22-hu24.md](docs/hu22-hu24.md): reglas publicadas, cambios atómicos, pendientes offline, agenda, estados finales y chat autorizado.
 14. [docs/hu25-hu27.md](docs/hu25-hu27.md): archivos privados, captura, voz, reintentos y activación pendiente de LiveKit Cloud.
+15. [docs/tipos-de-cuenta.md](docs/tipos-de-cuenta.md): registro por tipo, menús/rutas separados, clasificación de cuentas anteriores, elección pendiente y guardas de servidor.
 
 Algunos README de dominios y pasajes históricos describen una fase anterior. Por ejemplo, la disponibilidad ya existe en `offerings`, aunque el README de `appointments` la enumere como futura; hay sincronización acotada de cuentas aunque el README inicial de IndexedDB describa solo un esqueleto. La fuente visual actual es **Poppins**, no la DM Sans mencionada en decisiones iniciales.
 
@@ -103,6 +106,7 @@ El alias `@/` apunta a `src/`. Hay proyectos TypeScript separados para app, herr
 - Privadas: `/perfil`, `/oferentes`, `/oferentes/nuevo`, `/oferentes/:id/editar`, `/oferentes/servicios`, `/oferentes/:id/servicios` y `/administracion/oferentes`.
 - `/citas` tiene consulta real de HU18. Ya no usa `PlaceholderPage` ni los parámetros de demostración `estado=carga/error`. Conserva `establecimiento`, `sede`, `servicio`, `fecha` y `profesional` en URL; el acceso permite volver a esa ruta o a Cómo llegar, con validación del destino.
 - `/citas/solicitudes` y `/citas/solicitudes/:id`: solicitudes propias, detalle, instrucciones e historial/avisos privados. `/oferentes/citas` y `/oferentes/:id/citas`: solicitudes relacionadas con el equipo. Requieren cuenta confirmada; el servidor decide acceso y permisos.
+- En **Mis establecimientos** (`/oferentes`) hay accesos superiores **Solicitudes de citas**, **Agenda del establecimiento** y **Chats del establecimiento**. **Actualizar establecimientos** refresca el registro/revisión de oferentes; no es la bandeja de citas. Mantener estos accesos visibles antes de las fichas extensas y conservar la autorización de las pantallas/RPC de destino.
 
 Un responsable registra una solicitud; administración aprueba su publicación. Después configura servicios, profesionales y recursos, crea asignaciones y jornadas, y registra cierres. Un visitante consulta fichas y servicios de sedes publicadas desde el mapa o el listado. Un colaborador acepta su invitación en **Cuenta → Servicios y disponibilidad**.
 
@@ -114,7 +118,7 @@ En Explorar se conservan `q`, `categoria`, `vista`, `orden`, `seleccion`, `servi
 
 Proyecto de desarrollo registrado y verificado el 2026-11-16: **`veterinary-services-dev`**, referencia **`osoljaiqizmcxxlirrwo`**. Es un identificador público, no una credencial. Antes de una futura operación remota, comprobar que sigue siendo el proyecto previsto; el registro histórico no demuestra el estado actual de otra base.
 
-Hay dieciséis migraciones aplicadas y alineadas con el historial remoto en esa fecha:
+Hay diecisiete migraciones aplicadas y alineadas con el historial remoto en esa fecha:
 
 1. `20261114000000_enable_extensions.sql`: PostGIS y btree_gist.
 2. `20261114010000_identity_and_access.sql`: perfiles, consentimiento, roles y acceso.
@@ -132,12 +136,16 @@ Hay dieciséis migraciones aplicadas y alineadas con el historial remoto en esa 
 14. `20261116150621_reject_blank_chat_messages.sql`: rechazo de texto compuesto solo por espacios, saltos o tabulaciones.
 15. `20261116151747_allow_public_appointment_policy_reads.sql`: auxiliar protegido para lectura pública de reglas sin conceder permisos de gestión al visitante.
 16. `20261116165558_private_chat_media_and_call_authorization.sql`: bucket privado, metadatos/subida/publicación de medios, cuentas profesionales, autorización de sala e invalidación/cierre.
+17. `20261116184257_account_types_and_role_separation.sql`: tipo/elección en tabla privada, clasificación de cuentas previas, RPC de contexto/elección y guardas de área sin borrar datos.
 
 Crear migraciones nuevas para cambios posteriores y preservar las ya aplicadas. No repetir estas migraciones sobre desarrollo ni reiniciar la base para añadir una funcionalidad.
 
 ### Identidad y establecimientos
 
 - `profiles`, `pets` y `privacy_consents` almacenan información de cuenta. Los roles globales `user`, `provider` y `admin` están en `private.account_roles`.
+- La misma tabla privada guarda `account_type` y `account_type_selected`. Elegir Veterinaria empieza con rol `user`; `provider` sigue requiriendo aprobación. No leer metadatos editables para decidir permisos. `current_account_context` devuelve tipo/rol/capacidades propios mediante fachada invoker y auxiliar protegido; `select_account_type` permite una sola elección pendiente, serializada e idempotente. No hay selector para alternar tipos ya definidos.
+- Migración de cuentas anteriores: responsables/rol provider/colaboradores aceptados quedan como Veterinaria; actividad personal (mascotas, citas, conversaciones o preferencias) clasifica Dueño. Sin evidencia suficiente se solicita elegir en Cuenta. Si había ambos recorridos prevalece Veterinaria conservando datos y referencias personales anteriores. No trasladar ni eliminar mascotas/pendientes para separar la interfaz.
+- `AccountMenu`, `AccountArea` y `useAccountContext` centralizan menús, rutas y consulta. Perfil de contacto común; solo Dueño consulta/renderiza mascotas. Agenda/chat de establecimiento aparecen según las capacidades del equipo; administración no mezcla ambos recorridos. Contexto offline en `sync_meta`, por cuenta, sujeto a comprobante de sesión y purga. No inventar un tipo ante error ni tratar una copia local como autorización remota.
 - Las acciones privadas verifican correo confirmado y autorización en el servidor. Los metadatos editables del usuario y los botones ocultos no conceden permisos.
 - `establishments` almacena la solicitud privada con `document`, `status` y `revision`; las sedes están dentro del documento JSONB.
 - `establishment_publications` conserva el snapshot aprobado, sin el responsable privado. Una edición pendiente no reemplaza automáticamente la publicación anterior.
@@ -192,6 +200,7 @@ Conservar RLS, privilegios mínimos y aislamiento entre cuentas/establecimientos
 - Vencimiento aplicado: al llegar el inicio sin confirmación. La disponibilidad la ignora desde entonces sin cron; lista/detalle persisten el estado/evento de vencimiento. Normalizar cada página adquiere bloqueos de establecimiento en orden estable. No ampliar el plazo de forma silenciosa.
 - Virtual muestra instrucciones/requisitos y coordinación tras confirmación. HU27 prepara una sala autorizada con LiveKit Cloud, todavía sin activar proveedor; no se simula una conexión. Las instrucciones iniciales son una plantilla informativa, con motivos/instrucciones adicionales del personal en el historial.
 - Solicitar/decidir exige conexión y validación de cuenta. No se encola ni se presenta un éxito optimista. Formulario conserva datos ante error y bloquea recarga mientras hay selección/motivo sin enviar. Petición incierta reutiliza el UUID con la misma selección. Catálogos públicos conservan datos anteriores al cambiar conexión, marcados como guardados, para evitar desmontar el formulario.
+- `/citas` muestra formulario de mascota y **Enviar solicitud de cita** desde que hay respuesta de disponibilidad, aunque aún no se elija intervalo. `RequestForm` admite `slot=null`, mantiene el botón deshabilitado con explicación accesible y no envía sin horario. Elegir intervalo desplaza al formulario sin perder la mascota. El apartado de cinco minutos es opcional; envío directo revalidado conserva el contrato RPC. Sin profesionales asignados se explica la configuración faltante; sin cupos se sugiere otra fecha y contacto. `OfferingsPage` guía recurso → asignación → jornadas → horario de sede; crear solo servicio/profesional no genera cupos. No fabricar configuración ni horarios para hacer aparecer el botón.
 - Solicitudes/eventos privados nunca se guardan en snapshots públicos. HU22 guarda una copia privada del detalle consultado en `appointment_snapshots` para preparar cambios offline, con sesión local comprobada. Caché remota en memoria por cuenta, limpieza al cambiar cuenta y purga local al cerrar sesión. Las cuentas técnicas del seeder no tienen credenciales: probar gestión real con responsable/invitado `schedule`, sin conceder permisos a identidades supuestas.
 
 ### Cambios, agenda y chat (HU22-HU24)
@@ -237,6 +246,8 @@ Verificación de la entrega inicial: **189 pruebas en 23 archivos y 79 E2E compl
 - `public-cache.ts` conserva publicaciones, servicios y consultas públicas de disponibilidad con fecha en `public_snapshots`. El fallback es explícito. No cachea notas junto al catálogo, teselas ni rutas/ETA de Google. La apertura guardada es desconocida y la disponibilidad guardada solo sirve de referencia/borrador. Al salir se conservan snapshots públicos y se purgan preferencias, comprobantes y borradores privados.
 - `account-write-lock.ts` coordina por cuenta con Web Locks; su fallback solo coordina una pestaña. El cierre cancela consultas, limpia caché y exige una decisión sobre pendientes antes de purgar datos privados. El cambio de cuenta también limpia la caché remota.
 - El mapa usa publicaciones aprobadas y omite coordenadas no finitas, fuera de rango o sin confirmar. La selección vive fuera del lienzo para sobrevivir a agrupaciones y zoom.
+- Registro/edición de establecimientos: `SiteLocationPicker.tsx` en el paso Ubicación permite clic, arrastre o uso explícito del centro para completar coordenadas de cada sede. Reutiliza SDK/opciones Google existentes; carga al abrir, comienza en coordenadas válidas o Tunja sin seleccionar la ciudad automáticamente. No geocodifica direcciones ni altera el origen del visitante. Cambiar punto/dirección/coordenadas desmarca la confirmación obligatoria. Mantener entrada manual ante fallo/offline y aislamiento entre sedes al añadir/eliminar. Compatibilidad de arrastre: `dragend` quarterly y `gmp-dragend` nuevo, ambos con limpieza.
+- Verificación del selector (2026-11-16): quince E2E de ubicación/directorio/mapa/visual correctos, incluidos tres nuevos (suite disponible: 91; no repetida completa en este cambio). Clic y arrastre comprobados también con Google real y Auth/datos ficticios interceptados, sin enviar formulario ni escribir en backend. Captura a 320 px revisada, tipos/lint/build correctos; detalle en `docs/verificacion.md`.
 - La ciudad inicial es **Tunja, Boyacá**, referencia `5.5353, -73.3678`, por solicitud explícita del usuario. Los prototipos que nombran Bogotá se adaptan a Tunja. No inventar una ubicación GPS ni presentar el centro de ciudad como la casa del visitante; una ubicación real obtenida no se fuerza a esas coordenadas. La referencia inicial no constituye un límite municipal ni importa negocios externos.
 - En Explorar móvil, el mapa tiene prioridad en la primera pantalla: origen compacto, búsqueda/actualización en una fila, categorías horizontales y leyenda desplegable debajo del mapa. El mapa base se renderiza aunque el catálogo esté vacío, cargando o falle; la presencia de publicaciones solo determina los pines. No anteponer formularios extensos o estados vacíos al mapa. Los cambios sucesivos de filtros acumulan los parámetros para no perder la vista elegida.
 - **Más filtros** abre un diálogo nativo sin desplazar el mapa. Mantiene un borrador y **Ver resultados** lo aplica en una sola actualización de URL; Escape lo descarta. Limpiar filtros conserva término/vista/orden; Limpiar búsqueda elimina también el término. Al volver de Lista a Mapa se invalida su tamaño y se vuelve a mostrar el pin seleccionado, conservando el lienzo.
@@ -300,6 +311,8 @@ Verificación HU22-HU24 (2026-11-16): **168 pruebas en 22 archivos y 49 E2E**, l
 Corrección posterior de CI: el test de chat entre dos cuentas usa la fixture `baseURL`, sin fijar 4174 en sus contextos. Se ejecutó la suite completa con `CI=true` y la configuración estándar de 4173: **69 E2E correctos**. Los cuatro tests de chat también pasaron en 4174 con salida aislada. Lint, tipos y build correctos; build final restaurado con el entorno real. Esta comprobación posterior amplía la ejecución inicial de 49 E2E registrada arriba.
 
 Verificación HU25-HU27 (2026-11-16): migración 16 aplicada/alineada y SQL de integración correcto con rollback. Tres Edge Functions desplegadas en desarrollo. Prueba real con tres sesiones técnicas: JPEG/WebM/Opus/Ogg/Opus/MP4/AAC persistidos, reintentos idempotentes y descargas comparadas por hash, tercero y URL pública denegados, MIME falso rechazado y permiso messages revocado denegado. Sala/participantes/ventana/cancelación verificados; proveedor sin configurar responde 503. Se retiraron objetos mediante Storage, datos y credenciales técnicas; cero residuos comprobados. No se concedieron permisos a cuentas reales ni se enviaron correos/push. Recuentos finales y pruebas de navegador en `docs/verificacion.md`. HU27 CA3 y dispositivos físicos siguen pendientes.
+
+Validación conjunta previa a los commits de roles/mapa/accesos/solicitudes (2026-11-16): **206 pruebas en 24 archivos y 94 E2E completos con `CI=true` aprobados**, lint/tipos/build correctos. La primera ejecución detectó una espera prematura en el E2E de reintento de voz; se corrigió para esperar confirmación de envío, pasó tres repeticiones y después la suite completa sin fallos ni reintentos. Sin cambios al producto de audio. Build final con entorno real y preview restaurado en 4173; secretos locales excluidos. Detalle en `docs/verificacion.md`.
 
 ## 8. Convenciones para continuar
 
