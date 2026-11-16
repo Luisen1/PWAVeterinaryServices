@@ -27,11 +27,11 @@ La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_vet
 | HU14      | Apertura por zona de sede, cruce de medianoche/excepciones, horario semanal 24h y advertencias sobre datos guardados y disponibilidad profesional            |
 | HU15      | Favoritos y notas privadas por cuenta, recarga/edición offline, pendientes, sincronización, revisiones y resolución explícita de conflictos                  |
 | HU16      | Contacto con llamada/copia y navegación externa desde un origen elegido hasta la sede publicada                                                              |
-| HU17      | Integración de trazado/ETA con Maps JavaScript Routes, tráfico y fallbacks; probada con SDK controlado, pendiente de clave/APIs reales para activarse        |
+| HU17      | Trazado/ETA con Maps JavaScript Routes, tráfico y fallbacks; ruta real en Tunja comprobada y mapa Google unificado con Explorar                              |
 | HU18      | Consulta publicada por sede/servicio/fecha/profesional, apartados temporales revalidados, prevención de solapes y borradores locales offline                 |
 | Base PWA  | Instalación, shell offline, actualización confirmada, precache y persistencia IndexedDB                                                                      |
 
-**No confundir apartado con cita solicitada o confirmada.** `/citas` ya consulta disponibilidad y prepara borradores/apartados temporales de cinco minutos. La solicitud con mascota, sus estados y agenda pertenecen a HU19 y siguientes. Chat, llamadas, push y sincronización general siguen pendientes. HU17 tiene la integración preparada, pero falta configurar Google para comprobar rutas reales. Tener infraestructura PWA no significa que todas las HU de continuidad estén aceptadas.
+**No confundir apartado con cita solicitada o confirmada.** `/citas` ya consulta disponibilidad y prepara borradores/apartados temporales de cinco minutos. La solicitud con mascota, sus estados y agenda pertenecen a HU19 y siguientes. Chat, llamadas, push y sincronización general siguen pendientes. HU17 tiene clave local y prueba real de ruta en Tunja; esto no demuestra navegación física, tráfico real ni operación a escala. Tener infraestructura PWA no significa que todas las HU de continuidad estén aceptadas.
 
 ## 2. Lecturas recomendadas
 
@@ -45,6 +45,7 @@ La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_vet
 8. [docs/hu10-hu12.md](docs/hu10-hu12.md): descubrimiento en Tunja, origen, búsqueda, ficha por sede y Cómo llegar; diferencia entre navegación externa y ruta/ETA internas.
 9. [docs/hu13-hu15.md](docs/hu13-hu15.md): criterios, filtros combinados, apertura, favoritos/notas, persistencia offline, modelo privado y límites de sincronización.
 10. [docs/hu17-hu18.md](docs/hu17-hu18.md): activar Google Maps, cálculo/privacidad de rutas, horarios reservables, apartados temporales, protocolo de ocupación y borradores.
+11. [docs/datos-demostracion.md](docs/datos-demostracion.md): seeder reproducible, sedes ficticias en Tunja, escenarios y fechas de prueba.
 
 Algunos README de dominios y pasajes históricos describen una fase anterior. Por ejemplo, la disponibilidad ya existe en `offerings`, aunque el README de `appointments` la enumere como futura; hay sincronización acotada de cuentas aunque el README inicial de IndexedDB describa solo un esqueleto. La fuente visual actual es **Poppins**, no la DM Sans mencionada en decisiones iniciales.
 
@@ -56,7 +57,7 @@ Algunos README de dominios y pasajes históricos describen una fase anterior. Po
 - TanStack Query 5 para datos remotos; React Hook Form y Zod 4 para formularios/validación. La configuración de oferta usa formularios controlados y esquemas Zod.
 - Supabase JS 2 para Auth, PostgreSQL/RPC y Storage.
 - Dexie 4 para IndexedDB; Workbox y `vite-plugin-pwa` con `injectManifest`.
-- Leaflet 1.9.4 y Leaflet.markercluster 1.5.3 para mapas.
+- Maps JavaScript API para todos los mapas y `@googlemaps/markerclusterer` 2.6.2 para agrupación. Se retiraron Leaflet y sus tipos.
 - Vitest, PGlite, fake-indexeddb y Playwright para verificación.
 
 Las versiones exactas están en `package.json` y `package-lock.json`. Conservar el lockfile y revisar compatibilidad antes de actualizar dependencias.
@@ -177,10 +178,11 @@ Conservar RLS, privilegios mínimos y aislamiento entre cuentas/establecimientos
 - El origen se obtiene con permiso bajo acción explícita, se marca en el mapa o se introduce con coordenadas. Se conserva solo en memoria mientras vive la página y se elimina al recargar; no se guarda en backend, IndexedDB, localStorage ni URL. Una respuesta GPS tardía no puede reemplazar una elección manual posterior.
 - La búsqueda reúne publicaciones/servicios activos mediante consultas paginadas en bloques de 500 con orden estable, y filtra por sede publicada en el cliente. Mapa y lista representan el mismo conjunto; alternar conserva filtros y selección. El catálogo grande requerirá búsqueda en servidor. Un fallo de consulta no debe presentarse como cero coincidencias.
 - La ficha mantiene identidad y sede elegida; sus servicios se filtran por esa sede. No cambiar silenciosamente un destino inexistente por otra sede ni generar indicaciones con coordenadas no verificadas.
-- **Cómo llegar** mantiene la Maps URL externa sin requerir claves y añade el cálculo integrado de HU17 mediante `RoutePlanner`, `google-routes.ts` y `GoogleRouteMap`. Usa `Route.computeRoutes`, mapa Google con atribución, campos mínimos y tráfico opcional desactivado por defecto. Muestra fecha/estimación/avisos y fallback de tráfico, nunca hora garantizada. Origen/destino se comparten con Google bajo acción explícita. Un resultado se descarta al cambiar contexto/conexión; no se persiste y respuestas demoradas no reemplazan la elección nueva. El centro de ciudad no se envía como casa.
-- HU17 requiere **Maps JavaScript API + Routes API**, facturación y `VITE_GOOGLE_MAPS_API_KEY`, pública y restringida por dominio/APIs. Esta clave todavía no está configurada en el entorno real; la integración se verificó con SDK controlado. No habilitar facturación ni inventar una ruta de éxito. Fallos de cuota/cobertura/red/configuración mantienen la alternativa externa online. No hay Edge Function nueva. La guía HU17-HU18 contiene los pasos de activación.
+- **Cómo llegar** mantiene la Maps URL externa sin requerir claves y añade el cálculo integrado de HU17 mediante `RoutePlanner`, `google-routes.ts` y `MapCanvas`. Usa `Route.computeRoutes`, campos mínimos y tráfico opcional desactivado por defecto. Muestra fecha/estimación/avisos y fallback de tráfico, nunca hora garantizada. El mapa base es Google antes y después del cálculo: se añade/quita una polilínea sin reemplazar el lienzo. `GoogleRouteMap` fue retirado. Un resultado se descarta al cambiar contexto/conexión; no se persiste y respuestas demoradas no reemplazan la elección nueva. El centro de ciudad no se envía como casa.
+- HU17 requiere **Maps JavaScript API + Routes API**, facturación y `VITE_GOOGLE_MAPS_API_KEY`, pública y restringida por dominio/APIs. La clave local ya está configurada y se comprobó una ruta real sin tráfico en Tunja. Fallos de cuota/cobertura/red/configuración mantienen la alternativa externa online. No hay Edge Function nueva. No modificar facturación/cuotas sin autorización.
 - El acceso conserva el destino público en `continuar`; el registro conserva solo esa ruta pública en `localStorage` (`veterinary.public-return`), con caducidad de una hora y consumo único. Esto permite confirmar correo en otra pestaña del mismo navegador/origen sin ampliar las Redirect URLs autorizadas de Supabase. No guardar el origen GPS en ese contexto. Si el almacenamiento está bloqueado/vencido, la confirmación vuelve a Cuenta. Los retornos se validan contra rutas públicas propias.
-- Proveedor predeterminado: OpenStreetMap, con atribución visible y política de referencia compatible. No añadir descargas masivas ni precarga offline de teselas. El listado con dirección y teléfono debe seguir disponible ante fallos.
+- Proveedor único: **Google Maps** en Explorar, selección de origen y rutas, con atribución del SDK. No añadir fallback a OSM ni almacenamiento offline de mapas. `google-maps.ts` comparte la carga y las opciones (estilo claro, idioma español, región Colombia e ID de mapa). Los marcadores avanzados conservan categorías, accesibilidad y agrupación; sedes coincidentes se eligen desde una lista en el grupo sin modificar coordenadas. El listado con dirección/teléfono sigue disponible ante fallos, incluso una denegación posterior al callback del SDK.
+- Conservar `strict-origin-when-cross-origin` en el meta referrer, hosting y script de Google. Se transmite solo el origen a otros dominios, sin ruta ni parámetros de acceso/recuperación. Al mostrar el mapa Google procesa consultas de la zona visible; la consulta de rutas comparte origen/destino solo al pulsar Calcular. El aviso de privacidad distingue estos tratamientos. Los enlaces externos conservan `noreferrer` donde corresponde.
 - Para fechas generales se usa `America/Bogota`; la disponibilidad respeta la zona específica de cada sede. Los instantes se almacenan como UTC y se presentan con zona explícita.
 
 ## 7. Entorno, ejecución y validación
@@ -188,9 +190,9 @@ Conservar RLS, privilegios mínimos y aislamiento entre cuentas/establecimientos
 Variables públicas en `.env.local`, según `.env.example`:
 
 - `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`: configurar ambas o dejar ambas vacías para el shell. La segunda admite clave publishable o anon legacy.
-- `VITE_MAP_TILE_URL` y `VITE_MAP_ATTRIBUTION`: opcionales para otro proveedor.
+- `VITE_GOOGLE_MAPS_MAP_ID`: ID público de mapa JavaScript; opcional en desarrollo (`DEMO_MAP_ID`), configurar uno propio en producción. El mismo ID/opciones mantiene el estilo entre mapa y ruta. `VITE_MAP_TILE_URL` y `VITE_MAP_ATTRIBUTION` ya no se utilizan.
 - `BUILD_ID`: identificador público opcional del build.
-- `VITE_GOOGLE_MAPS_API_KEY`: opcional para HU17; clave pública de navegador restringida a dominios propios y Maps JavaScript API/Routes API. No usar claves privadas de servidor. Sin ella siguen funcionando directorio, disponibilidad y navegación externa.
+- `VITE_GOOGLE_MAPS_API_KEY`: necesaria para los mapas y HU17; clave pública de navegador restringida a dominios propios y Maps JavaScript API/Routes API. No usar claves privadas de servidor. Sin ella siguen funcionando listado, fichas, disponibilidad y navegación externa. Mostrar mapas usa Maps JavaScript API; no implica consultar rutas automáticamente.
 
 Todo `VITE_` llega al navegador. No añadir secretos, `service_role`, contraseñas ni tokens privados; no copiar `.env.local` a documentación o pruebas. Cambiar estas variables requiere recompilar.
 
@@ -208,7 +210,7 @@ npm run build
 npm run preview
 ```
 
-Playwright necesita el puerto 4173 libre, usa un worker y administra su propio build/preview. Los E2E interceptan Auth, datos y algunas teselas; no demuestran entrega de correo ni funcionamiento en dispositivos físicos. Tras ellos, regenerar `dist/` con el entorno previsto antes de distribuirlo. `npm run format` modifica todo el repositorio; para cambios pequeños, formatear solo archivos tocados.
+Playwright necesita el puerto 4173 libre, usa un worker y administra su propio build/preview. Los E2E interceptan Auth/datos y el SDK de Google mediante `google-maps-fixture.ts`; no demuestran entrega de correo ni funcionamiento en dispositivos físicos. Tras ellos, regenerar `dist/` con el entorno previsto antes de distribuirlo. `npm run format` modifica todo el repositorio; para cambios pequeños, formatear solo archivos tocados.
 
 Última verificación de código de HU07-HU09 (2026-11-15): lint, tipos y build correctos; **66 pruebas de lógica/PostgreSQL en 11 archivos y 26 E2E**. Es un registro histórico, no una garantía sobre cambios futuros. Las pruebas SQL remotas `supabase/tests/hu03_hu06.sql` y `supabase/tests/hu07_hu09.sql` ejecutan escenarios sintéticos con rollback; la de HU07-HU09 pasó en desarrollo y también se comprobó su API pública con el SDK.
 
@@ -222,7 +224,15 @@ Verificación de HU13-HU15 (2026-11-15): **103 pruebas de lógica/PostgreSQL en 
 
 Verificación de HU17-HU18 (2026-11-15): **129 pruebas de lógica/PostgreSQL en 18 archivos y 52 E2E**, lint, tipos y build. Tras ajustar el alcance del aviso de fallo OSM al mostrar una ruta Google, se repitieron los recorridos nuevos y de descubrimiento. Capturas revisadas en Citas a 320/1280 px y ruta con SDK controlado a 360 px. Las ocho migraciones están aplicadas/alineadas y `supabase/tests/hu18.sql` pasó con rollback. Se corrigieron los dos avisos nuevos de FK sin índice; quedan los informativos privados e índices sin uso y la política permisiva histórica de oferta. El build se regenera con el entorno real después de E2E. **Pendiente:** clave/APIs y prueba real de Google, dispositivos físicos y solicitudes HU19. No se afirmó haber ejecutado tráfico real, solicitudes HTTP simultáneas ni consumo facturable.
 
+Actualización a proveedor único Google (2026-11-15): `MapCanvas` sirve directorio/selección/ruta y mantiene su instancia al calcular o quitar el trazado; SDK/opciones están en `google-maps.ts`. Se retiraron Leaflet/OSM y `GoogleRouteMap`; no restaurar un segundo proveedor. La clave local ya funciona: se comprobaron siete marcadores DEMO y una ruta real sin tráfico en Tunja, con el mismo lienzo, sin peticiones OSM ni errores de autorización/JavaScript. Se inspeccionaron capturas de escritorio y móvil a 360 px. Esta prueba sí hizo consultas reales de Maps/Routes; las verificaciones históricas con SDK controlado no equivalían a esa aceptación.
+
+Verificación de este cambio: **141 pruebas en 20 archivos y 30 E2E de descubrimiento, mapa, disponibilidad/rutas y preferencias**, lint, tipos y build correctos. Los E2E usaron SDK controlado, puerto 4174 y salida aislada. La suite disponible tiene 54 E2E. El build real del preview 4173 se regeneró conservando `.env.local` fuera de Git: 16 entradas de precache (~1118 KiB), mapa diferido ~27.5 kB y avisos conocidos de tamaño/Workbox. Documentación y aviso de privacidad actualizados. Pendiente operativo: ID de mapa propio/dominio/cuotas de producción y dispositivos físicos; no afirmar navegación física ni tráfico real por haber obtenido una estimación sin tráfico.
+
 ## 8. Convenciones para continuar
+
+Registro histórico anterior a la unificación con Google: se alinearon el meta referrer, las cabeceras y la capa Leaflet; se añadió un E2E de origen sin parámetros. Se verificaron autenticación, descubrimiento y mapa en un build aislado en 4174, manteniendo el preview del usuario en 4173 y su `dist/` real; la aserción de retorno de registro se hizo independiente del puerto. Entonces la suite disponible sumaba 53 E2E y se comprobaron seis teselas OSM HTTP 200. Esa revisión no calculó rutas Google. La migración posterior a Google y la prueba real de HU17 constan en la sección 7; este registro no autoriza restaurar Leaflet ni indica que la clave siga pendiente.
+
+Si una pestaña aún muestra atribución Leaflet/OSM con «Hay una nueva versión», está ejecutando el shell anterior pendiente de activar. El build actual no contiene esos proveedores. Usar la actualización confirmada de la PWA; no borrar IndexedDB, sesiones ni preferencias, ni forzar recargas durante operaciones sensibles para cambiar el mapa.
 
 - Revisar `git status` antes de editar y conservar cambios existentes del usuario. No asumir que el trabajo de una sesión anterior ya está confirmado en Git.
 - Cuando se solicite un commit, conservar la identidad Git configurada y no añadir atribución `Co-authored-by` del asistente: es una preferencia explícita del usuario.
@@ -235,7 +245,21 @@ Verificación de HU17-HU18 (2026-11-15): **129 pruebas de lógica/PostgreSQL en 
 
 ## 9. Pendientes y próximos desarrollos
 
-- Activar HU17 con clave de navegador restringida, Maps JavaScript API/Routes API y cuotas revisadas; verificar cobertura/ETA reales en Tunja. La integración y fallbacks están implementados; no se importan automáticamente establecimientos de proveedores de mapas.
+### Datos de demostración disponibles
+
+`supabase/seed.sql` está cargado en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`). Crea 6 establecimientos aprobados, 7 sedes ficticias en Tunja, 9 servicios activos y 1 inactivo, con profesionales/recursos/asignaciones/jornadas y un bloqueo (101 registros de oferta). Son destinos y contactos de prueba, identificados con DEMO; no representan negocios reales. No importar ni presentar estos datos como catálogo verificado de la ciudad.
+
+La ejecución es atómica, con bloqueo entre ejecuciones, UUID estables `de17`, validación del dominio y aprobaciones/oferta mediante las RPC existentes. Repetir no cambia revisiones ni publicaciones. Si una cuenta o documento entra en conflicto, aborta sin sobrescribir; no usar borrados o reinicios para forzarlo. Se conservan datos ajenos y preferencias/apartados de usuarios. El archivo es un seeder separado, no una migración de producción.
+
+Las cuentas técnicas `de170000-0000-4000-8000-000000000001` y `...0002` no tienen contraseña ni identidad OAuth. No ofrecen acceso de prueba ni envían correos. El responsable termina como `provider` y el revisor como `user`; no queda un administrador nuevo. Usar una cuenta propia confirmada para aceptación de favoritos y apartados.
+
+Fecha base persistida en la carga inicial: `2026-11-15`. Bloqueo de consulta general Centro el `2026-11-17` de 09:00 a 10:00; cierre completo Norte el `2026-11-18`. No desplazar esas fechas automáticamente al repetir el seeder. Jornadas semanales siguen disponibles; elegir una fecha futura dentro de 180 días. La clínica 24h tiene jornada profesional 08:00–20:00; la sede sin horario no ofrece intervalos. Ver [guía y recorridos](docs/datos-demostracion.md).
+
+Verificación del seeder: 137 pruebas en 19 archivos, lint y tipos correctos; ocho pruebas nuevas ejecutan el SQL real en PostgreSQL embebido. Se cargó y repitió en desarrollo, y se comprobó en el navegador real de 4173 sin interceptar: siete pines, ficha desde pin, veinte intervalos normales, dieciocho con bloqueo y ninguno con cierre. Se inspeccionó la captura del mapa; no hubo errores JavaScript. No se calcularon rutas facturables de Google ni se crearon citas definitivas. El asesor de seguridad muestra dos informativos de tablas privadas sin políticas y un aviso de protección contra contraseñas filtradas desactivada; no se cambiaron ajustes de Auth.
+
+### Próximos pasos
+
+- Preparar operación de Google en producción: ID de mapa propio, restricciones del dominio final, cuotas y aceptación en dispositivos físicos. Clave/APIs y una ruta real sin tráfico en Tunja ya se comprobaron localmente. No se importan automáticamente establecimientos de Google.
 - Completar el recorrido real de HU11 CA3 cuando se implementen las reservas y el chat. El contexto y retorno de autenticación están preparados y probados; no habilitar botones que simulen esos dominios.
 - HU19 y siguientes: solicitudes atómicas con mascota, agenda y estados. Integrar el apartado de HU18 y revalidar dentro de la misma transacción, conservando las guardas contra solapes de profesional/recurso.
 - Chat, imágenes/audio, Realtime, llamadas autorizadas, notificaciones push y recordatorios.
