@@ -6,4 +6,6 @@ El responsable o permiso explícito `messages` da acceso al equipo; otros permis
 
 Rutas: `/mensajes`, `/mensajes/nuevo`, `/mensajes/:id`, `/oferentes/mensajes`. Entrada desde ficha conserva la sede durante acceso/registro. Ver [HU22-HU24](../../../docs/hu22-hu24.md).
 
-Archivos, audios, llamadas y push siguen pendientes. `message_drafts` y `pending_attachments` siguen siendo infraestructura sin integración con este chat; no anunciar que el texto sobrevive al cerrar la pestaña.
+HU25-HU26 añaden fotos/voz en `MediaComposer.tsx`, `MediaBlob.tsx`, `MediaMessage.tsx` y `media-store.ts`. Los archivos se guardan como pendientes privados en `pending_attachments` antes de subir; reintentos conservan UUID/blob y no duplican. La Edge Function valida bytes/metadatos, guarda Storage privado y publica el mensaje al finalizar. La descarga revalida RLS y usa URL blob efímera; el audio se reproduce con controles nativos. Hay limpieza explícita de subidas incompletas propias si se perdió el borrador local.
+
+No hay autoenvío al reconectar. `message_drafts` sigue sin integrar y el texto no promete sobrevivir al cerrar pestaña; los blobs guardados sí persisten por cuenta hasta envío/descarte/purga. Llamadas LiveKit están preparadas, sin activación/prueba entre dos equipos; push sigue pendiente. Ver [HU25-HU27](../../../docs/hu25-hu27.md).

@@ -171,3 +171,39 @@ Pendiente operativo: aceptación con cuentas reales de cliente/equipo, Android/i
 ## Corrección del puerto del chat en CI
 
 El test de chat entre dos cuentas fijaba `http://localhost:4174` al crear sus contextos, mientras CI inicia el servidor en 4173. Se sustituyó ese valor por la fixture `baseURL` de Playwright en ambos contextos. La suite completa con la configuración de CI pasó: **69 E2E**, incluidos los recorridos PWA. Los **cuatro E2E de chat** también pasaron con servidor/build aislados en 4174, comprobando independencia del puerto. Tipos y lint correctos; el build final se regeneró con el entorno real después de las pruebas. El cambio afecta únicamente al test; no cambia mapas, rutas ni servicios externos.
+
+## HU25-HU27: medios privados y preparación de LiveKit Cloud
+
+Verificación del 2026-11-16: **189 pruebas de lógica/PostgreSQL en 23 archivos y la suite completa de 79 E2E**, con `CI=true` y configuración estándar en 4173. Tipos, lint y `npm run check:functions` correctos. Se añadió la comprobación Deno de las tres funciones al flujo de CI. Tras corregir un aviso de cámara que quedaba visible al fallar el ingreso, se repitieron los tres E2E de llamadas: correctos. No se aumentaron timeouts ni se volvió a fijar 4174 en contextos nuevos.
+
+Los recorridos de Chromium usan cámara/micrófono sintéticos, pero capturan una imagen y codifican/reproducen audio real con MediaRecorder. Comprueban vista previa/descarte, denegación de cámara con alternativa de archivo, límite de grabación, pendiente recuperado tras recarga, respuesta perdida sin duplicados, descarte offline y limpieza de una subida propia sin borrador local. La asignación profesional exige revisiones esperadas; terceros o citas no confirmadas/fuera de ventana no activan medios. Una respuesta de proveedor pendiente libera todas las pistas y no muestra conexión simulada. Se revisaron capturas de chat y sala a 320 px, sin desbordamiento horizontal.
+
+PostgreSQL verifica RLS, permisos, límites, idempotencia, publicación exclusiva de servidor, descarte, ventana de sala, identidad profesional, revisión de asignación y revocación/cancelación. La validación de bytes acepta JPEG/PNG/WebP y tonos sintéticos WebM/Opus, Ogg/Opus y MP4/AAC; rechaza contenido/formatos/dimensiones/duración inválidos. Las pruebas de firma verifican identidad, sala, privilegios mínimos, expiración y secreto incorrecto. IndexedDB comprueba persistencia del blob, cuenta propietaria, reintento estable y purga.
+
+La migración `20261116165558_private_chat_media_and_call_authorization.sql` quedó aplicada y alineada en desarrollo, total dieciséis; `supabase/tests/hu25_hu27.sql` pasó con rollback. `chat-media`, `appointment-call` y `call-maintenance` están desplegadas. Las dos funciones de usuario respondieron 401 sin sesión; su gateway permite llegar al handler, que verifica Auth mediante `getUser`. El worker conserva verificación JWT y credencial de servidor adicional.
+
+Prueba remota HTTP/Auth/Storage con tres cuentas técnicas temporales: JPEG y los tres contenedores de audio guardados, descarga autorizada comparada por SHA-256 y reintentos sin duplicados. Tercero y URL pública denegados; MIME falso rechazado. Retirar `messages` impidió descargar sin retirar el permiso de agenda. La autorización vinculó cliente/profesional a una misma sala y negó tercero/cancelación; el endpoint de ingreso respondió 503 por LiveKit sin configurar. Se eliminaron los objetos mediante Storage antes de retirar fixtures, y se comprobó cero cuentas, subidas, citas y objetos temporales. Credenciales locales eliminadas; no se enviaron correos/push ni se cambiaron permisos de cuentas reales.
+
+Los asesores conservaron los avisos previos: dos informativos de tablas privadas sin políticas y protección contra contraseñas filtradas desactivada; rendimiento con índices sin uso y política permisiva histórica de oferta. Sin nuevas FK sin índice ni nuevos problemas de RLS. No se cambiaron ajustes de Auth ni se activaron Cron/pg_net.
+
+Build final regenerado con `.env.local` real, sin exponer claves: 17 entradas de precache (~1772 KiB), mapa diferido ~27.5 kB, SDK LiveKit diferido ~578 kB y principal ~1070 kB sin comprimir. Persisten avisos de tamaño de chunks y opción de Workbox deprecada; no impiden compilar. No se hicieron cálculos Google.
+
+**HU27 no está aceptada como llamada operativa:** faltan cuenta/secretos LiveKit Cloud, mantenimiento comprobado y audio/video entre dos equipos reales. Tampoco se verificaron Safari/iPhone ni Android físicos. La activación, ventana y límites de revocación asíncrona están en [HU25-HU27](hu25-hu27.md). HU25-HU26 están implementadas y verificadas en desarrollo; esa evidencia no sustituye aceptación móvil en dispositivos físicos.
+
+## Compresión de fotografías y ahorro en videollamada
+
+Actualización del 2026-11-16, tras aclarar que el video solicitado corresponde a la videollamada. Se repitieron **189 pruebas de lógica/PostgreSQL y los 15 E2E de chat/llamadas**, incluidos dos recorridos nuevos de compresión; todos correctos. La suite disponible suma ahora 81 E2E; no se afirma haber repetido los 81 en esta actualización. Tipos y lint correctos.
+
+Chromium comprimió un PNG sintético de 2400×1800 con ruido, mayor de 5 MiB, a WebP de hasta 512 KiB y lado máximo de 1600 px, reduciendo más del 90 % del tamaño. Se comprobó el blob final en IndexedDB antes de subir, recuperación tras recarga y reintento con el mismo UUID tras respuesta perdida, con un único mensaje validado por el backend de prueba. Otro recorrido fuerza un navegador sin codificador WebP y verifica JPEG; un original mayor de 20 MiB y una imagen ilegible se rechazan antes de guardar/subir, conservando texto. El recorrido de cámara y el de voz continúan correctos.
+
+El E2E de ingreso con proveedor pendiente comprobó en las pistas capturadas límites de 640×360 y 15 fps, y su liberación después del error. Los ajustes de publicación de video a 500 kbit/s y audio mono a 24 kbit/s están tipados contra el SDK instalado; no se presenta eso como medición de tráfico ni prueba de codificación entre dos participantes LiveKit. Las cuotas gratuitas y alternativas se consultaron en documentación oficial y quedaron en [HU25-HU27](hu25-hu27.md). No hubo cambios de esquema, funciones remotas, credenciales ni proveedor.
+
+Build final con entorno real correcto, 17 entradas de precache (~1774 KiB). Conserva los avisos conocidos de tamaño y Workbox; no hubo cambios de dependencias. Preview restaurado en 4173 después de retirar el servidor de pruebas.
+
+## Configuración local única
+
+Por petición del usuario, se reunieron las variables públicas y privadas en el `.env.local` raíz, fuera de Git. Se compararon todos los valores antes y después y se retiró `supabase/functions/.env.local` tras verificar la escritura. La única plantilla mantenida es `.env.example` raíz. No se mostraron valores privados ni se incluyeron en documentación/pruebas.
+
+`npm run deploy:secrets -- --check` pasó con las cinco variables permitidas; no realizó carga remota. El comando sin `--check` filtra frontend/variables ajenas, deriva el destino del proyecto público, invoca CLI 3.1.0 y retira el archivo temporal. Cuatro pruebas nuevas verifican lista permitida, rechazo de máscaras, credenciales/referencias en VITE_ y formatos/destinos inválidos: **193 pruebas en 24 archivos**, tipos, lint y build correctos. No se repitió E2E porque este cambio no modifica recorridos de la app. Persisten avisos previos de tamaño/Workbox.
+
+La consulta real de solo lectura `RoomServiceClient.listRooms` autenticó correctamente con el nuevo par LiveKit, sin crear salas ni activar llamadas. Se revisó el contenido de `dist/` y no contiene los valores reales de API key/secret de LiveKit. Git confirma que `.env.local` está ignorado. `LIVEKIT_MAINTENANCE_READY` permanece false; no se cargaron secretos remotos, no se activó Cron y sigue pendiente la prueba entre dos equipos.

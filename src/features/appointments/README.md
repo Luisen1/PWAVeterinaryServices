@@ -11,3 +11,5 @@ HU22-HU23 añaden reglas publicadas de cambios, cancelación/reprogramación at�
 Un apartado dura cinco minutos y no crea una cita solicitada ni confirmada. Los borradores y cambios locales no ocupan ni se envían al reconectar. La cita remota conserva su vigencia hasta que el servidor acepta el cambio. La agenda está en `/citas/agenda` y `/oferentes/agenda`; no cambia el contrato de las listas HU19-HU21.
 
 Consultar [HU17-HU18](../../../docs/hu17-hu18.md), [HU19-HU21](../../../docs/hu19-hu21.md), [HU22-HU24](../../../docs/hu22-hu24.md) y `AGENTS.md` antes de ampliar el dominio.
+
+HU27 prepara acceso desde una virtual confirmada a `/citas/solicitudes/:id/videollamada`. Responsable/schedule asigna una cuenta verificada al profesional; solo esa cuenta y el cliente reciben autorización dentro de la ventana. LiveKit Cloud y el mantenimiento no están activados; ver [HU25-HU27](../../../docs/hu25-hu27.md) antes de declarar una llamada operativa.

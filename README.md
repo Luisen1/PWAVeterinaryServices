@@ -10,7 +10,9 @@ Las [HU17-HU18](docs/hu17-hu18.md) incorporan consulta de horarios por sede/serv
 
 Las [HU19-HU21](docs/hu19-hu21.md) permiten solicitar atención presencial o virtual para una mascota propia, revalidando el intervalo y consumiendo el apartado atómicamente. La persona consulta sus solicitudes e instrucciones; el responsable o colaborador con `schedule` confirma/rechaza y genera un aviso persistido. El rechazo requiere motivo y libera el horario. Las solicitudes vencen al inicio si no se resuelven.
 
-Las [HU22-HU24](docs/hu22-hu24.md) incorporan cancelación/reprogramación atómicas bajo reglas publicadas, cambios pendientes offline, agenda filtrada y estados finales auditados. El chat de texto conecta a la cuenta con el equipo autorizado de una sede, con persistencia, recibos de lectura y Realtime respaldado por recuperación por cursor. Accesos desde Cuenta y ficha; no requiere otro proveedor ni claves adicionales. Videollamadas, adjuntos y correo/push siguen pendientes.
+Las [HU22-HU24](docs/hu22-hu24.md) incorporan cancelación/reprogramación atómicas bajo reglas publicadas, cambios pendientes offline, agenda filtrada y estados finales auditados. El chat conecta a la cuenta con el equipo autorizado de una sede, con persistencia, recibos de lectura y Realtime respaldado por recuperación por cursor. Accesos desde Cuenta y ficha.
+
+Las [HU25-HU27](docs/hu25-hu27.md) añaden fotos privadas de hasta 5 MB, notas de voz de hasta 60 segundos, previsualización/escucha y pendientes duraderos con reintentos sin duplicados. La integración de videollamada LiveKit Cloud está preparada con cuenta profesional, autorización, sala privada y tokens cortos, pero **todavía requiere cuenta/secretos, mantenimiento y prueba real entre dos equipos**. No se muestra una conexión simulada ni se declara HU27 aceptada. Correo/push siguen pendientes.
 
 PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local, cuentas, perfil y mascotas, oferentes, revisión administrativa, fichas, servicios, profesionales, disponibilidad, colaboradores y mapa con agrupación. Consulta [HU07-HU09](docs/hu07-hu09.md) para configurar la oferta. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
 
@@ -38,18 +40,29 @@ El preview se sirve en `http://localhost:4173`. `localhost` permite probar el se
 
 ## Variables de entorno
 
-Copiar `.env.example` a `.env.local` para configurar un proyecto Supabase.
+Copiar `.env.example` a `.env.local` en la raíz. Es el único archivo local de configuración para frontend y backend y está excluido de Git. La plantilla reúne valores públicos y privados, sin credenciales reales.
 
 | Variable                 | Valor                             |
 | ------------------------ | --------------------------------- |
 | `VITE_SUPABASE_URL`      | URL pública del proyecto Supabase |
 | `VITE_SUPABASE_ANON_KEY` | Clave pública anon del proyecto   |
 
-Ambas pueden quedar vacías para ejecutar y probar el shell. `supabase` se exporta como `null` hasta que existan valores válidos. Si se configura una variable, se deben configurar ambas. Vite incorpora las variables `VITE_` al código público. Nunca incluir claves `service_role`, claves secretas, contraseñas o tokens privados. Las variables se fijan al compilar, por lo que sus cambios requieren otro build.
+Ambas pueden quedar vacías para ejecutar y probar el shell. `supabase` se exporta como `null` hasta que existan valores válidos. Si se configura una variable, se deben configurar ambas. Vite incorpora únicamente las variables con prefijo `VITE_` al código público. Nunca incluir claves `service_role`, secretos, contraseñas o tokens privados en ese prefijo ni referenciarlos desde una variable pública. Las variables públicas se fijan al compilar, por lo que sus cambios requieren otro build.
+
+En el mismo archivo, `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `APP_ALLOWED_ORIGINS` y `LIVEKIT_MAINTENANCE_READY` son exclusivas del backend. Guardarlas localmente no configura automáticamente las Edge Functions remotas. Con Supabase CLI autenticada:
+
+```sh
+# Validar sin enviar ni mostrar valores:
+npm run deploy:secrets -- --check
+# Cargar solo las cinco variables de backend en el proyecto de VITE_SUPABASE_URL:
+npm run deploy:secrets
+```
+
+El comando usa CLI 3.1.0, excluye variables públicas y credenciales ajenas, y elimina su archivo temporal al terminar. Mantener `LIVEKIT_MAINTENANCE_READY=false` hasta comprobar el worker de cierre. Supabase proporciona sus propias variables de servidor al runtime; no copiarlas al frontend. Para otro entorno, ajustar el `.env.local` al proyecto de destino antes de cargar secretos y compilar. Publicar solo `dist/`; nunca subir el archivo `.env.local` al hosting estático. La configuración de mantenimiento y aceptación de llamadas está en [HU25-HU27](docs/hu25-hu27.md).
 
 El cliente admite una clave pública publishable (`sb_publishable_`) en `VITE_SUPABASE_ANON_KEY`, además de la clave anon legacy. La sesión persiste y se refresca mediante el SDK. Los enlaces de correo usan PKCE y se procesan en `/auth/confirmar`.
 
-Para habilitar un proyecto nuevo, aplicar las quince migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` ya están aplicadas/alineadas: identidad, establecimientos, oferta, preferencias, apartados, solicitudes/decisiones, cambios atómicos, agenda y chat. Las dos tablas de chat se añaden a `supabase_realtime` cuando la publicación existe.
+Para habilitar un proyecto nuevo, aplicar las dieciséis migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` ya están aplicadas/alineadas: identidad, establecimientos, oferta, preferencias, apartados, solicitudes/decisiones, cambios atómicos, agenda, chat, medios privados y autorización de salas. Las dos tablas de chat se añaden a `supabase_realtime` cuando la publicación existe. Las tres Edge Functions de medios/llamadas están desplegadas en desarrollo; activar LiveKit y el trabajo de cierre requiere los pasos de `docs/hu25-hu27.md`.
 
 Los mapas requieren `VITE_GOOGLE_MAPS_API_KEY`: clave pública de navegador restringida por dominios y a Maps JavaScript API/Routes API. `VITE_GOOGLE_MAPS_MAP_ID` permite usar un ID de mapa JavaScript propio; en desarrollo se utiliza `DEMO_MAP_ID` si no se configura. El SDK se carga al mostrar el mapa y las rutas solo se consultan bajo acción explícita. Sin clave quedan disponibles el listado, las fichas, la disponibilidad y la navegación externa. Las variables antiguas `VITE_MAP_TILE_URL`/`VITE_MAP_ATTRIBUTION` ya no se usan. La [guía HU17-HU18](docs/hu17-hu18.md) detalla configuración, cuotas y límites.
 
@@ -227,8 +240,8 @@ GitHub Actions ejecuta instalación reproducible, lint, TypeScript, Vitest, buil
 Pendiente para las siguientes fases
 
 - Configuración operativa de correo, restricciones/cuotas Google y despliegue HTTPS definitivo.
-- Tablas, restricciones, permisos y RLS de los siguientes dominios, preservando las quince migraciones aplicadas.
-- Archivos/audio de chat, llamadas y notificaciones push; el chat de texto y Realtime ya están implementados.
+- Tablas, restricciones, permisos y RLS de los siguientes dominios, preservando las dieciséis migraciones aplicadas.
+- Activación y aceptación real de LiveKit Cloud, controles/reconexión HU28-HU29 y notificaciones push. Texto/fotos/voz privados ya implementados.
 - Llamadas de audio/vídeo y autorización de salas.
 - Protocolo de sincronización, outbox, reintentos y conflictos.
 - Push, recordatorios, observabilidad y políticas de privacidad.
