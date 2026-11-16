@@ -20,6 +20,10 @@
     "paths": { "@/*": ["src/*"] },
     "types": ["vite/client", "vite-plugin-pwa/react", "node"]
   },
-  "include": ["src", "tests/setup.ts"],
+  "include": [
+    "src",
+    "tests/setup.ts",
+    "supabase/functions/_shared/media-policy.ts"
+  ],
   "exclude": ["src/sw.ts"]
 }

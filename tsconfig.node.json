@@ -13,6 +13,7 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"] },
     "types": ["node", "vite/client"]
@@ -25,6 +26,9 @@
     "tests/database",
     "src/features/directory/model.ts",
     "src/features/offerings/model.ts",
-    "src/features/appointments/requests-model.ts"
+    "src/features/appointments/requests-model.ts",
+    "supabase/functions/_shared",
+    "supabase/functions/chat-media/handler.ts",
+    "supabase/functions/appointment-call/handler.ts"
   ]
 }
