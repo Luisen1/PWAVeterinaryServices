@@ -18,6 +18,8 @@ import {
   mergeMessages,
 } from './model';
 import { sendMessage, useConversation } from './api';
+import { MediaComposer } from './MediaComposer';
+import { MediaMessage } from './MediaMessage';
 
 function chatError(error: unknown) {
   return error &&
@@ -337,7 +339,11 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
                     · America/Bogota
                   </time>
                 </p>
-                <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                {m.media ? (
+                  <MediaMessage owner={owner} message={m} />
+                ) : (
+                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                )}
                 {m.author_side === result.conversation.side && (
                   <p className="text-xs">
                     {isRead(m, result.conversation)
@@ -396,6 +402,11 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
           {chatError(send.error ?? read.error ?? older.error)}
         </Notice>
       )}
+      <MediaComposer
+        owner={owner}
+        conversation={id}
+        canCompose={!!result && !query.isError}
+      />
     </div>
   );
 }

@@ -5,11 +5,13 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   getUser: vi.fn(),
   rpc: vi.fn(),
+  invoke: vi.fn(),
 }));
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: { getSession: mocks.getSession, getUser: mocks.getUser },
     rpc: mocks.rpc,
+    functions: { invoke: mocks.invoke },
   },
 }));
 import {
@@ -25,6 +27,11 @@ import {
   readChangeDraft,
   removeChangeDraft,
 } from './change-store';
+import {
+  saveMediaDraft,
+  sendMediaDraft,
+  discardMediaDraft,
+} from '@/features/messaging/media-store';
 const owner = '11111111-1111-4111-8111-111111111111';
 const user = { id: owner, email_confirmed_at: '2026-11-15' } as User;
 const session = {
@@ -64,6 +71,72 @@ afterEach(async () => {
   await db.delete();
   vi.resetAllMocks();
   vi.unstubAllGlobals();
+});
+it('HU26 conserva archivo e identificador tras un fallo y borra el pendiente solo tras confirmar', async () => {
+  vi.stubGlobal('navigator', { onLine: true });
+  const conversation = crypto.randomUUID();
+  const file = new Blob(['audio-fixture'], { type: 'audio/webm' });
+  const draft = await saveMediaDraft(owner, conversation, 'audio', file);
+  db.close();
+  await db.open();
+  expect((await db.pending_attachments.get(draft.id))?.file.size).toBe(
+    file.size,
+  );
+  mocks.invoke.mockResolvedValueOnce({
+    data: null,
+    error: new Error('network'),
+  });
+  await expect(sendMediaDraft(owner, draft.id)).rejects.toThrow(
+    'sigue pendiente',
+  );
+  expect(await countPendingLocalData(owner)).toBe(1);
+  mocks.invoke.mockResolvedValueOnce({
+    data: {
+      id: draft.id,
+      conversation_id: conversation,
+      author_id: owner,
+      author_side: 'customer',
+      seq: '1',
+      body: '',
+      created_at: new Date().toISOString(),
+      media: {
+        id: draft.id,
+        kind: 'audio',
+        mime: 'audio/webm',
+        bytes: file.size,
+        duration_ms: 1000,
+        width: null,
+        height: null,
+      },
+    },
+    error: null,
+  });
+  await sendMediaDraft(owner, draft.id);
+  expect(
+    mocks.invoke.mock.calls.map((call) => (call[1].body as FormData).get('id')),
+  ).toEqual([draft.id, draft.id]);
+  expect(await db.pending_attachments.count()).toBe(0);
+});
+it('HU25-HU26 aíslan borradores, no suben offline y purgan blobs al salir', async () => {
+  const draft = await saveMediaDraft(
+    owner,
+    crypto.randomUUID(),
+    'image',
+    new Blob(['image'], { type: 'image/png' }),
+  );
+  vi.stubGlobal('navigator', { onLine: false });
+  await expect(sendMediaDraft(owner, draft.id)).rejects.toThrow(
+    'permanece pendiente',
+  );
+  expect(mocks.invoke).not.toHaveBeenCalled();
+  await expect(sendMediaDraft('other-owner', draft.id)).rejects.toThrow(
+    'esta cuenta',
+  );
+  await expect(discardMediaDraft('other-owner', draft.id)).rejects.toThrow(
+    'esta cuenta',
+  );
+  await purgePrivateLocalData(owner);
+  expect(await db.pending_attachments.count()).toBe(0);
 });
 it('HU22 conserva el cambio pendiente tras recargar, no lo envía y lo aísla por cuenta', async () => {
   const change = {
