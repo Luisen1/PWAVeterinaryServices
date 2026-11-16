@@ -8,7 +8,11 @@ export const TEST_PASSWORD = 'UnaClave123!';
 
 export async function mockAuthApi(
   context: BrowserContext,
-  options: { confirmed?: boolean; role?: 'user' | 'provider' | 'admin' } = {},
+  options: {
+    confirmed?: boolean;
+    role?: 'user' | 'provider' | 'admin';
+    userId?: string;
+  } = {},
 ) {
   let role = options.role ?? 'user';
   let password = TEST_PASSWORD;
@@ -20,7 +24,7 @@ export async function mockAuthApi(
     body: Record<string, unknown> | null;
   }[] = [];
   const user = {
-    id: TEST_USER_ID,
+    id: options.userId ?? TEST_USER_ID,
     aud: 'authenticated',
     role: 'authenticated',
     email: TEST_EMAIL,
@@ -34,7 +38,7 @@ export async function mockAuthApi(
   };
   const payload = Buffer.from(
     JSON.stringify({
-      sub: TEST_USER_ID,
+      sub: options.userId ?? TEST_USER_ID,
       aud: 'authenticated',
       role: 'authenticated',
       exp: Math.floor(Date.now() / 1000) + 3600,

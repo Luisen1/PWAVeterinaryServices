@@ -20,6 +20,11 @@ import {
 import { countPendingLocalData } from '@/features/auth/logout';
 import { rememberVerifiedSession } from '@/features/auth/offline-session';
 import { type Availability, dayInZone, daySchema } from './model';
+import {
+  saveChangeDraft,
+  readChangeDraft,
+  removeChangeDraft,
+} from './change-store';
 const owner = '11111111-1111-4111-8111-111111111111';
 const user = { id: owner, email_confirmed_at: '2026-11-15' } as User;
 const session = {
@@ -59,6 +64,31 @@ afterEach(async () => {
   await db.delete();
   vi.resetAllMocks();
   vi.unstubAllGlobals();
+});
+it('HU22 conserva el cambio pendiente tras recargar, no lo envía y lo aísla por cuenta', async () => {
+  const change = {
+    p_operation: crypto.randomUUID(),
+    p_id: crypto.randomUUID(),
+    p_revision: 3,
+    p_action: 'rescheduled' as const,
+    p_reason: 'Cambiar por trabajo',
+    p_assignment: null,
+    p_start: null,
+  };
+  await saveChangeDraft(owner, change);
+  db.close();
+  await db.open();
+  expect(await readChangeDraft(owner, change.p_id)).toEqual(change);
+  expect(await countPendingLocalData(owner)).toBe(1);
+  expect(mocks.rpc).not.toHaveBeenCalled();
+  await expect(readChangeDraft('other-owner', change.p_id)).rejects.toThrow(
+    'esta cuenta',
+  );
+  await expect(removeChangeDraft('other-owner', change.p_id)).rejects.toThrow(
+    'esta cuenta',
+  );
+  await purgePrivateLocalData(owner);
+  expect(await db.appointment_change_drafts.count()).toBe(0);
 });
 it('persiste un borrador sin enviar ni reservar y obliga a decidir sobre él al salir', async () => {
   await saveAvailabilityDraft(owner, availability, slot);

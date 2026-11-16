@@ -9,6 +9,8 @@ import type { Pet } from '@/features/directory/model';
 import type { Availability, AvailableSlot } from './model';
 import { appointmentError } from './requests-model';
 import { requestAppointment, useRefreshAppointments } from './requests-api';
+import { PolicyNotice } from './AppointmentPolicy';
+import { useAppointmentPolicy } from './policy-api';
 
 export function RequestForm({
   owner,
@@ -24,6 +26,7 @@ export function RequestForm({
   cached: boolean;
 }) {
   const online = useOnline();
+  const policy = useAppointmentPolicy(context.establishment_id);
   const refresh = useRefreshAppointments();
   const [pet, setPet] = useState('');
   const pending = useRef(false);
@@ -88,6 +91,7 @@ export function RequestForm({
         La solicitud quedará pendiente de revisión del establecimiento. No es
         una confirmación de atención.
       </p>
+      <PolicyNotice establishment={context.establishment_id} />
       {pets.isPending && online && <Notice>Cargando tus mascotas…</Notice>}
       {pets.isError && (
         <Notice error>
@@ -140,7 +144,9 @@ export function RequestForm({
           !pet ||
           request.isPending ||
           !!result ||
-          pets.isError
+          pets.isError ||
+          !policy.data ||
+          policy.isError
         }
         onClick={() => {
           if (pending.current) return;

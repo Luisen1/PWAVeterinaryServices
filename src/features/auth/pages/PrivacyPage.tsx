@@ -59,6 +59,22 @@ export function PrivacyPage() {
             establecimiento pueden consultarlas. Sus avisos se muestran dentro
             de la aplicación; esta versión no envía correos ni push de citas.
           </p>
+          <p>
+            Para preparar una cancelación o reprogramación sin conexión se
+            guarda una copia privada del detalle consultado y del cambio
+            pendiente en este dispositivo. La cita del servidor permanece
+            vigente hasta aceptar el cambio. Estos datos se purgan al salir,
+            tras decidir sobre los pendientes.
+          </p>
+          <p>
+            El chat guarda en Supabase el texto, autor, identificador, fecha y
+            confirmaciones de lectura. Solo la cuenta participante y el
+            responsable o colaboradores con permiso de mensajes pueden
+            consultarlo. La lectura del establecimiento es compartida entre su
+            equipo autorizado. El historial de chat se mantiene en memoria del
+            navegador durante la sesión; no se guarda como catálogo público ni
+            se envía por correo o push.
+          </p>
         </section>
         <p>
           Este entorno se encuentra en desarrollo. La información del

@@ -25,6 +25,7 @@ async function setup(
     staff?: boolean;
     conflict?: boolean;
     lostResponse?: boolean;
+    existing?: boolean;
   } = {},
 ) {
   const auth = await mockAuthApi(context);
@@ -104,13 +105,16 @@ async function setup(
     },
     events: [event('requested', 1)],
   });
-  let appointment: ReturnType<typeof makeAppointment> | null = options.staff
-    ? makeAppointment('cccccccc-cccc-4ccc-8ccc-cccccccccccc')
-    : null;
+  let appointment: ReturnType<typeof makeAppointment> | null =
+    options.staff || options.existing
+      ? makeAppointment('cccccccc-cccc-4ccc-8ccc-cccccccccccc')
+      : null;
   let held: Record<string, unknown> | null = null;
   let conflict = !!options.conflict,
     lost = !!options.lostResponse;
   const requestIds: string[] = [];
+  const changes: Record<string, unknown>[] = [];
+  const agendas: Record<string, unknown>[] = [];
   await context.route(
     `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/rpc/**`,
     async (route) => {
@@ -130,15 +134,19 @@ async function setup(
             calculated_at: now(),
             professionals: [{ id: professional, name: 'Dra. Laura' }],
             slots:
-              appointment || held
+              (appointment || held) && !options.existing
                 ? []
                 : [
                     {
                       assignment_id: assignment,
                       professional_id: professional,
                       professional_name: 'Dra. Laura',
-                      starts_at: starts,
-                      ends_at: ends,
+                      starts_at: options.existing
+                        ? new Date(Date.parse(starts) + 3600000).toISOString()
+                        : starts,
+                      ends_at: options.existing
+                        ? new Date(Date.parse(ends) + 3600000).toISOString()
+                        : ends,
                       timezone: 'America/Bogota',
                       modality,
                     },
@@ -196,6 +204,37 @@ async function setup(
         await route.fulfill({ json: appointment ? [appointment] : [] });
         return;
       }
+      if (name === 'appointment_agenda') {
+        agendas.push(body);
+        await route.fulfill({ json: appointment ? [appointment] : [] });
+        return;
+      }
+      if (name === 'change_appointment') {
+        changes.push(body);
+        if (conflict) {
+          await route.fulfill({ status: 409, json: { code: '23P01' } });
+          return;
+        }
+        if (!appointment) {
+          await route.fulfill({ status: 403, json: { code: '42501' } });
+          return;
+        }
+        appointment = {
+          ...appointment,
+          status: body.p_action === 'rescheduled' ? 'requested' : body.p_action,
+          starts_at: body.p_start ?? appointment.starts_at,
+          ends_at: body.p_start
+            ? new Date(Date.parse(body.p_start) + 1800000).toISOString()
+            : appointment.ends_at,
+          revision: appointment.revision + 1,
+          events: [
+            ...appointment.events,
+            event(body.p_action, appointment.revision + 1, body.p_reason),
+          ],
+        };
+        await route.fulfill({ json: appointment });
+        return;
+      }
       if (name === 'decide_appointment') {
         if (!options.staff || !appointment) {
           await route.fulfill({ status: 403, json: { code: '42501' } });
@@ -226,8 +265,142 @@ async function setup(
       conflict = false;
     },
     id: () => appointment?.id,
+    changes,
+    agendas,
   };
 }
+test('HU22 cancela con motivo y muestra evento auditado, con diseño móvil', async ({
+  page,
+  context,
+}, testInfo) => {
+  const api = await setup(context, { existing: true });
+  await login(page);
+  await page.goto(`/citas/solicitudes/${api.id()}`);
+  await page
+    .getByLabel('Motivo del cambio')
+    .fill('No puedo asistir por trabajo');
+  await page.getByRole('button', { name: 'Revalidar y enviar cambio' }).click();
+  await expect(
+    page.getByRole('region', { name: 'Historial y avisos de la solicitud' }),
+  ).toContainText('Cancelada');
+  expect(api.changes[0]).toMatchObject({
+    p_action: 'cancelled',
+    p_reason: 'No puedo asistir por trabajo',
+    p_revision: 1,
+  });
+  await page.setViewportSize({ width: 320, height: 900 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath('cita-cancelada-320.png'),
+    fullPage: true,
+  });
+});
+test('HU22 guarda el cambio offline y exige recuperarlo y enviarlo al reconectar', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context, { existing: true });
+  await login(page);
+  await page.goto(`/citas/solicitudes/${api.id()}`);
+  await expect(
+    page.getByRole('heading', { name: 'Cambiar o cerrar cita' }),
+  ).toBeVisible();
+  await page
+    .getByLabel('Motivo del cambio')
+    .fill('Necesito cancelar por trabajo');
+  await context.setOffline(true);
+  await expect(page.getByLabel('Motivo del cambio')).toHaveValue(
+    'Necesito cancelar por trabajo',
+  );
+  await page
+    .getByRole('button', { name: 'Guardar cambio pendiente local' })
+    .click();
+  await expect(
+    page.getByRole('button', { name: 'Recuperar cambio pendiente' }),
+  ).toBeVisible();
+  expect(api.changes).toHaveLength(0);
+  await context.setOffline(false);
+  await page
+    .getByRole('button', { name: 'Recuperar cambio pendiente' })
+    .click();
+  await expect(page.getByLabel('Motivo del cambio')).toHaveValue(
+    'Necesito cancelar por trabajo',
+  );
+  expect(api.changes).toHaveLength(0);
+  await page.getByRole('button', { name: 'Revalidar y enviar cambio' }).click();
+  await expect(
+    page.getByRole('region', { name: 'Historial y avisos de la solicitud' }),
+  ).toContainText('Cancelada');
+  expect(api.changes).toHaveLength(1);
+});
+test('HU22 conserva el horario ante conflicto y reintenta la reprogramación con el mismo ID', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context, { existing: true, conflict: true });
+  await login(page);
+  await page.goto(`/citas/solicitudes/${api.id()}`);
+  await page
+    .getByRole('combobox', { name: 'Acción', exact: true })
+    .selectOption('rescheduled');
+  await expect(
+    page
+      .getByRole('combobox', { name: 'Nuevo intervalo', exact: true })
+      .locator('option'),
+  ).toHaveCount(2);
+  await page
+    .getByRole('combobox', { name: 'Nuevo intervalo', exact: true })
+    .selectOption({ index: 1 });
+  await page.getByLabel('Motivo del cambio').fill('Necesito otro horario');
+  await page.getByRole('button', { name: 'Revalidar y enviar cambio' }).click();
+  await expect(page.getByRole('alert')).toContainText('horario se ocupó');
+  await expect(page.getByLabel('Motivo del cambio')).toHaveValue(
+    'Necesito otro horario',
+  );
+  api.unblock();
+  await page.getByRole('button', { name: 'Revalidar y enviar cambio' }).click();
+  await expect(
+    page.getByRole('region', { name: 'Historial y avisos de la solicitud' }),
+  ).toContainText('Reprogramada');
+  expect(api.changes).toHaveLength(2);
+  expect(new Set(api.changes.map((c) => c.p_operation)).size).toBe(1);
+});
+test('HU23 envía filtros combinados al servidor y conserva el detalle protegido', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context, { existing: true });
+  await login(page);
+  await page.goto('/citas/agenda');
+  await page.getByLabel('Desde', { exact: true }).fill(day);
+  await page.getByLabel('Hasta', { exact: true }).fill(day);
+  await page
+    .getByRole('combobox', { name: 'Modalidad', exact: true })
+    .selectOption('Presencial');
+  await page
+    .getByRole('combobox', { name: 'Estado', exact: true })
+    .selectOption('requested');
+  await page
+    .getByRole('combobox', { name: 'Periodo', exact: true })
+    .selectOption('upcoming');
+  await expect
+    .poll(() => api.agendas.at(-1))
+    .toMatchObject({
+      p_from: day,
+      p_to: day,
+      p_modality: 'Presencial',
+      p_status: 'requested',
+      p_view: 'upcoming',
+    });
+  await page.getByRole('link', { name: 'Ver detalle de Luna' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Consulta general · Luna' }),
+  ).toBeVisible();
+});
 async function choose(page: Page) {
   await login(page);
   await page.goto(path);

@@ -357,7 +357,7 @@ test('busca servicios y conserva término, categoría y selección entre mapa, l
   }
 });
 
-test('mantiene la sede durante acceso y registro, permite solicitar y conserva el chat pendiente', async ({
+test('mantiene la sede durante acceso y registro y enlaza citas y chat', async ({
   page,
   context,
 }) => {
@@ -369,8 +369,8 @@ test('mantiene la sede durante acceso y registro, permite solicitar y conserva e
     page.getByRole('link', { name: 'Solicitar una cita en esta sede' }),
   ).toHaveAttribute('href', new RegExp(`sede=${secondSite}`));
   await expect(
-    page.getByRole('link', { name: 'Chat', exact: true }),
-  ).toHaveCount(0);
+    page.getByRole('link', { name: 'Conversar con esta sede' }),
+  ).toHaveAttribute('href', new RegExp(`accion%3Dconversar`));
   await page
     .getByRole('link', { name: 'Iniciar sesión y conservar esta sede' })
     .click();
@@ -392,6 +392,14 @@ test('mantiene la sede durante acceso y registro, permite solicitar y conserva e
   await expect(
     page.getByText('Conservamos la sede elegida.', { exact: false }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Conversar con esta sede' }),
+  ).toHaveAttribute(
+    'href',
+    new RegExp(
+      `/mensajes/nuevo\\?establecimiento=${OFFERING_ESTABLISHMENT}&sede=${secondSite}`,
+    ),
+  );
   expect(auth.calls.some((call) => call.path === '/auth/v1/token')).toBe(true);
 });
 

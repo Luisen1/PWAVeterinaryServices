@@ -7,7 +7,12 @@ export const appointmentStatus = {
   expired: 'Vencida',
   completed: 'Completada',
   cancelled: 'Cancelada',
+  no_show: 'No asistió',
 } as const;
+export const appointmentEvent = {
+  ...appointmentStatus,
+  rescheduled: 'Reprogramada; pendiente de confirmación',
+};
 export const appointmentSchema = z.object({
   id: z.uuid(),
   owner_id: z.uuid(),
@@ -27,6 +32,7 @@ export const appointmentSchema = z.object({
     'expired',
     'completed',
     'cancelled',
+    'no_show',
   ]),
   modality: z.enum(['Presencial', 'Virtual']),
   revision: z.number().int().positive(),
@@ -43,12 +49,24 @@ export const appointmentSchema = z.object({
     pet_species: z.string(),
     professional_name: z.string(),
     instructions: z.string(),
+    cancel_minutes: z.number().int().nonnegative().default(0),
+    reschedule_minutes: z.number().int().nonnegative().default(0),
   }),
   events: z.array(
     z.object({
       id: z.uuid(),
       revision: z.number().int().positive(),
-      kind: z.enum(['requested', 'confirmed', 'rejected', 'expired']),
+      kind: z.enum([
+        'requested',
+        'confirmed',
+        'rejected',
+        'expired',
+        'cancelled',
+        'rescheduled',
+        'completed',
+        'no_show',
+      ]),
+      details: z.record(z.string(), z.unknown()).optional(),
       actor_id: z.uuid().nullable(),
       reason: z.string(),
       created_at: z.iso.datetime({ offset: true }),
@@ -56,6 +74,16 @@ export const appointmentSchema = z.object({
   ),
 });
 export type Appointment = z.infer<typeof appointmentSchema>;
+export const changeSchema = z.object({
+  p_operation: z.uuid(),
+  p_id: z.uuid(),
+  p_revision: z.number().int().positive(),
+  p_action: z.enum(['cancelled', 'rescheduled', 'completed', 'no_show']),
+  p_reason: z.string().trim().max(500),
+  p_assignment: z.uuid().nullable(),
+  p_start: z.iso.datetime({ offset: true }).nullable(),
+});
+export type AppointmentChange = z.infer<typeof changeSchema>;
 export const requestSchema = z.object({
   p_id: z.uuid(),
   p_service: z.uuid(),
