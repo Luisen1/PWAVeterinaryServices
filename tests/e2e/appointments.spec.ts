@@ -115,6 +115,16 @@ async function setup(
   const requestIds: string[] = [];
   const changes: Record<string, unknown>[] = [];
   const agendas: Record<string, unknown>[] = [];
+  let callHost: {
+    host_id: string;
+    professional_id: string;
+    revision: number;
+  } | null = null;
+  const hostAssignments: Record<string, unknown>[] = [];
+  await context.route(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/appointment_call_hosts*`,
+    (route) => route.fulfill({ json: callHost ? [callHost] : [] }),
+  );
   await context.route(
     `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/rpc/**`,
     async (route) => {
@@ -209,6 +219,27 @@ async function setup(
         await route.fulfill({ json: appointment ? [appointment] : [] });
         return;
       }
+      if (name === 'call_team_candidates') {
+        await route.fulfill({
+          json: [
+            {
+              id: '22222222-2222-4222-8222-222222222222',
+              name: 'Profesional autorizado',
+            },
+          ],
+        });
+        return;
+      }
+      if (name === 'assign_call_host') {
+        hostAssignments.push(body);
+        callHost = {
+          host_id: body.p_host,
+          professional_id: professional,
+          revision: 1,
+        };
+        await route.fulfill({ json: null });
+        return;
+      }
       if (name === 'change_appointment') {
         changes.push(body);
         if (conflict) {
@@ -267,6 +298,7 @@ async function setup(
     id: () => appointment?.id,
     changes,
     agendas,
+    hostAssignments,
   };
 }
 test('HU22 cancela con motivo y muestra evento auditado, con diseño móvil', async ({
@@ -401,6 +433,40 @@ test('HU23 envía filtros combinados al servidor y conserva el detalle protegido
     page.getByRole('heading', { name: 'Consulta general · Luna' }),
   ).toBeVisible();
 });
+test('HU27 asigna cuenta profesional con revisión y ofrece sala solo tras confirmar la virtual', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context, { staff: true, virtual: true });
+  await login(page);
+  await page.goto(`/citas/solicitudes/${api.id()}`);
+  await expect(
+    page.getByRole('link', { name: 'Ir a la sala de mi cita' }),
+  ).toHaveCount(0);
+  await page
+    .getByRole('combobox', {
+      name: 'Cuenta que atenderá como Dra. Laura',
+      exact: true,
+    })
+    .selectOption('22222222-2222-4222-8222-222222222222');
+  await page
+    .getByRole('button', { name: 'Asignar cuenta profesional', exact: true })
+    .click();
+  await expect(
+    page.getByRole('region', { name: 'Videollamada de la cita' }),
+  ).toContainText('Cuenta profesional asignada');
+  expect(api.hostAssignments[0]).toMatchObject({
+    p_id: api.id(),
+    p_revision: 1,
+    p_host_revision: 0,
+  });
+  await page
+    .getByRole('button', { name: 'Confirmar cita', exact: true })
+    .click();
+  await expect(
+    page.getByRole('link', { name: 'Ir a la sala de mi cita' }),
+  ).toHaveAttribute('href', `/citas/solicitudes/${api.id()}/videollamada`);
+});
 async function choose(page: Page) {
   await login(page);
   await page.goto(path);
@@ -508,7 +574,7 @@ test('HU20 muestra modalidad e instrucciones virtuales sin ofrecer una llamada f
   await page.getByRole('link', { name: 'Ver detalle de la solicitud' }).click();
   await expect(
     page.getByRole('region', { name: 'Instrucciones de la cita' }),
-  ).toContainText('no incluye videollamadas');
+  ).toContainText('proveedor de videollamadas activado');
   await expect(
     page.getByRole('button', { name: /Iniciar llamada|Entrar a videollamada/ }),
   ).toHaveCount(0);

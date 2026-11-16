@@ -14,7 +14,7 @@ const service = (n: number) =>
 beforeAll(async () => {
   // Mismo contrato mínimo Auth/Storage usado por las pruebas de migraciones.
   await db.exec(`
-    create role anon; create role authenticated;
+    create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema storage;
     create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_user_meta_data jsonb not null default '{}');
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid; $$;

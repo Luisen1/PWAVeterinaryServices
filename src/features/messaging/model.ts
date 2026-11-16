@@ -13,15 +13,42 @@ export const conversationSchema = z.object({
   created_at: z.iso.datetime({ offset: true }),
   updated_at: z.iso.datetime({ offset: true }),
 });
-export const messageSchema = z.object({
+export const mediaSchema = z.object({
   id: z.uuid(),
-  conversation_id: z.uuid(),
-  author_id: z.uuid(),
-  author_side: z.enum(['customer', 'team']),
-  seq: sequence,
-  body: z.string().min(1).max(4000),
-  created_at: z.iso.datetime({ offset: true }),
+  kind: z.enum(['image', 'audio']),
+  mime: z.enum([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'audio/webm',
+    'audio/ogg',
+    'audio/mp4',
+  ]),
+  bytes: z
+    .number()
+    .int()
+    .positive()
+    .max(5 * 1024 * 1024),
+  duration_ms: z.number().int().positive().max(60000).nullable(),
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
 });
+export const messageSchema = z
+  .object({
+    id: z.uuid(),
+    conversation_id: z.uuid(),
+    author_id: z.uuid(),
+    author_side: z.enum(['customer', 'team']),
+    seq: sequence,
+    body: z.string().max(4000),
+    media: mediaSchema.nullable().optional(),
+    created_at: z.iso.datetime({ offset: true }),
+  })
+  .refine(
+    (m) =>
+      m.media ? m.body === '' && m.media.id === m.id : m.body.trim().length > 0,
+    'El mensaje debe contener texto o un archivo validado.',
+  );
 export const historySchema = z.object({
   conversation: conversationSchema,
   messages: z.array(messageSchema),

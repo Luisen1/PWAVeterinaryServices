@@ -28,6 +28,7 @@ import { slotLabel } from './model';
 import { AppointmentChanges } from './AppointmentChanges';
 import { readSavedAppointment, rememberAppointment } from './change-store';
 import { AppointmentPolicy } from './AppointmentPolicy';
+import { CallPanel } from '@/features/calls/CallPanel';
 
 export function RequestsPage({
   team = false,
@@ -414,7 +415,9 @@ function Detail({ owner, id }: { owner: string; id: string }) {
               <p>
                 {['cancelled', 'rejected', 'expired'].includes(a.status)
                   ? 'Esta solicitud ya no está activa. Consulta su historial antes de preparar una nueva cita.'
-                  : a.snapshot.instructions}
+                  : a.modality === 'Virtual'
+                    ? 'Ten conexión estable, cámara, micrófono y los antecedentes de tu mascota. La sala requiere confirmación, cuenta profesional asignada y proveedor de videollamadas activado por el establecimiento. Si no está disponible, coordina por chat.'
+                    : a.snapshot.instructions}
               </p>
             </section>
             {a.status === 'requested' && (
@@ -426,6 +429,7 @@ function Detail({ owner, id }: { owner: string; id: string }) {
             <p className="break-all text-xs">ID: {a.id}</p>
           </article>
           <AppointmentChanges key={a.id} owner={owner} appointment={a} />
+          <CallPanel owner={owner} appointment={a} />
           {a.can_decide && a.status === 'requested' && (
             <DecisionForm
               key={a.id}

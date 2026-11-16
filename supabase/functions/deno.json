@@ -1,0 +1,9 @@
+{
+  "compilerOptions": { "strict": true },
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.119.0",
+    "image-size": "npm:image-size@2.1.0",
+    "music-metadata": "npm:music-metadata@12.5.0",
+    "livekit-server-sdk": "npm:livekit-server-sdk@2.19.3"
+  }
+}

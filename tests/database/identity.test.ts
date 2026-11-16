@@ -16,7 +16,7 @@ const consent = JSON.stringify({
 beforeAll(async () => {
   await database.exec(`
     create role anon;
-    create role authenticated;
+    create role authenticated; create role service_role bypassrls;
     create schema auth;
     create table auth.users (
       id uuid primary key,

@@ -96,7 +96,7 @@ begin
   perform public.save_offering_item(est,'assignment',virtual_assignment,null,jsonb_build_object('service_id',virtual_svc,'professional_id',prof,'resource_id',resource_id,'active',true));
   appt:=gen_random_uuid();
   result:=public.request_appointment(appt,virtual_svc,virtual_assignment,requested_at+interval '1 hour',pet_id,'Virtual',null);
-  if result->>'modality'<>'Virtual' or result->'snapshot'->>'instructions' not like '%no incluye videollamadas%' then raise exception 'Solicitud virtual incompleta'; end if;
+  if result->>'modality'<>'Virtual' or (result->'snapshot'->>'instructions' not like '%no incluye videollamadas%' and result->'snapshot'->>'instructions' not like '%servicio de videollamadas activado%') then raise exception 'Solicitud virtual incompleta'; end if;
   execute 'reset role';
   update public.offering_appointments set starts_at=clock_timestamp()-interval '1 minute' where id=appt;
   execute 'set local role authenticated';

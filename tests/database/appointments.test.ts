@@ -58,6 +58,12 @@ it('ejecuta el recorrido SQL reproducible de HU22-HU24 con rollback', async () =
     .replace(/rollback;\s*$/, '');
   await db.exec(sql);
 });
+it('ejecuta el recorrido SQL reproducible de HU25-HU27 con rollback', async () => {
+  const sql = readFileSync('supabase/tests/hu25_hu27.sql', 'utf8')
+    .replace(/\nbegin;\r?\n/, '\n')
+    .replace(/rollback;\s*$/, '');
+  await db.exec(sql);
+});
 const owner = 'de170000-0000-4000-8000-000000000001';
 const user = '11111111-1111-4111-8111-111111111111';
 const stranger = '22222222-2222-4222-8222-222222222222';
@@ -73,7 +79,7 @@ let start: string;
 beforeAll(async () => {
   // Mismo contrato mínimo Auth/Storage usado por las pruebas de migraciones.
   await db.exec(`
-    create role anon; create role authenticated;
+    create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema storage;
     create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_user_meta_data jsonb not null default '{}');
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid; $$;
@@ -388,6 +394,267 @@ async function history(conversation: string, after: string | null = null) {
     }>('select public.chat_history($1,$2,null) result', [conversation, after])
   ).rows[0]!.result;
 }
+async function prepareMedia(
+  conversation: string,
+  id = crypto.randomUUID(),
+  overrides: Record<string, unknown> = {},
+) {
+  const args = {
+    p_id: id,
+    p_conversation: conversation,
+    p_kind: 'image',
+    p_mime: 'image/png',
+    p_bytes: 200,
+    p_hash: 'a'.repeat(64),
+    p_duration: null,
+    p_width: 16,
+    p_height: 12,
+    ...overrides,
+  };
+  return (
+    await db.query<{
+      result: { id: string; object_path: string; published_at: string | null };
+    }>(
+      'select public.prepare_chat_media($1,$2,$3,$4,$5,$6,$7,$8,$9) result',
+      Object.values(args),
+    )
+  ).rows[0]!.result;
+}
+async function finalizeMedia(id: string, actor = user) {
+  await db.exec('reset role; set local role service_role;');
+  return (
+    await db.query<{
+      result: {
+        id: string;
+        body: string;
+        seq: string;
+        media: { kind: string };
+      };
+    }>('select public.finalize_chat_media($1,$2) result', [id, actor])
+  ).rows[0]!.result;
+}
+it('HU25 reserva sin publicar, solo el backend confirma y un reintento no duplica el archivo', async () => {
+  await asUser(user);
+  const c = await openChat(),
+    id = crypto.randomUUID();
+  const u = await prepareMedia(c.id, id);
+  expect(u.published_at).toBeNull();
+  expect((await history(c.id)).messages).toHaveLength(0);
+  await guardedFailure(
+    () => db.query('select public.finalize_chat_media($1,$2)', [id, user]),
+    '42501',
+  );
+  const first = await finalizeMedia(id);
+  expect(first).toMatchObject({ id, body: '', media: { kind: 'image' } });
+  expect(await finalizeMedia(id)).toEqual(first);
+  await asUser(owner);
+  expect((await history(c.id)).messages).toHaveLength(1);
+  await asUser(stranger);
+  await guardedFailure(() => prepareMedia(c.id), '42501');
+  expect(
+    (await db.query('select * from public.chat_media_uploads')).rows,
+  ).toHaveLength(0);
+});
+it('HU25-HU26 validan tamaño, formato, duración, dimensiones e identidad de la operación', async () => {
+  await asUser(user);
+  const c = await openChat(),
+    id = crypto.randomUUID();
+  await prepareMedia(c.id, id);
+  await guardedFailure(
+    () => prepareMedia(c.id, id, { p_hash: 'b'.repeat(64) }),
+    '23514',
+  );
+  for (const overrides of [
+    { p_bytes: 5242881 },
+    { p_mime: 'image/svg+xml' },
+    { p_width: null },
+    {
+      p_kind: 'audio',
+      p_mime: 'audio/webm',
+      p_duration: 60001,
+      p_width: null,
+      p_height: null,
+    },
+  ])
+    await guardedFailure(
+      () => prepareMedia(c.id, crypto.randomUUID(), overrides),
+      '23514',
+    );
+});
+it('HU26 conserva el pendiente hasta finalizar y un descarte impide publicación posterior', async () => {
+  await asUser(user);
+  const c = await openChat(),
+    id = crypto.randomUUID();
+  await prepareMedia(c.id, id, {
+    p_kind: 'audio',
+    p_mime: 'audio/webm',
+    p_duration: 1000,
+    p_width: null,
+    p_height: null,
+  });
+  await db.query('select public.discard_chat_media($1)', [id]);
+  await guardedFailure(
+    () =>
+      prepareMedia(c.id, id, {
+        p_kind: 'audio',
+        p_mime: 'audio/webm',
+        p_duration: 1000,
+        p_width: null,
+        p_height: null,
+      }),
+    '23514',
+  );
+  await guardedFailure(() => finalizeMedia(id), '42501');
+  await asUser(user);
+  expect((await history(c.id)).messages).toHaveLength(0);
+});
+it('HU25-HU26 limitan pendientes y revalidan un permiso revocado antes de publicar', async () => {
+  await asUser(user);
+  const c = await openChat();
+  for (let n = 0; n < 5; n++) await prepareMedia(c.id);
+  await guardedFailure(() => prepareMedia(c.id), '23514');
+  await db.exec(
+    `reset role;insert into public.establishment_collaborators(establishment_id,email,permissions,status,user_id) values('${establishment}','${stranger}@example.invalid',array['messages'],'accepted','${stranger}');`,
+  );
+  await asUser(stranger);
+  const id = crypto.randomUUID();
+  await prepareMedia(c.id, id);
+  await db.exec(
+    `reset role;update public.establishment_collaborators set status='revoked' where user_id='${stranger}';`,
+  );
+  await guardedFailure(() => finalizeMedia(id, stranger), '42501');
+});
+it('HU27 autoriza solo cliente y cuenta profesional asignada durante ventana de una virtual confirmada', async () => {
+  await asUser(user);
+  await request({ n: 8, modality: 'Virtual' });
+  await asUser(owner);
+  await db.query('select public.assign_call_host($1,$2,1)', [
+    appointment,
+    owner,
+  ]);
+  await decide('confirmed');
+  await guardedFailure(
+    () =>
+      db.query('select public.authorize_appointment_call($1)', [appointment]),
+    '23514',
+  );
+  await db.exec(
+    `reset role;update public.offering_appointments set starts_at=clock_timestamp()+interval '5 minutes',ends_at=clock_timestamp()+interval '35 minutes' where id='${appointment}';`,
+  );
+  const authorize = async () =>
+    (
+      await db.query<{
+        result: {
+          room: string;
+          participant: string;
+          role: string;
+          expires_at: string;
+        };
+      }>('select public.authorize_appointment_call($1) result', [appointment])
+    ).rows[0]!.result;
+  await asUser(user);
+  const patient = await authorize();
+  expect(patient).toMatchObject({ participant: user, role: 'customer' });
+  await asUser(owner);
+  const professional = await authorize();
+  expect(professional.room).toBe(patient.room);
+  expect(professional.role).toBe('professional');
+  await asUser(stranger);
+  await guardedFailure(authorize, '42501');
+  await asUser(user);
+  await change('cancelled', 2);
+  await guardedFailure(authorize, '23514');
+  await db.exec('reset role;set local role service_role;');
+  expect(
+    (
+      await db.query<{ rooms: unknown[] }>(
+        'select public.call_rooms_to_close() rooms',
+      )
+    ).rows[0]!.rooms,
+  ).toHaveLength(1);
+});
+it('HU27 niega presencial, no confirmada, profesional revocado y cierre de ventana', async () => {
+  await asUser(user);
+  await request();
+  await asUser(owner);
+  await guardedFailure(
+    () =>
+      db.query('select public.assign_call_host($1,$2,1)', [appointment, owner]),
+    '23514',
+  );
+  await db.exec(
+    `reset role;delete from public.appointment_events where appointment_id='${appointment}';delete from public.offering_appointments where id='${appointment}';`,
+  );
+  await asUser(user);
+  await request({ n: 8, modality: 'Virtual' });
+  await asUser(owner);
+  await db.query('select public.assign_call_host($1,$2,1)', [
+    appointment,
+    owner,
+  ]);
+  await guardedFailure(
+    () =>
+      db.query('select public.authorize_appointment_call($1)', [appointment]),
+    '23514',
+  );
+  await decide('confirmed');
+  await db.exec(
+    `reset role;update public.offering_appointments set starts_at=clock_timestamp()-interval '2 hours',ends_at=clock_timestamp()-interval '16 minutes' where id='${appointment}';`,
+  );
+  await asUser(owner);
+  await guardedFailure(
+    () =>
+      db.query('select public.authorize_appointment_call($1)', [appointment]),
+    '23514',
+  );
+});
+it('HU27 conserva revisión de asignación y programa revocación al retirar permiso de agenda', async () => {
+  await asUser(user);
+  await request({ n: 8, modality: 'Virtual' });
+  await db.exec(
+    `reset role;insert into public.establishment_collaborators(establishment_id,email,permissions,status,user_id) values('${establishment}','${stranger}@example.invalid',array['schedule'],'accepted','${stranger}');`,
+  );
+  await asUser(owner);
+  await db.query('select public.assign_call_host($1,$2,1)', [
+    appointment,
+    owner,
+  ]);
+  await guardedFailure(
+    () =>
+      db.query('select public.assign_call_host($1,$2,1,0)', [
+        appointment,
+        stranger,
+      ]),
+    '40001',
+  );
+  await db.query('select public.assign_call_host($1,$2,1,1)', [
+    appointment,
+    stranger,
+  ]);
+  await decide('confirmed');
+  await db.exec(
+    `reset role;update public.offering_appointments set starts_at=clock_timestamp()+interval '5 minutes',ends_at=clock_timestamp()+interval '35 minutes' where id='${appointment}';`,
+  );
+  await asUser(stranger);
+  await db.query('select public.authorize_appointment_call($1)', [appointment]);
+  await db.exec(
+    `reset role;update public.establishment_collaborators set status='revoked' where user_id='${stranger}';`,
+  );
+  await asUser(stranger);
+  await guardedFailure(
+    () =>
+      db.query('select public.authorize_appointment_call($1)', [appointment]),
+    '42501',
+  );
+  await db.exec('reset role;set local role service_role;');
+  expect(
+    (
+      await db.query<{ rooms: unknown[] }>(
+        'select public.call_rooms_to_close() rooms',
+      )
+    ).rows[0]!.rooms,
+  ).toHaveLength(1);
+});
 it('HU24 persiste texto con autor y hora, reintenta sin duplicar y distingue lectura', async () => {
   await asUser(user);
   const c = await openChat();
@@ -554,7 +821,9 @@ it('HU20 deriva la modalidad del servicio y publica instrucciones sin simular vi
   await guardedFailure(() => request({ modality: 'Virtual' }), '23514');
   const result = await request({ n: 8, modality: 'Virtual' });
   expect(result.modality).toBe('Virtual');
-  expect(result.snapshot.instructions).toContain('no incluye videollamadas');
+  expect(result.snapshot.instructions).toContain(
+    'servicio de videollamadas activado',
+  );
   await guardedFailure(
     () => request({ id: crypto.randomUUID(), n: 9, modality: 'Domicilio' }),
     '23514',

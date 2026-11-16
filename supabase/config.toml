@@ -1,0 +1,8 @@
+[functions.chat-media]
+verify_jwt = false
+
+[functions.appointment-call]
+verify_jwt = false
+
+[functions.call-maintenance]
+verify_jwt = true

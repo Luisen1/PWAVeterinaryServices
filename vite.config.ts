@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  envPrefix: 'VITE_',
   define: { __BUILD_ID__: JSON.stringify(process.env.BUILD_ID ?? '0.1.0') },
   plugins: [
     react(),
