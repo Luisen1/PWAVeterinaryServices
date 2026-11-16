@@ -59,7 +59,7 @@ export async function mockGoogleMaps(
           attribution.style.cssText='position:absolute;bottom:4px;left:8px;font-size:10px';container.append(attribution);
           this.pins=document.createElement('div');this.pins.style.cssText='display:flex;gap:10px;flex-wrap:wrap;padding:60px 20px';container.append(this.pins);
           for(const [label,delta] of [['Zoom in',1],['Zoom out',-1]]){
-            const button=document.createElement('button');button.textContent=delta>0?'+':'−';button.setAttribute('aria-label',label);
+            const button=document.createElement('button');button.type='button';button.textContent=delta>0?'+':'−';button.setAttribute('aria-label',label);
             button.style.cssText='padding:8px;background:white;margin:4px';button.onclick=e=>{e.stopPropagation();this.setZoom(this.zoom+delta);};container.append(button);
           }
           container.addEventListener('click',()=>event.trigger(this,'click',{latLng:new LatLng(this.center)}));
@@ -68,6 +68,7 @@ export async function mockGoogleMaps(
         addListener(name,handler){return event.addListener(this,name,handler);}
         fitBounds(bounds){this.center={lat:bounds.getCenter().lat(),lng:bounds.getCenter().lng()};this.setZoom(Math.min(19,this.zoom+2));}
         panTo(center){this.center=center;}
+        getCenter(){return new LatLng(this.center);}
         getZoom(){return this.zoom;}
         setZoom(zoom){this.zoom=zoom;event.trigger(this,'idle');}
         getProjection(){return {};}

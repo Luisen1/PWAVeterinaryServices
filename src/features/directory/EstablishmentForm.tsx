@@ -30,6 +30,8 @@ import { MediaUpload } from './Media';
 import { cardClass, fieldClass, Notice, secondaryClass } from './Workspace';
 import { Icon } from '@/components/ui/Icon';
 import { EstablishmentDetails } from './EstablishmentDetails';
+import { SiteLocationPicker } from './SiteLocationPicker';
+import { isPoint } from './discovery';
 
 type Form = UseFormReturn<EstablishmentDocument>;
 export function EstablishmentForm({
@@ -396,7 +398,26 @@ function SiteFields({
               error={errors?.longitude?.message}
             />
           </div>
-          {Number.isFinite(lat) && Number.isFinite(lng) && (
+          <SiteLocationPicker
+            latitude={lat}
+            longitude={lng}
+            index={index}
+            disabled={disabled}
+            onChange={(point) => {
+              form.setValue(`sites.${index}.latitude`, point.latitude, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+              form.setValue(`sites.${index}.longitude`, point.longitude, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+              form.setValue(`sites.${index}.coordinates_confirmed`, false, {
+                shouldDirty: true,
+              });
+            }}
+          />
+          {isPoint({ latitude: lat, longitude: lng }) && (
             <a
               href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
               target="_blank"
