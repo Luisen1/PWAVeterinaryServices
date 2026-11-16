@@ -56,6 +56,23 @@ function ProviderContent({ userId }: { userId: string }) {
           públicamente después de su aprobación.
         </Notice>
       )}
+      <nav
+        aria-label="Atención del establecimiento"
+        className="flex flex-wrap gap-3"
+      >
+        <Link to="/oferentes/citas" className="button button-primary">
+          <Icon name="calendar" />
+          Solicitudes de citas
+        </Link>
+        <Link to="/oferentes/agenda" className={secondaryClass}>
+          <Icon name="clock" />
+          Agenda del establecimiento
+        </Link>
+        <Link to="/oferentes/mensajes" className={secondaryClass}>
+          <Icon name="mail" />
+          Chats del establecimiento
+        </Link>
+      </nav>
       <div className="flex flex-wrap gap-3">
         <Link to="/oferentes/servicios" className={secondaryClass}>
           Servicios, disponibilidad e invitaciones
@@ -70,7 +87,7 @@ function ProviderContent({ userId }: { userId: string }) {
           onClick={() => void rows.refetch()}
         >
           <Icon name="refresh" />
-          Actualizar solicitudes
+          Actualizar establecimientos
         </button>
       </div>
       {rows.isPending && online && (

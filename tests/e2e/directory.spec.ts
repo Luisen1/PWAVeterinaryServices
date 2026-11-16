@@ -213,6 +213,24 @@ test('registro, logo, corrección, aprobación y cambio pendiente conservan publ
     page.getByText('Pendiente de revisión · Revisión 1'),
   ).toBeVisible();
   expect(api.publications).toHaveLength(0);
+  const attention = page.getByRole('navigation', {
+    name: 'Atención del establecimiento',
+  });
+  await expect(
+    attention.getByRole('link', { name: 'Solicitudes de citas', exact: true }),
+  ).toHaveAttribute('href', '/oferentes/citas');
+  await expect(
+    attention.getByRole('link', {
+      name: 'Agenda del establecimiento',
+      exact: true,
+    }),
+  ).toHaveAttribute('href', '/oferentes/agenda');
+  await expect(
+    attention.getByRole('link', {
+      name: 'Chats del establecimiento',
+      exact: true,
+    }),
+  ).toHaveAttribute('href', '/oferentes/mensajes');
   auth.setRole('admin');
   await page.goto('/administracion/oferentes');
   await page
