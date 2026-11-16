@@ -81,6 +81,32 @@ export function PrivacyPage() {
           responsable, el contacto para solicitudes y los plazos de conservación
           se incorporarán al aviso antes de su publicación para uso general.
         </p>
+        <section className="space-y-3">
+          <h2 className="font-semibold">
+            Fotografías, notas de voz y llamadas
+          </h2>
+          <p>
+            La cámara y el micrófono se solicitan solo bajo una acción tuya.
+            Puedes revisar y descartar antes de enviar. Las fotografías y notas
+            de voz enviadas se almacenan en Supabase de forma privada; su
+            descarga se limita a participantes autorizados. Un archivo ya
+            descargado puede permanecer en el dispositivo del receptor.
+          </p>
+          <p>
+            Los archivos guardados como pendientes permanecen en este navegador
+            por cuenta hasta enviarlos, descartarlos o cerrar sesión tras
+            decidir sobre ellos. No se envían automáticamente al reconectar. Los
+            archivos recibidos se mantienen solo en memoria mientras los
+            consultas.
+          </p>
+          <p>
+            Cuando el establecimiento active la videollamada, se compartirá
+            audio y video con la otra parte autorizada mediante LiveKit Cloud.
+            El acceso requiere cita virtual confirmada y ventana vigente. La
+            aplicación no graba automáticamente la consulta y detiene cámara y
+            micrófono al salir o fallar.
+          </p>
+        </section>
       </div>
     </AuthFrame>
   );

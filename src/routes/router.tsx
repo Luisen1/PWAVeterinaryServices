@@ -27,6 +27,7 @@ import { PublicEstablishmentPage } from '@/features/directory/PublicPages';
 import { DirectoryPage } from '@/features/directory/DirectoryPage';
 import { DirectionsPage } from '@/features/directory/DirectionsPage';
 import { FavoritesPage } from '@/features/preferences/FavoritesPage';
+import { VideoCallPage } from '@/features/calls/VideoCallPage';
 import {
   ChatInboxPage,
   ChatStartPage,
@@ -56,6 +57,10 @@ export const router = createBrowserRouter([
       },
       { path: '/citas/solicitudes', element: <RequestsPage /> },
       { path: '/citas/solicitudes/:id', element: <AppointmentDetailsPage /> },
+      {
+        path: '/citas/solicitudes/:id/videollamada',
+        element: <VideoCallPage />,
+      },
       { path: '/oferentes/citas', element: <RequestsPage team /> },
       { path: '/oferentes/:id/citas', element: <RequestsPage team /> },
       { path: '/citas/agenda', element: <RequestsPage agenda /> },

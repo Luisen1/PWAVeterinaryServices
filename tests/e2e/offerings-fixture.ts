@@ -38,6 +38,10 @@ export async function mockOfferings(
     `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/appointment_change_policies*`,
     (route) => route.fulfill({ json: [] }),
   );
+  await context.route(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/appointment_call_hosts*`,
+    (route) => route.fulfill({ json: [] }),
+  );
   const owner = options.owner ?? true;
   const workspaces: OfferingWorkspace[] = options.invited
     ? []

@@ -131,9 +131,9 @@ export function RequestForm({
       </label>
       {context.modality === 'Virtual' && (
         <p className="text-sm">
-          Necesitas conexión estable, cámara y micrófono. Esta versión no
-          incluye videollamada; la coordinación se realizará tras la
-          confirmación del establecimiento.
+          Necesitas conexión estable, cámara y micrófono. La sala requiere
+          confirmación, cuenta profesional asignada y servicio de videollamadas
+          activado. Si no está disponible, coordina por chat.
         </p>
       )}
       <button
