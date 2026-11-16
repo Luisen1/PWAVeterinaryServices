@@ -3,15 +3,16 @@ import { authClient } from '@/features/auth/api';
 import { useOnline } from '@/pwa/useOnline';
 import type { Publication } from './model';
 import type { Item } from '@/features/offerings/model';
-import { publicResult } from './public-cache';
+import { publicResult, type PublicResult } from './public-cache';
 import { db } from '@/lib/db';
 
 const pageSize = 500;
 export function usePublications() {
   const online = useOnline();
-  const query = useQuery({
+  const query = useQuery<PublicResult<Publication[]>>({
     networkMode: 'always',
     queryKey: ['public-establishments', online],
+    placeholderData: (previous) => previous,
     queryFn: ({ signal }) =>
       publicResult<Publication[]>(
         'publications',
@@ -50,14 +51,18 @@ export function usePublications() {
   return {
     ...query,
     data: query.data?.value,
-    fromCache: query.data?.fromCache ?? !online,
+    fromCache: !online || query.isPlaceholderData || !!query.data?.fromCache,
     savedAt: query.data?.savedAt ?? null,
   };
 }
 export function usePublicServices(establishmentId?: string) {
   const online = useOnline();
-  const query = useQuery({
+  const query = useQuery<PublicResult<Item<'service'>[]>>({
     queryKey: ['public-services', establishmentId ?? 'directory', online],
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === (establishmentId ?? 'directory')
+        ? previous
+        : undefined,
     networkMode: 'always',
     queryFn: ({ signal }) =>
       publicResult<Item<'service'>[]>(
@@ -106,14 +111,16 @@ export function usePublicServices(establishmentId?: string) {
   return {
     ...query,
     data: query.data?.value,
-    fromCache: query.data?.fromCache ?? !online,
+    fromCache: !online || query.isPlaceholderData || !!query.data?.fromCache,
     savedAt: query.data?.savedAt ?? null,
   };
 }
 export function usePublication(id: string | undefined) {
   const online = useOnline();
-  const query = useQuery({
+  const query = useQuery<PublicResult<Publication | null>>({
     queryKey: ['public-establishment', id, online],
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === id ? previous : undefined,
     networkMode: 'always',
     enabled: !!id,
     queryFn: ({ signal }) =>
@@ -136,7 +143,7 @@ export function usePublication(id: string | undefined) {
   return {
     ...query,
     data: query.data?.value,
-    fromCache: query.data?.fromCache ?? !online,
+    fromCache: !online || query.isPlaceholderData || !!query.data?.fromCache,
     savedAt: query.data?.savedAt ?? null,
   };
 }

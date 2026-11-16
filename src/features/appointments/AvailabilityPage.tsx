@@ -14,6 +14,7 @@ import {
   Workspace,
 } from '@/features/directory/Workspace';
 import { dataError } from '@/features/directory/api';
+import { RequestForm } from './RequestForm';
 import { useNow } from '@/features/directory/useNow';
 import {
   acquireSlot,
@@ -84,9 +85,13 @@ export function AvailabilityPage() {
       <Link to="/explorar" className={secondaryClass}>
         Explorar establecimientos
       </Link>
+      <Link to="/citas/solicitudes" className={secondaryClass}>
+        Mis solicitudes y avisos de citas
+      </Link>
       <Notice>
-        Puedes consultar horarios y preparar una selección. Un apartado temporal
-        no es una solicitud de cita ni una confirmación de atención.
+        Consulta horarios, elige tu mascota y envía una solicitud presencial o
+        virtual. Un apartado temporal no es una solicitud de cita ni una
+        confirmación de atención.
       </Notice>
       {(publications.isError || services.isError) && (
         <Notice error>
@@ -419,6 +424,21 @@ function Slots({
             </Link>
           )}
         </div>
+      )}
+      {selected && owner && (
+        <RequestForm
+          owner={owner}
+          context={selected.context}
+          slot={selected.slot}
+          cached={cached}
+          holdId={
+            current.data?.hold?.assignment_id === selected.slot.assignment_id &&
+            current.data.hold.starts_at === selected.slot.starts_at &&
+            remaining > 0
+              ? current.data.hold.id
+              : null
+          }
+        />
       )}
       {current.data?.hold && (
         <Notice>

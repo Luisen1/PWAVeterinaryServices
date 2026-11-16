@@ -1,6 +1,10 @@
 import { createBrowserRouter } from 'react-router';
 import { Layout } from '@/app/Layout';
 import { AvailabilityPage } from '@/features/appointments/AvailabilityPage';
+import {
+  RequestsPage,
+  AppointmentDetailsPage,
+} from '@/features/appointments/RequestsPage';
 import { HomePage } from '@/routes/HomePage';
 import { NotFoundPage } from '@/routes/NotFoundPage';
 import { RouteErrorPage } from '@/routes/RouteErrorPage';
@@ -45,6 +49,10 @@ export const router = createBrowserRouter([
         path: '/cuenta',
         element: <AccountPage />,
       },
+      { path: '/citas/solicitudes', element: <RequestsPage /> },
+      { path: '/citas/solicitudes/:id', element: <AppointmentDetailsPage /> },
+      { path: '/oferentes/citas', element: <RequestsPage team /> },
+      { path: '/oferentes/:id/citas', element: <RequestsPage team /> },
       { path: '/acceso', element: <LoginPage /> },
       { path: '/registro', element: <RegisterPage /> },
       { path: '/recuperar-acceso', element: <RecoveryPage /> },
