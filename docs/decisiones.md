@@ -55,3 +55,12 @@ El cierre comprueba pendientes y purga la cuenta dentro de la misma transacción
 PGlite 0.5.16 se incorpora únicamente al entorno de pruebas para ejecutar el SQL y verificar RLS con PostgreSQL embebido. Docker está instalado y su motor local estaba detenido durante la comprobación. Los e2e usan el SDK real con un backend interceptado y credenciales ficticias de prueba. La aceptación en Supabase requiere aplicar las migraciones y comprobar los enlaces de correo reales.
 
 El aviso de privacidad corresponde al entorno de desarrollo. El responsable, contacto y retención quedan pendientes de definición antes de su publicación general. La guía operativa está en `autenticacion.md`.
+
+## HU22-HU24 (2026-11-16)
+
+- Regla inicial explícita: cambios antes del inicio, configurable como anticipación de 0–10080 minutos y conservada al solicitar. No se inventa un plazo de 24 horas ni se endurecen citas anteriores.
+- Reprogramar conserva identidad y contexto de la cita; el nuevo horario se asegura en la transacción y vuelve a requerir confirmación. Nunca se libera la anterior desde el cliente. Motivo, actor y valores anteriores/nuevos quedan auditados.
+- Cambios offline son pendientes privados con revisión y envío explícito tras revalidar, sin reservar ni cancelar remotamente. IndexedDB v4 conserva versiones previas y cuenta pendientes al cerrar.
+- Agenda adicional con filtros en servidor y cursor por inicio/ID; listas de solicitudes mantienen el contrato anterior. Completada/no asistió solo por personal autorizado tras fin de una confirmada.
+- Chat cliente-equipo por sede, con permiso específico `messages`. Lectura explícita compartida por equipo; recibir/descargar no marca leído. Realtime invalida consultas protegidas, con respaldo HTTP y cursor/deduplicación para reconexión. Sin adjuntos, llamadas ni push simulados.
+- La prueba remota real verificó Auth/Realtime y privacidad con tres cuentas técnicas temporales posteriormente eliminadas. La primera conexión fría requirió reintento; se conserva recuperación HTTP.
