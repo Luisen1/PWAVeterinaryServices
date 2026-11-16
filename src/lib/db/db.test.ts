@@ -12,6 +12,46 @@ afterEach(async () => {
 });
 
 describe('base local', () => {
+  it('actualiza v3 poblada a v4 conservando borradores y operaciones', async () => {
+    const legacy = new Dexie(db.name);
+    legacy
+      .version(3)
+      .stores(
+        Object.fromEntries(
+          db.tables
+            .filter((t) => t.name !== 'appointment_change_drafts')
+            .map((t) => [
+              t.name,
+              [
+                t.schema.primKey.src,
+                ...t.schema.indexes.map((i) => i.src),
+              ].join(','),
+            ]),
+        ),
+      );
+    await legacy.open();
+    await legacy.table('availability_drafts').put({
+      id: 'horario-previo',
+      owner_id: 'owner-a',
+      service_id: 'servicio',
+      updated_at: '2026-11-15',
+      slot: { starts_at: '2026-11-20T13:00:00Z' },
+    });
+    await legacy.table('outbox').put({
+      operation_id: 'operacion-previa',
+      owner_id: 'owner-a',
+      action: 'pet.save',
+      status: 'pending',
+    });
+    legacy.close();
+    await db.open();
+    expect(await db.availability_drafts.get('horario-previo')).toMatchObject({
+      owner_id: 'owner-a',
+      slot: { starts_at: '2026-11-20T13:00:00Z' },
+    });
+    expect((await db.outbox.get('operacion-previa'))?.status).toBe('pending');
+    expect(await db.appointment_change_drafts.count()).toBe(0);
+  });
   it('actualiza v1 a v2 sin perder catálogo ni operaciones existentes', async () => {
     const legacy = new Dexie(db.name);
     const added = [
@@ -19,6 +59,7 @@ describe('base local', () => {
       'offline_sessions',
       'public_snapshots',
       'availability_drafts',
+      'appointment_change_drafts',
     ];
     legacy
       .version(1)
@@ -66,8 +107,8 @@ describe('base local', () => {
     };
     await putLocalRecord(db.catalog, record);
     expect(await getLocalRecord(db.catalog, record.id)).toEqual(record);
-    expect(db.verno).toBe(3);
-    expect(db.tables).toHaveLength(14);
+    expect(db.verno).toBe(4);
+    expect(db.tables).toHaveLength(15);
   });
 
   it('purga una cuenta y conserva otra cuenta y los datos públicos', async () => {
@@ -79,6 +120,7 @@ describe('base local', () => {
       db.private_notes,
       db.appointment_snapshots,
       db.message_drafts,
+      db.appointment_change_drafts,
       db.pending_attachments,
     ];
     for (const table of privateTables) {

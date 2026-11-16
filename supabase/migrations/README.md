@@ -13,8 +13,12 @@ Aplicar las migraciones en orden al proyecto Supabase de desarrollo.
 9. `20261116024136_appointment_requests_and_decisions.sql` añade solicitudes presenciales/virtuales con mascota, ocupación, RLS, revisión, decisiones y eventos de aviso.
 10. `20261116024351_count_pending_requests_on_blocks.sql` incluye solicitudes pendientes al advertir citas afectadas por un bloqueo.
 11. `20261116025001_normalize_appointment_request_pages.sql` normaliza vencimientos de cada página con cursor estable y bloqueos ordenados.
+12. `20261116150201_appointment_changes_and_agenda.sql` añade reglas publicadas, cambios atómicos/idempotentes, auditoría y agenda con filtros.
+13. `20261116150210_authorized_text_messaging.sql` añade permiso `messages`, conversaciones, mensajes, recibos, RLS, RPC y publicación Realtime.
+14. `20261116150621_reject_blank_chat_messages.sql` rechaza texto compuesto únicamente por espacios, tabulaciones o saltos de línea.
+15. `20261116151747_allow_public_appointment_policy_reads.sql` permite consulta pública de reglas mediante un auxiliar protegido, sin conceder gestión a visitantes.
 
-Las once migraciones están aplicadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`). Sus versiones remotas están alineadas con estos archivos. Las versiones UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`. No volver a ejecutarlas manualmente sobre este proyecto.
+Las quince migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-16. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las cuatro últimas el 2026-11-16. No volver a ejecutarlas manualmente sobre este proyecto.
 
 La segunda migración exige `privacy_accepted: true` y `privacy_policy_version: '2026-11-14'` al registrar una cuenta. Asigna el rol `user` y preserva los consentimientos existentes. Las cuentas previas obtienen un perfil y rol básico mediante backfill, sin fabricar aceptación del aviso.
 
@@ -29,3 +33,5 @@ HU13-HU15 se documentan en `docs/hu13-hu15.md`. `supabase/tests/hu13_hu15.sql` p
 HU18 se verifica con `supabase/tests/hu18.sql`, ejecutado en desarrollo con rollback, y las pruebas locales de oferta. El apartado temporal no crea una solicitud de cita. HU19-HU21 lo consumen/revalidan dentro de su transacción de solicitud y se verifican con `supabase/tests/hu19_hu21.sql` y `tests/database/appointments.test.ts`; ver [guía](../../docs/hu19-hu21.md).
 
 Los datos ficticios de Tunja están separados en `supabase/seed.sql`; no forman parte de estas migraciones. Ver [carga, escenarios e idempotencia](../../docs/datos-demostracion.md). Ya se cargaron en el proyecto de desarrollo: seis establecimientos publicados y siete sedes.
+
+HU22-HU24 se verifican con `supabase/tests/hu22_hu24.sql`, ejecutado contra desarrollo con rollback. La prueba de Realtime real utilizó cuentas técnicas temporales que fueron retiradas; ver [guía](../../docs/hu22-hu24.md).

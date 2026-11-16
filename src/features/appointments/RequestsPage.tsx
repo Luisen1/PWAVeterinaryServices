@@ -16,6 +16,7 @@ import {
   appointmentError,
   appointmentSchema,
   appointmentStatus,
+  appointmentEvent,
   type Appointment,
 } from './requests-model';
 import {
@@ -24,13 +25,28 @@ import {
   useRefreshAppointments,
 } from './requests-api';
 import { slotLabel } from './model';
+import { AppointmentChanges } from './AppointmentChanges';
+import { readSavedAppointment, rememberAppointment } from './change-store';
+import { AppointmentPolicy } from './AppointmentPolicy';
 
-export function RequestsPage({ team = false }: { team?: boolean }) {
+export function RequestsPage({
+  team = false,
+  agenda = false,
+}: {
+  team?: boolean;
+  agenda?: boolean;
+}) {
   const { id } = useParams();
   return (
     <Workspace
       title={
-        team ? 'Solicitudes del establecimiento' : 'Mis solicitudes y avisos'
+        agenda
+          ? team
+            ? 'Agenda del establecimiento'
+            : 'Mi agenda e historial'
+          : team
+            ? 'Solicitudes del establecimiento'
+            : 'Mis solicitudes y avisos'
       }
       description={
         team
@@ -43,6 +59,12 @@ export function RequestsPage({ team = false }: { team?: boolean }) {
       </Link>
       <Link
         className={secondaryClass}
+        to={team ? '/oferentes/agenda' : '/citas/agenda'}
+      >
+        Agenda e historial con filtros
+      </Link>
+      <Link
+        className={secondaryClass}
         to={team ? '/citas/solicitudes' : '/oferentes/citas'}
       >
         {team
@@ -51,7 +73,15 @@ export function RequestsPage({ team = false }: { team?: boolean }) {
       </Link>
       <Verified>
         {(owner) => (
-          <RequestList owner={owner} team={team} establishment={id} />
+          <>
+            <RequestList
+              owner={owner}
+              team={team}
+              establishment={id}
+              agenda={agenda}
+            />
+            {team && <AppointmentPolicy establishment={id} />}
+          </>
         )}
       </Verified>
     </Workspace>
@@ -61,30 +91,59 @@ function RequestList({
   owner,
   team,
   establishment,
+  agenda = false,
 }: {
   owner: string;
   team: boolean;
   establishment?: string;
+  agenda?: boolean;
 }) {
   const online = useOnline();
   const [cursor, setCursor] = useState<{
     created_at: string;
     id: string;
   } | null>(null);
+  const [filters, setFilters] = useState({
+    from: '',
+    to: '',
+    modality: '',
+    status: '',
+    view: 'all',
+  });
   const query = useQuery({
-    queryKey: ['appointments', owner, team, establishment, cursor],
+    queryKey: [
+      'appointments',
+      owner,
+      team,
+      establishment,
+      cursor,
+      agenda,
+      filters,
+    ],
     enabled: online,
     retry: false,
     queryFn: async ({ signal }) =>
       z.array(appointmentSchema).parse(
         await appointmentRpc(
-          'appointment_requests',
-          {
-            p_scope: team ? 'team' : 'mine',
-            p_establishment: establishment ?? null,
-            p_before: cursor?.created_at ?? null,
-            p_before_id: cursor?.id ?? null,
-          },
+          agenda ? 'appointment_agenda' : 'appointment_requests',
+          agenda
+            ? {
+                p_scope: team ? 'team' : 'mine',
+                p_establishment: establishment ?? null,
+                p_from: filters.from || null,
+                p_to: filters.to || null,
+                p_modality: filters.modality || null,
+                p_status: filters.status || null,
+                p_view: filters.view,
+                p_after: cursor?.created_at ?? null,
+                p_after_id: cursor?.id ?? null,
+              }
+            : {
+                p_scope: team ? 'team' : 'mine',
+                p_establishment: establishment ?? null,
+                p_before: cursor?.created_at ?? null,
+                p_before_id: cursor?.id ?? null,
+              },
           signal,
         ),
       ),
@@ -92,6 +151,89 @@ function RequestList({
   });
   return (
     <div className="space-y-4">
+      {agenda && (
+        <form
+          className="sv-card grid gap-3 sm:grid-cols-2"
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <label>
+            Desde
+            <input
+              className="sv-input"
+              type="date"
+              value={filters.from}
+              onChange={(e) => {
+                setFilters({ ...filters, from: e.target.value });
+                setCursor(null);
+              }}
+            />
+          </label>
+          <label>
+            Hasta
+            <input
+              className="sv-input"
+              type="date"
+              value={filters.to}
+              onChange={(e) => {
+                setFilters({ ...filters, to: e.target.value });
+                setCursor(null);
+              }}
+            />
+          </label>
+          <label>
+            Modalidad
+            <select
+              className="sv-input"
+              value={filters.modality}
+              onChange={(e) => {
+                setFilters({ ...filters, modality: e.target.value });
+                setCursor(null);
+              }}
+            >
+              <option value="">Todas</option>
+              <option>Presencial</option>
+              <option>Virtual</option>
+            </select>
+          </label>
+          <label>
+            Estado
+            <select
+              className="sv-input"
+              value={filters.status}
+              onChange={(e) => {
+                setFilters({ ...filters, status: e.target.value });
+                setCursor(null);
+              }}
+            >
+              <option value="">Todos</option>
+              {Object.entries(appointmentStatus).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Periodo
+            <select
+              className="sv-input"
+              value={filters.view}
+              onChange={(e) => {
+                setFilters({ ...filters, view: e.target.value });
+                setCursor(null);
+              }}
+            >
+              <option value="all">Todos</option>
+              <option value="upcoming">Próximas citas</option>
+              <option value="history">Historial</option>
+            </select>
+          </label>
+          <p className="text-xs">
+            Fechas según la zona de cada sede. Filtros aplicados en el servidor
+            antes de paginar.
+          </p>
+        </form>
+      )}
       {!online && (
         <Notice>
           Sin conexión no podemos verificar cambios de estado. Recupera conexión
@@ -155,10 +297,13 @@ function RequestList({
             disabled={query.isFetching || !online}
             onClick={() => {
               const last = query.data!.at(-1)!;
-              setCursor({ created_at: last.created_at, id: last.id });
+              setCursor({
+                created_at: agenda ? last.starts_at : last.created_at,
+                id: last.id,
+              });
             }}
           >
-            Ver solicitudes anteriores
+            {agenda ? 'Ver siguientes citas' : 'Ver solicitudes anteriores'}
           </button>
         )}
       </div>
@@ -189,24 +334,35 @@ export function AppointmentDetailsPage() {
       >
         Volver a solicitudes
       </Link>
-      <Verified>{(owner) => <Detail owner={owner} id={id ?? ''} />}</Verified>
+      <Verified allowOffline>
+        {(owner) => <Detail owner={owner} id={id ?? ''} />}
+      </Verified>
     </Workspace>
   );
 }
 function Detail({ owner, id }: { owner: string; id: string }) {
   const online = useOnline();
   const valid = z.uuid().safeParse(id).success;
-  const query = useQuery({
-    queryKey: ['appointment-detail', owner, id],
-    enabled: online && valid,
+  const query = useQuery<Appointment | null>({
+    queryKey: ['appointment-detail', owner, id, online],
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === owner && previousQuery.queryKey[2] === id
+        ? previous
+        : undefined,
+    enabled: valid,
+    networkMode: 'always',
     retry: false,
-    queryFn: async ({ signal }) =>
-      appointmentSchema.parse(
+    queryFn: async ({ signal }) => {
+      if (!online) return readSavedAppointment(owner, id);
+      const value = appointmentSchema.parse(
         await appointmentRpc('appointment_detail', { p_id: id }, signal),
-      ),
+      );
+      await rememberAppointment(owner, value);
+      return value;
+    },
     refetchInterval: online ? 15000 : false,
   });
-  const a = query.data;
+  const a = query.isError ? null : query.data;
   return (
     <div className="space-y-4">
       {!valid && (
@@ -218,8 +374,9 @@ function Detail({ owner, id }: { owner: string; id: string }) {
       {query.isError && <Notice error>{appointmentError(query.error)}</Notice>}
       {!online && (
         <Notice>
-          Sin conexión no puedes confirmar el estado ni decidir sobre esta
-          solicitud.
+          Datos guardados de referencia. Sin conexión puedes preparar un cambio
+          local; la cita remota sigue vigente hasta que el servidor acepte el
+          cambio.
         </Notice>
       )}
       <button
@@ -254,7 +411,11 @@ function Detail({ owner, id }: { owner: string; id: string }) {
               aria-label="Instrucciones de la cita"
             >
               <h3 className="font-semibold">Instrucciones y requisitos</h3>
-              <p>{a.snapshot.instructions}</p>
+              <p>
+                {['cancelled', 'rejected', 'expired'].includes(a.status)
+                  ? 'Esta solicitud ya no está activa. Consulta su historial antes de preparar una nueva cita.'
+                  : a.snapshot.instructions}
+              </p>
             </section>
             {a.status === 'requested' && (
               <Notice>
@@ -264,6 +425,7 @@ function Detail({ owner, id }: { owner: string; id: string }) {
             )}
             <p className="break-all text-xs">ID: {a.id}</p>
           </article>
+          <AppointmentChanges key={a.id} owner={owner} appointment={a} />
           {a.can_decide && a.status === 'requested' && (
             <DecisionForm
               key={a.id}
@@ -280,7 +442,13 @@ function Detail({ owner, id }: { owner: string; id: string }) {
             <ol className="space-y-3">
               {a.events.map((event) => (
                 <li key={event.id} className="border-l-2 border-brand-100 pl-3">
-                  <p className="font-medium">{appointmentStatus[event.kind]}</p>
+                  <p className="font-medium">{appointmentEvent[event.kind]}</p>
+                  {event.kind === 'rescheduled' && (
+                    <p className="text-xs">
+                      Se conservan el horario anterior y el nuevo en el registro
+                      de auditoría.
+                    </p>
+                  )}
                   <p className="text-xs">
                     {new Date(event.created_at).toLocaleString('es-CO', {
                       timeZone: a.snapshot.timezone,

@@ -52,6 +52,12 @@ it('ejecuta el recorrido SQL reproducible de HU19-HU21 con aislamiento', async (
     .replace(/rollback;\s*$/, '');
   await db.exec(integration);
 });
+it('ejecuta el recorrido SQL reproducible de HU22-HU24 con rollback', async () => {
+  const sql = readFileSync('supabase/tests/hu22_hu24.sql', 'utf8')
+    .replace(/\nbegin;\r?\n/, '\n')
+    .replace(/rollback;\s*$/, '');
+  await db.exec(sql);
+});
 const owner = 'de170000-0000-4000-8000-000000000001';
 const user = '11111111-1111-4111-8111-111111111111';
 const stranger = '22222222-2222-4222-8222-222222222222';
@@ -169,6 +175,302 @@ async function slots() {
     )
   ).rows[0]!.slots;
 }
+
+const establishment = 'de171000-0000-4000-8000-000000000001';
+const site = 'de172000-0000-4000-8000-000000000001';
+it('HU22 publica reglas legibles para visitantes sin conceder permisos de gestión', async () => {
+  await asUser(owner);
+  await db.query('select public.save_appointment_policy($1,60,120,0)', [
+    establishment,
+  ]);
+  await asUser(null);
+  expect(
+    (
+      await db.query<{ cancel_minutes: number }>(
+        'select cancel_minutes from public.appointment_change_policies where establishment_id=$1',
+        [establishment],
+      )
+    ).rows[0]?.cancel_minutes,
+  ).toBe(60);
+  await guardedFailure(
+    () =>
+      db.query('select public.save_appointment_policy($1,0,0,1)', [
+        establishment,
+      ]),
+    '42501',
+  );
+});
+async function change(
+  action: string,
+  revision = 1,
+  target: string | null = null,
+  operation = crypto.randomUUID(),
+) {
+  return appointmentSchema.parse(
+    (
+      await db.query<{ result: unknown }>(
+        'select public.change_appointment($1,$2,$3,$4,$5,$6,$7) result',
+        [
+          operation,
+          appointment,
+          revision,
+          action,
+          'Cambio de prueba',
+          target ? assignment() : null,
+          target,
+        ],
+      )
+    ).rows[0]!.result,
+  );
+}
+it('HU22 cancela dentro del plazo, libera agenda y reintenta el mismo cambio una sola vez', async () => {
+  await asUser(user);
+  await request();
+  const operation = crypto.randomUUID();
+  const a = await change('cancelled', 1, null, operation);
+  expect(a.status).toBe('cancelled');
+  expect(a.events.at(-1)).toMatchObject({
+    kind: 'cancelled',
+    actor_id: user,
+    reason: 'Cambio de prueba',
+  });
+  expect(await slots()).toBe(20);
+  expect(await change('cancelled', 1, null, operation)).toEqual(a);
+  await guardedFailure(
+    () => change('rescheduled', 1, start, operation),
+    '23514',
+  );
+});
+it('HU22 un horario ocupado conserva íntegra la cita anterior y un cambio válido conserva auditoría', async () => {
+  await asUser(user);
+  await request();
+  const next = new Date(Date.parse(start) + 1800000).toISOString();
+  await asUser(stranger);
+  await db.query('select public.request_appointment($1,$2,$3,$4,$5,$6,null)', [
+    crypto.randomUUID(),
+    service(),
+    assignment(),
+    next,
+    otherPet,
+    'Presencial',
+  ]);
+  await asUser(user);
+  await guardedFailure(() => change('rescheduled', 1, next), '23P01');
+  let a = (
+    await db.query<{ result: unknown }>(
+      'select public.appointment_detail($1) result',
+      [appointment],
+    )
+  ).rows[0]!.result;
+  expect(appointmentSchema.parse(a)).toMatchObject({
+    status: 'requested',
+    revision: 1,
+  });
+  const later = new Date(Date.parse(start) + 3600000).toISOString();
+  const changed = await change('rescheduled', 1, later);
+  expect(changed.starts_at).toBe(later.replace('.000Z', '+00:00'));
+  expect(changed.status).toBe('requested');
+  expect(changed.events.at(-1)).toMatchObject({
+    kind: 'rescheduled',
+    details: {
+      previous: { status: 'requested' },
+      current: { status: 'requested' },
+    },
+  });
+  expect(await slots()).toBe(18);
+  a = (
+    await db.query<{ result: unknown }>(
+      'select public.appointment_detail($1) result',
+      [appointment],
+    )
+  ).rows[0]!.result;
+  expect(appointmentSchema.parse(a).revision).toBe(2);
+});
+it('HU22 conserva el plazo acordado y rechaza fuera de él o con revisión obsoleta', async () => {
+  await asUser(owner);
+  await db.query('select public.save_appointment_policy($1,10080,10080,0)', [
+    establishment,
+  ]);
+  await asUser(user);
+  const a = await request();
+  expect(a.snapshot.cancel_minutes).toBe(10080);
+  await asUser(owner);
+  await db.query('select public.save_appointment_policy($1,0,0,1)', [
+    establishment,
+  ]);
+  await asUser(user);
+  await guardedFailure(() => change('cancelled'), '23514');
+  await guardedFailure(() => change('cancelled', 2), '40001');
+  await asUser(stranger);
+  await guardedFailure(() => change('cancelled'), '42501');
+});
+it('HU23 aplica fecha, modalidad, estado e historial antes de paginar y aísla cuentas', async () => {
+  await asUser(user);
+  await request();
+  await change('cancelled');
+  const date = new Date(start).toISOString().slice(0, 10);
+  const agenda = async (
+    scope = 'mine',
+    mode: string | null = null,
+    status: string | null = null,
+    view = 'all',
+  ) =>
+    (
+      await db.query<{ result: unknown[] }>(
+        'select public.appointment_agenda($1,null,$2,$2,$3,$4,$5,null,null) result',
+        [scope, date, mode, status, view],
+      )
+    ).rows[0]!.result;
+  expect(
+    await agenda('mine', 'Presencial', 'cancelled', 'history'),
+  ).toHaveLength(1);
+  expect(await agenda('mine', 'Virtual')).toHaveLength(0);
+  expect(await agenda('mine', null, null, 'upcoming')).toHaveLength(0);
+  await asUser(stranger);
+  expect(await agenda()).toHaveLength(0);
+  expect(await agenda('team')).toHaveLength(0);
+  await asUser(owner);
+  expect(await agenda('team')).toHaveLength(1);
+});
+it('HU23 solo personal con permiso cierra una cita confirmada después de finalizar', async () => {
+  await asUser(user);
+  await request();
+  await asUser(owner);
+  await decide('confirmed');
+  await guardedFailure(() => change('completed', 2), '23514');
+  await db.exec(
+    `reset role; update public.offering_appointments set starts_at=clock_timestamp()-interval '2 hours',ends_at=clock_timestamp()-interval '1 hour' where id='${appointment}';`,
+  );
+  await asUser(user);
+  await guardedFailure(() => change('completed', 2), '42501');
+  await asUser(owner);
+  const a = await change('no_show', 2);
+  expect(a.status).toBe('no_show');
+  expect(a.events.at(-1)).toMatchObject({ kind: 'no_show', actor_id: owner });
+  await guardedFailure(() => change('completed', 3), '23514');
+});
+
+async function openChat() {
+  return (
+    await db.query<{ result: { id: string; side: string } }>(
+      'select public.open_chat($1,$2) result',
+      [establishment, site],
+    )
+  ).rows[0]!.result;
+}
+async function sendChat(
+  conversation: string,
+  body = 'Hola desde pruebas',
+  id = crypto.randomUUID(),
+) {
+  return (
+    await db.query<{
+      result: {
+        id: string;
+        seq: string;
+        author_side: string;
+        created_at: string;
+      };
+    }>('select public.send_chat_message($1,$2,$3) result', [
+      id,
+      conversation,
+      body,
+    ])
+  ).rows[0]!.result;
+}
+async function history(conversation: string, after: string | null = null) {
+  return (
+    await db.query<{
+      result: {
+        conversation: { team_read_seq: string; customer_read_seq: string };
+        messages: { id: string; seq: string }[];
+      };
+    }>('select public.chat_history($1,$2,null) result', [conversation, after])
+  ).rows[0]!.result;
+}
+it('HU24 persiste texto con autor y hora, reintenta sin duplicar y distingue lectura', async () => {
+  await asUser(user);
+  const c = await openChat();
+  expect((await openChat()).id).toBe(c.id);
+  const id = crypto.randomUUID();
+  await guardedFailure(() => sendChat(c.id, '\n\t'), '23514');
+  await guardedFailure(() => sendChat(c.id, 'x'.repeat(4001)), '23514');
+  const m = await sendChat(c.id, 'Hola', id);
+  expect(m.author_side).toBe('customer');
+  expect(m.created_at).toBeTruthy();
+  expect(typeof m.seq).toBe('string');
+  expect(await sendChat(c.id, 'Hola', id)).toEqual(m);
+  await guardedFailure(() => sendChat(c.id, 'Otro texto', id), '23514');
+  await asUser(owner);
+  let h = await history(c.id);
+  expect(h.messages).toHaveLength(1);
+  expect(h.conversation.team_read_seq).toBe('0');
+  await db.query('select public.read_chat($1,$2)', [c.id, m.seq]);
+  await sendChat(c.id, 'Respuesta del establecimiento');
+  await asUser(user);
+  h = await history(c.id, m.seq);
+  expect(h.messages).toHaveLength(1);
+  expect(h.conversation.team_read_seq).toBe(m.seq);
+  await guardedFailure(
+    () => db.query('select public.read_chat($1,999999)', [c.id]),
+    '23514',
+  );
+});
+it('HU24 cursa más de cien mensajes sin huecos y no entrega conversaciones ajenas', async () => {
+  await asUser(user);
+  const c = await openChat();
+  const first = await sendChat(c.id);
+  for (let n = 0; n < 104; n++) await sendChat(c.id, `Mensaje ${n}`);
+  const h = await history(c.id, first.seq);
+  expect(h.messages).toHaveLength(100);
+  const rest = await history(c.id, h.messages.at(-1)!.seq);
+  expect(rest.messages).toHaveLength(4);
+  expect(new Set([...h.messages, ...rest.messages].map((m) => m.id)).size).toBe(
+    104,
+  );
+  await asUser(stranger);
+  await guardedFailure(() => history(c.id), '42501');
+  await guardedFailure(() => sendChat(c.id), '42501');
+  expect(
+    (await db.query('select * from public.chat_messages')).rows,
+  ).toHaveLength(0);
+  await guardedFailure(
+    () =>
+      db.query(
+        'insert into public.chat_messages(id,conversation_id,author_id,author_side,body) values($1,$2,$3,$4,$5)',
+        [crypto.randomUUID(), c.id, stranger, 'customer', 'Intrusión'],
+      ),
+    '42501',
+  );
+});
+it('HU24 requiere permiso explícito de mensajes y revocarlo impide leer y enviar', async () => {
+  await asUser(user);
+  const c = await openChat();
+  await db.exec(
+    `reset role; insert into public.establishment_collaborators(establishment_id,email,permissions,status,user_id) values('${establishment}','${stranger}@example.invalid',array['services'],'accepted','${stranger}');`,
+  );
+  await asUser(stranger);
+  await guardedFailure(() => history(c.id), '42501');
+  await db.exec(
+    `reset role; update public.establishment_collaborators set permissions=array['messages'] where user_id='${stranger}';`,
+  );
+  await asUser(stranger);
+  expect((await sendChat(c.id)).author_side).toBe('team');
+  expect(
+    (
+      await db.query<{ allowed: boolean }>(
+        'select private.appointment_permission($1,true) allowed',
+        [establishment],
+      )
+    ).rows[0]!.allowed,
+  ).toBe(false);
+  await db.exec(
+    `reset role; update public.establishment_collaborators set status='revoked' where user_id='${stranger}';`,
+  );
+  await asUser(stranger);
+  await guardedFailure(() => history(c.id), '42501');
+  await guardedFailure(() => sendChat(c.id), '42501');
+});
 
 it('HU19 crea una sola solicitud idempotente que ocupa el intervalo y audita su autor', async () => {
   await asUser(user);

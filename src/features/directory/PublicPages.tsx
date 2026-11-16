@@ -202,10 +202,23 @@ export function PublicEstablishmentPage() {
               {requestedAction === 'conversar' && (
                 <Notice>
                   {!auth.user
-                    ? 'Inicia sesión para conservar la sede elegida y continuar cuando esta función esté habilitada.'
-                    : 'Conservamos la sede elegida. El chat todavía no está habilitado en la aplicación.'}
+                    ? 'Inicia sesión para conservar la sede elegida y conversar con su equipo.'
+                    : 'Conservamos la sede elegida. Continúa al chat para escribir al equipo.'}
                 </Notice>
               )}
+              <Link
+                className={secondaryClass}
+                to={
+                  auth.user?.email_confirmed_at
+                    ? `/mensajes/nuevo?${new URLSearchParams({ establecimiento: row.data.id, sede: site.id })}`
+                    : authWithReturn(
+                        '/acceso',
+                        `${location.pathname}?${new URLSearchParams({ ...Object.fromEntries(params), sede: site.id, accion: 'conversar' })}`,
+                      )
+                }
+              >
+                Conversar con esta sede
+              </Link>
               <PreferencePanel establishmentId={row.data.id} />
             </>
           )}

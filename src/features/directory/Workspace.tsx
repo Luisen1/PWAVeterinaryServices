@@ -68,10 +68,15 @@ export function Workspace({
 }
 export function Verified({
   children,
+  allowOffline = false,
 }: {
   children: (userId: string) => ReactNode;
+  allowOffline?: boolean;
 }) {
   const auth = useAuth();
+  const online = useOnline();
+  if (allowOffline && !online && auth.offlineUser?.email_confirmed_at)
+    return <div key={auth.offlineUser.id}>{children(auth.offlineUser.id)}</div>;
   if (auth.status === 'loading') return <Notice>Comprobando sesión…</Notice>;
   if (auth.status === 'unavailable')
     return (

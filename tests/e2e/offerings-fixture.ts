@@ -34,6 +34,10 @@ export async function mockOfferings(
   context: BrowserContext,
   options: { owner?: boolean; invited?: boolean } = {},
 ) {
+  await context.route(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/appointment_change_policies*`,
+    (route) => route.fulfill({ json: [] }),
+  );
   const owner = options.owner ?? true;
   const workspaces: OfferingWorkspace[] = options.invited
     ? []

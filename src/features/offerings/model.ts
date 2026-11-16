@@ -2,11 +2,17 @@ import { z } from 'zod';
 import { categories, species } from '@/features/directory/model';
 
 export const modalities = ['Presencial', 'Virtual', 'Domicilio'] as const;
-export const permissions = ['services', 'schedule', 'read'] as const;
+export const permissions = [
+  'services',
+  'schedule',
+  'read',
+  'messages',
+] as const;
 export const permissionLabels = {
   services: 'Administrar servicios',
   schedule: 'Administrar profesionales y horarios',
   read: 'Consultar configuración y agenda',
+  messages: 'Leer y responder chats del establecimiento',
 };
 const name = z.string().trim().min(2).max(120);
 const capability = z.array(z.enum(modalities)).min(1).max(3);

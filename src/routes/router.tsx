@@ -27,6 +27,11 @@ import { PublicEstablishmentPage } from '@/features/directory/PublicPages';
 import { DirectoryPage } from '@/features/directory/DirectoryPage';
 import { DirectionsPage } from '@/features/directory/DirectionsPage';
 import { FavoritesPage } from '@/features/preferences/FavoritesPage';
+import {
+  ChatInboxPage,
+  ChatStartPage,
+  ConversationPage,
+} from '@/features/messaging/ChatPages';
 
 export const router = createBrowserRouter([
   {
@@ -53,6 +58,13 @@ export const router = createBrowserRouter([
       { path: '/citas/solicitudes/:id', element: <AppointmentDetailsPage /> },
       { path: '/oferentes/citas', element: <RequestsPage team /> },
       { path: '/oferentes/:id/citas', element: <RequestsPage team /> },
+      { path: '/citas/agenda', element: <RequestsPage agenda /> },
+      { path: '/oferentes/agenda', element: <RequestsPage team agenda /> },
+      { path: '/oferentes/:id/agenda', element: <RequestsPage team agenda /> },
+      { path: '/mensajes', element: <ChatInboxPage /> },
+      { path: '/mensajes/nuevo', element: <ChatStartPage /> },
+      { path: '/mensajes/:id', element: <ConversationPage /> },
+      { path: '/oferentes/mensajes', element: <ChatInboxPage team /> },
       { path: '/acceso', element: <LoginPage /> },
       { path: '/registro', element: <RegisterPage /> },
       { path: '/recuperar-acceso', element: <RecoveryPage /> },

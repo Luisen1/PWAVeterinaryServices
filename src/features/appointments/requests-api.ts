@@ -2,7 +2,12 @@ import { z } from 'zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { authClient, withAuthOperation } from '@/features/auth/api';
 import { withAccountWriteLock } from '@/features/sync/account-write-lock';
-import { appointmentSchema, requestSchema } from './requests-model';
+import {
+  appointmentSchema,
+  requestSchema,
+  changeSchema,
+  type AppointmentChange,
+} from './requests-model';
 
 export async function appointmentRpc(
   name: string,
@@ -38,6 +43,9 @@ export function requestAppointment(
   args: z.infer<typeof requestSchema>,
 ) {
   return write(owner, 'request_appointment', requestSchema.parse(args));
+}
+export function changeAppointment(owner: string, args: AppointmentChange) {
+  return write(owner, 'change_appointment', changeSchema.parse(args));
 }
 export function decideAppointment(
   owner: string,

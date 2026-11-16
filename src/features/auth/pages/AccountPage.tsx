@@ -293,6 +293,38 @@ export function AccountPage() {
                         </span>
                         <Icon name="chevron" className="chevron" />
                       </Link>
+                      <Link to="/citas/agenda">
+                        <Icon name="calendar" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Mi agenda e historial</strong>
+                          <small>Filtra citas y gestiona cambios</small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
+                      <Link to="/oferentes/agenda">
+                        <Icon name="calendar" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Agenda del establecimiento</strong>
+                          <small>Consulta la atención y su historial</small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
+                      <Link to="/mensajes">
+                        <Icon name="store" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Mis conversaciones</strong>
+                          <small>Texto y confirmaciones de lectura</small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
+                      <Link to="/oferentes/mensajes">
+                        <Icon name="store" className="account-menu__icon" />
+                        <span className="account-menu__text">
+                          <strong>Chats del establecimiento</strong>
+                          <small>Atiende conversaciones autorizadas</small>
+                        </span>
+                        <Icon name="chevron" className="chevron" />
+                      </Link>
                       <Link to="/citas/solicitudes">
                         <Icon name="calendar" className="account-menu__icon" />
                         <span className="account-menu__text">
