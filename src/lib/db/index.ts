@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import type { AvailabilityDraft } from '@/features/appointments/model';
 import type {
   FavoriteRecord,
   HoursRecord,
@@ -27,6 +28,7 @@ class VeterinaryDatabase extends Dexie {
   preferences!: Table<PreferenceRecord, string>;
   offline_sessions!: Table<OfflineSessionRecord, string>;
   public_snapshots!: Table<PublicSnapshot, string>;
+  availability_drafts!: Table<AvailabilityDraft, string>;
 
   constructor() {
     super('veterinary-services');
@@ -47,6 +49,9 @@ class VeterinaryDatabase extends Dexie {
       preferences: '&id,owner_id,[owner_id+establishment_id],updated_at',
       offline_sessions: '&owner_id',
       public_snapshots: '&key,saved_at',
+    });
+    this.version(3).stores({
+      availability_drafts: '&id,owner_id,service_id,updated_at',
     });
   }
 }
@@ -83,6 +88,7 @@ export async function purgePrivateLocalData(
     db.sync_meta,
     db.preferences,
     db.offline_sessions,
+    db.availability_drafts,
   ];
   await db.transaction('rw', privateTables, async () => {
     // La comprobación y la purga comparten el bloqueo de la misma transacción.

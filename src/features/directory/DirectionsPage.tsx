@@ -15,6 +15,7 @@ import { MapBoundary } from './DirectoryMap';
 import { Icon } from '@/components/ui/Icon';
 import { cardClass, Notice, secondaryClass, Workspace } from './Workspace';
 import { useOnline } from '@/pwa/useOnline';
+import { RoutePlanner } from './RoutePlanner';
 
 const MapCanvas = lazy(() => import('./MapCanvas'));
 export function DirectionsPage() {
@@ -47,7 +48,7 @@ export function DirectionsPage() {
   return (
     <Workspace
       title="Cómo llegar"
-      description="Elige desde dónde sales y abre las indicaciones hasta tu veterinario."
+      description="Elige desde dónde sales, calcula tu recorrido o abre las indicaciones hasta tu veterinario."
     >
       <Link className={secondaryClass} to={back}>
         Volver a la ficha
@@ -112,44 +113,63 @@ export function DirectionsPage() {
               teléfono para confirmar cómo llegar.
             </Notice>
           )}
-          {validSite && online && (
-            <MapBoundary key={attempt} onFailure={() => setFailed(true)}>
-              <Suspense fallback={<Notice>Cargando mapa del destino…</Notice>}>
-                <MapCanvas
-                  sites={mapSites}
-                  selection={null}
-                  onSelect={() => undefined}
-                  onFailure={() => setFailed(true)}
-                  origin={origin}
-                  picking={picking}
-                  fitSites
-                  onPick={(point) => {
-                    chooseOrigin({
-                      ...point,
-                      source: 'manual',
-                      label: 'Mi punto de partida',
-                      accuracy: null,
-                    });
-                    setPicking(false);
-                  }}
-                />
-              </Suspense>
-            </MapBoundary>
-          )}
-          {failed && (
-            <Notice error>
-              No pudimos cargar el mapa. Puedes introducir coordenadas o abrir
-              las indicaciones externas.
-              <button
-                className={secondaryClass}
-                onClick={() => {
-                  setFailed(false);
-                  setAttempt((v) => v + 1);
-                }}
-              >
-                Reintentar mapa del destino
-              </button>
-            </Notice>
+          {validSite && (
+            <RoutePlanner
+              origin={origin}
+              destination={site}
+              mode={mode}
+              picking={picking}
+            >
+              {(route) => (
+                <>
+                  {online && (
+                    <MapBoundary
+                      key={attempt}
+                      onFailure={() => setFailed(true)}
+                    >
+                      <Suspense
+                        fallback={<Notice>Cargando mapa del destino…</Notice>}
+                      >
+                        <MapCanvas
+                          sites={mapSites}
+                          selection={null}
+                          onSelect={() => undefined}
+                          onFailure={() => setFailed(true)}
+                          origin={origin}
+                          picking={picking}
+                          fitSites
+                          route={route}
+                          onPick={(point) => {
+                            chooseOrigin({
+                              ...point,
+                              source: 'manual',
+                              label: 'Mi punto de partida',
+                              accuracy: null,
+                            });
+                            setPicking(false);
+                          }}
+                        />
+                      </Suspense>
+                    </MapBoundary>
+                  )}
+                  {failed && (
+                    <Notice error>
+                      No pudimos cargar el mapa. Puedes introducir coordenadas o
+                      abrir las indicaciones externas.
+                      <button
+                        className={secondaryClass}
+                        onClick={() => {
+                          setFailed(false);
+                          setAttempt((v) => v + 1);
+                        }}
+                      >
+                        Reintentar mapa del destino
+                      </button>
+                    </Notice>
+                  )}
+                </>
+              )}
+            </RoutePlanner>
           )}
           <div
             className="discovery-view-switch"
@@ -195,10 +215,10 @@ export function DirectionsPage() {
             </Notice>
           )}
           <p className="text-xs leading-6 text-stone-600">
-            Las indicaciones y el tiempo de viaje se consultan en Google Maps.
-            Al abrirlo, se comparten el destino y tu punto de partida si lo
-            elegiste. Esta aplicación no calcula una ruta ni un tiempo de
-            llegada propios.
+            La navegación paso a paso se abre en Google Maps y comparte el
+            destino y tu punto de partida si lo elegiste. El cálculo dentro de
+            la PWA usa Google Maps cuando está configurado; muestra una
+            estimación, no una hora de llegada garantizada.
           </p>
         </>
       )}

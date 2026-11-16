@@ -24,6 +24,7 @@ export function Layout() {
     '/restablecer-clave',
     '/auth/confirmar',
     '/privacidad',
+    '/terminos',
   ].includes(location.pathname);
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export function Layout() {
       <footer className="app-footer">
         <p>Servicios Veterinarios · Cuidamos lo que más quieres</p>
         <Link to="/privacidad">Aviso de privacidad</Link>
+        <Link to="/terminos">Condiciones de uso</Link>
       </footer>
       <UpdatePrompt />
       {!authLayout && (

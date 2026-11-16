@@ -27,6 +27,9 @@ export async function countPendingLocalData(ownerId?: string): Promise<number> {
     outbox.filter((row) => row.status !== 'completed').count(),
     drafts.count(),
     attachments.count(),
+    ownerId
+      ? db.availability_drafts.where('owner_id').equals(ownerId).count()
+      : db.availability_drafts.count(),
   ]);
   return counts.reduce((total, count) => total + count, 0);
 }

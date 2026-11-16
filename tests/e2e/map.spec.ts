@@ -2,11 +2,39 @@ import { expect, test } from '@playwright/test';
 import { mockAuthApi } from './auth-fixture';
 import { mockDirectoryApi } from './directory-fixture';
 import { offeringDocument, OFFERING_ESTABLISHMENT } from './offerings-fixture';
+import { mockGoogleMaps } from './google-maps-fixture';
 
-const tile = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ1kAAAAASUVORK5CYII=',
-  'base64',
-);
+test('carga solo Google Maps y envía al SDK el origen sin ruta ni parámetros', async ({
+  page,
+  context,
+}) => {
+  const auth = await mockAuthApi(context);
+  await mockDirectoryApi(context, auth.getRole);
+  const referrers: Array<string | undefined> = [];
+  const otherMaps: string[] = [];
+  page.on('request', async (request) => {
+    if (request.url().includes('maps.googleapis.com/maps/api/js'))
+      referrers.push((await request.allHeaders()).referer);
+    if (request.url().includes('openstreetmap')) otherMaps.push(request.url());
+  });
+  await page.goto('/explorar?q=contexto-de-prueba&vista=mapa');
+  await expect(page.locator('meta[name="referrer"]')).toHaveAttribute(
+    'content',
+    'strict-origin-when-cross-origin',
+  );
+  await expect.poll(() => referrers.length).toBeGreaterThan(0);
+  expect(
+    referrers.every((value) => value === `${new URL(page.url()).origin}/`),
+  ).toBe(true);
+  await expect(
+    page.locator('script[src*="maps.googleapis.com/maps/api/js"]'),
+  ).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+  await expect(page.locator('.directory-map')).toHaveAttribute(
+    'data-map-instance',
+    '1',
+  );
+  expect(otherMaps).toEqual([]);
+});
 test('muestra categorías, agrupa pines y conserva la selección al alejar el mapa', async ({
   page,
   context,
@@ -29,9 +57,6 @@ test('muestra categorías, agrupa pines y conserva la selección al alejar el ma
     revision: 1,
     published_at: new Date().toISOString(),
   });
-  await context.route('https://tile.openstreetmap.org/**', (route) =>
-    route.fulfill({ contentType: 'image/png', body: tile }),
-  );
   await page.goto('/explorar');
   await expect(
     page.getByRole('region', {
@@ -39,16 +64,23 @@ test('muestra categorías, agrupa pines y conserva la selección al alejar el ma
       exact: true,
     }),
   ).toBeVisible();
-  await expect(page.locator('.marker-cluster').first()).toBeVisible();
+  await expect(page.locator('.map-cluster').first()).toBeVisible();
   await expect(page.getByLabel('Leyenda de categorías')).toContainText(
     'Tienda de mascotas',
   );
-  await page.locator('.marker-cluster').first().click();
-  // En sedes casi coincidentes, el grupo se abre en abanico al alcanzar el máximo zoom.
-  if (await page.locator('.marker-cluster').count())
-    await page.locator('.marker-cluster').first().click();
-  await expect(page.locator('.category-map-pin').first()).toBeVisible();
-  await page.locator('.category-map-pin').first().click();
+  await page.locator('.map-cluster').first().click();
+  await expect(
+    page.getByRole('region', {
+      name: 'Mapa interactivo de sedes aprobadas',
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.locator('.map-cluster-choices')).toBeVisible();
+  await page
+    .locator('.map-cluster-choices')
+    .getByRole('button')
+    .first()
+    .click();
   await expect(
     page.getByRole('article', { name: 'Sede seleccionada' }),
   ).toBeVisible();
@@ -70,6 +102,29 @@ test('muestra categorías, agrupa pines y conserva la selección al alejar el ma
   await expect(page).toHaveURL(
     new RegExp(`/establecimientos/${OFFERING_ESTABLISHMENT}`),
   );
+});
+
+test('una denegación tardía de Google mantiene accesible el listado', async ({
+  page,
+  context,
+}) => {
+  const auth = await mockAuthApi(context);
+  await mockDirectoryApi(context, auth.getRole);
+  await page.goto('/explorar');
+  await expect(page.locator('.directory-map')).toHaveAttribute(
+    'data-map-instance',
+    '1',
+  );
+  await page.evaluate(() =>
+    (window as Window & { gm_authFailure?: () => void }).gm_authFailure?.(),
+  );
+  await expect(
+    page.getByText('El proveedor del mapa no respondió.', { exact: false }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Lista', exact: true }).click();
+  await expect(
+    page.getByRole('searchbox', { name: 'Buscar establecimientos' }),
+  ).toBeVisible();
 });
 
 test('un fallo del proveedor conserva direcciones, contacto y navegación, y permite reintentar', async ({
@@ -95,12 +150,7 @@ test('un fallo del proveedor conserva direcciones, contacto y navegación, y per
     revision: 1,
     published_at: new Date().toISOString(),
   });
-  let fail = true;
-  await context.route('https://tile.openstreetmap.org/**', (route) =>
-    fail
-      ? route.abort('failed')
-      : route.fulfill({ contentType: 'image/png', body: tile }),
-  );
+  await mockGoogleMaps(context, { failLoad: true });
   await page.goto('/explorar');
   await expect(
     page.getByText('El proveedor del mapa no respondió.', { exact: false }),
@@ -114,7 +164,7 @@ test('un fallo del proveedor conserva direcciones, contacto y navegación, y per
   await expect(
     page.getByRole('link', { name: 'Teléfono: 3001234567' }),
   ).toHaveCount(2);
-  fail = false;
+  await mockGoogleMaps(context);
   await page.getByRole('button', { name: 'Reintentar mapa' }).click();
   await expect(
     page.getByText('El proveedor del mapa no respondió.', { exact: false }),

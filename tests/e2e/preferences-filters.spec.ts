@@ -112,9 +112,6 @@ async function setup(context: BrowserContext) {
       await route.fulfill({ json: remote });
     },
   );
-  await context.route('https://tile.openstreetmap.org/**', (route) =>
-    route.abort(),
-  );
   return {
     getRemote: () => remote,
     getWrites: () => writes,

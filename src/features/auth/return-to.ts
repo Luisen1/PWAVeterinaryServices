@@ -6,7 +6,7 @@ export function safeReturnTo(value: string | null) {
     if (
       !value.startsWith('/') ||
       url.origin !== 'https://pwa.invalid' ||
-      !/^\/(explorar|favoritos|establecimientos\/[0-9a-f-]{36})$/.test(
+      !/^\/(explorar|favoritos|citas|establecimientos\/[0-9a-f-]{36}(?:\/como-llegar)?)$/.test(
         url.pathname,
       )
     )

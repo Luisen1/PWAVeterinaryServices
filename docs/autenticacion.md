@@ -45,7 +45,7 @@ El cliente usa `persistSession`, refresco automático y `flowType: 'pkce'`. La p
 
 El formulario `/restablecer-clave` exige una sesión validada y la marca temporal creada por el callback de recuperación. La marca se guarda solo en esa pestaña, vence como máximo a los 15 minutos o al vencimiento de la sesión y se elimina al cambiar la contraseña, iniciar sesión o cerrar sesión. Supabase valida el código y la operación de cambio de contraseña en el servidor.
 
-La política de referrer del documento y del hosting es `no-referrer`. El SW conserva únicamente recursos del shell y no cachea respuestas de autenticación ni datos privados.
+La política de referrer del documento y del hosting es `strict-origin-when-cross-origin`. Las solicitudes a otros orígenes comparten únicamente el origen de la aplicación, sin ruta, parámetros ni códigos de acceso/recuperación. El script de Google Maps usa esa misma política explícitamente. El SW conserva únicamente recursos del shell y no cachea respuestas de autenticación ni datos privados.
 
 El cierre de sesión cancela consultas, comprueba pendientes y purga los datos privados de la cuenta en una transacción. Cuando hay pendientes, la interfaz permite sincronizar los cambios de perfil y mascotas, conservar la sesión o descartarlos expresamente. Los dominios futuros, borradores y adjuntos sin manejador permanecen pendientes para una fase posterior. El cierre utiliza el alcance local del SDK y conserva los catálogos públicos. La sesión se actualiza en otras pestañas mediante los eventos del SDK.
 

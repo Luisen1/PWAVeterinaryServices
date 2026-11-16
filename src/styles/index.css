@@ -372,6 +372,34 @@
 .category-map-pin b {
   transform: rotate(45deg);
 }
+.map-cluster {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: #0b1f4b;
+  box-shadow: 0 2px 7px #0005;
+  color: white;
+  font:
+    600 16px Poppins,
+    sans-serif;
+}
+.map-cluster-choices {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+.map-cluster-choices button {
+  padding: 8px;
+  border: 1px solid #cfe8e0;
+  border-radius: 8px;
+  color: #0b1f4b;
+  text-align: left;
+  cursor: pointer;
+}
 .availability-slots {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
