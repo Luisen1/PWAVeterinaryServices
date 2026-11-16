@@ -2,11 +2,13 @@
 
 Para continuar el desarrollo con un asistente de IA, consultar primero [AGENTS.md](AGENTS.md): contexto, estado de las HU, arquitectura, reglas del dominio y verificación.
 
-El descubrimiento ahora inicia en **Tunja, Boyacá**: permite usar ubicación o marcar un origen, buscar servicios y alternar mapa/lista conservando la selección. Las fichas muestran la sede elegida y **Cómo llegar** abre indicaciones externas desde el punto de salida. Consulta [HU10-HU12 y navegación](docs/hu10-hu12.md) para el recorrido y los límites; reservar y conversar siguen sujetos a las historias posteriores.
+El descubrimiento ahora inicia en **Tunja, Boyacá**: permite usar ubicación o marcar un origen, buscar servicios y alternar mapa/lista conservando la selección. Las fichas muestran la sede elegida y **Cómo llegar** abre indicaciones externas desde el punto de salida. Consulta [HU10-HU12 y navegación](docs/hu10-hu12.md); las solicitudes presenciales/virtuales ya están integradas y el chat conserva su alcance posterior.
 
 Las [HU13-HU15](docs/hu13-hu15.md) añaden filtros combinados, apertura según horario y zona de sede, urgencias declaradas, favoritos y notas privadas. Las preferencias admiten recarga y edición offline con sesión local vigente, sincronización al recuperar conexión y resolución explícita de conflictos. Explorar mantiene el mapa visible en la primera pantalla móvil; los filtros avanzados se abren en un diálogo.
 
-Las [HU17-HU18](docs/hu17-hu18.md) incorporan consulta de horarios por sede/servicio/profesional, apartados temporales revalidados y borradores offline en Citas. Explorar y Cómo llegar usan únicamente Google Maps; el trazado y la ETA se añaden sobre el mismo mapa al calcular. La navegación externa sigue disponible. Un apartado no es una cita solicitada ni confirmada: las solicitudes con mascota y sus estados quedan para HU19 y siguientes.
+Las [HU17-HU18](docs/hu17-hu18.md) incorporan consulta de horarios por sede/servicio/profesional, apartados temporales revalidados y borradores offline en Citas. Explorar y Cómo llegar usan únicamente Google Maps; el trazado y la ETA se añaden sobre el mismo mapa al calcular. La navegación externa sigue disponible. Un apartado no es una cita solicitada ni confirmada.
+
+Las [HU19-HU21](docs/hu19-hu21.md) permiten solicitar atención presencial o virtual para una mascota propia, revalidando el intervalo y consumiendo el apartado atómicamente. La persona consulta sus solicitudes e instrucciones; el responsable o colaborador con `schedule` confirma/rechaza y genera un aviso persistido. El rechazo requiere motivo y libera el horario. Las solicitudes vencen al inicio si no se resuelven. Las videollamadas, correo/push, cancelación/reprogramación y agenda completa permanecen en sus historias posteriores.
 
 PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local, cuentas, perfil y mascotas, oferentes, revisión administrativa, fichas, servicios, profesionales, disponibilidad, colaboradores y mapa con agrupación. Consulta [HU07-HU09](docs/hu07-hu09.md) para configurar la oferta. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
 
@@ -45,7 +47,7 @@ Ambas pueden quedar vacías para ejecutar y probar el shell. `supabase` se expor
 
 El cliente admite una clave pública publishable (`sb_publishable_`) en `VITE_SUPABASE_ANON_KEY`, además de la clave anon legacy. La sesión persiste y se refresca mediante el SDK. Los enlaces de correo usan PKCE y se procesan en `/auth/confirmar`.
 
-Para habilitar un proyecto nuevo, aplicar las ocho migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` las ocho migraciones ya están aplicadas. La quinta añade catálogo/disponibilidad, la sexta preferencias privadas y las dos últimas consulta reservable, apartados e índices.
+Para habilitar un proyecto nuevo, aplicar las once migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` las once migraciones ya están aplicadas. Las primeras ocho cubren identidad, establecimientos, oferta, preferencias y apartados; las tres últimas añaden solicitudes/decisiones, avisos, conteo de bloqueos y vencimientos paginados.
 
 Los mapas requieren `VITE_GOOGLE_MAPS_API_KEY`: clave pública de navegador restringida por dominios y a Maps JavaScript API/Routes API. `VITE_GOOGLE_MAPS_MAP_ID` permite usar un ID de mapa JavaScript propio; en desarrollo se utiliza `DEMO_MAP_ID` si no se configura. El SDK se carga al mostrar el mapa y las rutas solo se consultan bajo acción explícita. Sin clave quedan disponibles el listado, las fichas, la disponibilidad y la navegación externa. Las variables antiguas `VITE_MAP_TILE_URL`/`VITE_MAP_ATTRIBUTION` ya no se usan. La [guía HU17-HU18](docs/hu17-hu18.md) detalla configuración, cuotas y límites.
 

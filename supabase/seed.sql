@@ -1,5 +1,5 @@
 -- Datos FICTICIOS para desarrollo/pruebas. Ejecutar como postgres en SQL Editor.
--- Requiere las ocho migraciones actuales. No ejecutar en producción.
+-- Requiere las migraciones del proyecto. No ejecutar en producción.
 -- Una sola sentencia atómica; no borra ni sobrescribe registros existentes.
 do $seed$
 declare
