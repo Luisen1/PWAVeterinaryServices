@@ -535,6 +535,12 @@ test('HU26 graba audio real del navegador, permite escucharlo y reintenta tras c
   await expect(
     page.getByRole('button', { name: 'Enviar archivo pendiente', exact: true }),
   ).toHaveCount(0);
+  // El botón cambia de nombre mientras envía; su ausencia no confirma el éxito.
+  await expect(
+    page.getByText('Archivo enviado y guardado en la conversación.', {
+      exact: true,
+    }),
+  ).toBeVisible();
   expect(api.uploadIds).toHaveLength(2);
   expect(new Set(api.uploadIds).size).toBe(1);
   expect(api.messages).toHaveLength(1);
