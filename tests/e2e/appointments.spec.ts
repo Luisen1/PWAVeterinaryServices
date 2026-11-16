@@ -26,6 +26,8 @@ async function setup(
     conflict?: boolean;
     lostResponse?: boolean;
     existing?: boolean;
+    noAssignments?: boolean;
+    noSlots?: boolean;
   } = {},
 ) {
   const auth = await mockAuthApi(context, {
@@ -117,6 +119,7 @@ async function setup(
   let conflict = !!options.conflict,
     lost = !!options.lostResponse;
   const requestIds: string[] = [];
+  let holds = 0;
   const changes: Record<string, unknown>[] = [];
   const agendas: Record<string, unknown>[] = [];
   let callHost: {
@@ -146,9 +149,13 @@ async function setup(
             modality,
             date: body.p_date,
             calculated_at: now(),
-            professionals: [{ id: professional, name: 'Dra. Laura' }],
+            professionals: options.noAssignments
+              ? []
+              : [{ id: professional, name: 'Dra. Laura' }],
             slots:
-              (appointment || held) && !options.existing
+              options.noAssignments ||
+              options.noSlots ||
+              ((appointment || held) && !options.existing)
                 ? []
                 : [
                     {
@@ -174,6 +181,7 @@ async function setup(
         return;
       }
       if (name === 'acquire_slot_hold') {
+        holds++;
         held = {
           id: body.p_id,
           assignment_id: assignment,
@@ -296,6 +304,7 @@ async function setup(
   );
   return {
     requests: requestIds,
+    holds: () => holds,
     unblock: () => {
       conflict = false;
     },
@@ -481,6 +490,93 @@ async function choose(page: Page) {
   await page.getByLabel('Mascota para la cita').selectOption(pet);
 }
 
+test('muestra el envío antes de elegir horario y solicita directamente sin apartado', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context);
+  await login(page);
+  await page.goto(path);
+  const send = page.getByRole('button', {
+    name: 'Enviar solicitud de cita',
+    exact: true,
+  });
+  await expect(send).toBeVisible();
+  await expect(send).toBeDisabled();
+  await expect(send).toHaveAccessibleDescription(
+    'Elige un horario de la lista para enviar tu solicitud.',
+  );
+  await page.getByLabel('Mascota para la cita').selectOption(pet);
+  await expect(send).toBeDisabled();
+  await page
+    .getByRole('group', { name: 'Intervalos disponibles' })
+    .getByRole('button')
+    .click();
+  await expect(page.getByLabel('Mascota para la cita')).toHaveValue(pet);
+  await expect(send).toBeEnabled();
+  await send.click();
+  await expect(
+    page.getByText('Solicitud registrada.', { exact: false }),
+  ).toBeVisible();
+  expect(api.requests).toHaveLength(1);
+  expect(api.holds()).toBe(0);
+});
+
+for (const unassigned of [true, false]) {
+  test(`mantiene visible el envío bloqueado y explica ${unassigned ? 'la asignación pendiente' : 'la fecha sin cupos'}`, async ({
+    page,
+    context,
+  }, info) => {
+    const api = await setup(context, {
+      noAssignments: unassigned,
+      noSlots: true,
+    });
+    await login(page);
+    await page.goto(path);
+    await expect(
+      page.getByText(
+        unassigned
+          ? 'Este servicio todavía no tiene profesionales asignados'
+          : 'No hay intervalos disponibles para esta fecha y profesional.',
+        { exact: false },
+      ),
+    ).toBeVisible();
+    const send = page.getByRole('button', {
+      name: 'Enviar solicitud de cita',
+      exact: true,
+    });
+    await expect(send).toBeVisible();
+    await expect(send).toBeDisabled();
+    await expect(send).toHaveAccessibleDescription(
+      /no hay horarios disponibles/,
+    );
+    await page.getByLabel('Mascota para la cita').selectOption(pet);
+    await expect(send).toBeDisabled();
+    await expect(
+      page.getByRole('link', {
+        name: 'Ver ficha y contactar al establecimiento',
+      }),
+    ).toHaveAttribute(
+      'href',
+      `/establecimientos/${OFFERING_ESTABLISHMENT}?sede=${OFFERING_SITE}`,
+    );
+    expect(api.requests).toHaveLength(0);
+    expect(api.holds()).toBe(0);
+    if (unassigned) {
+      await page.setViewportSize({ width: 320, height: 900 });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: info.outputPath('solicitud-sin-configuracion-320.png'),
+        fullPage: true,
+      });
+    }
+  });
+}
+
 test('HU19 solicita con mascota, consume el apartado y muestra detalle y aviso', async ({
   page,
   context,
@@ -493,9 +589,7 @@ test('HU19 solicita con mascota, consume el apartado y muestra detalle y aviso',
   await expect(
     page.getByText('Apartado activo:', { exact: false }),
   ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Confirmar solicitud de cita' })
-    .click();
+  await page.getByRole('button', { name: 'Enviar solicitud de cita' }).click();
   await expect(
     page.getByText('Solicitud registrada.', { exact: false }),
   ).toBeVisible();
@@ -528,15 +622,11 @@ test('HU19 conserva mascota y selección ante conflicto y reintenta sin duplicar
 }) => {
   const api = await setup(context, { conflict: true });
   await choose(page);
-  await page
-    .getByRole('button', { name: 'Confirmar solicitud de cita' })
-    .click();
+  await page.getByRole('button', { name: 'Enviar solicitud de cita' }).click();
   await expect(page.getByRole('alert')).toContainText('Conservamos tu mascota');
   await expect(page.getByLabel('Mascota para la cita')).toHaveValue(pet);
   api.unblock();
-  await page
-    .getByRole('button', { name: 'Confirmar solicitud de cita' })
-    .click();
+  await page.getByRole('button', { name: 'Enviar solicitud de cita' }).click();
   await expect(
     page.getByText('Solicitud registrada.', { exact: false }),
   ).toBeVisible();
@@ -548,15 +638,11 @@ test('HU19 un resultado de red incierto reutiliza la misma operación al reinten
 }) => {
   const api = await setup(context, { lostResponse: true });
   await choose(page);
-  await page
-    .getByRole('button', { name: 'Confirmar solicitud de cita' })
-    .click();
+  await page.getByRole('button', { name: 'Enviar solicitud de cita' }).click();
   await expect(page.getByRole('alert')).toContainText(
     'No pudimos confirmar el resultado',
   );
-  await page
-    .getByRole('button', { name: 'Confirmar solicitud de cita' })
-    .click();
+  await page.getByRole('button', { name: 'Enviar solicitud de cita' }).click();
   await expect(
     page.getByText('Solicitud registrada.', { exact: false }),
   ).toBeVisible();
@@ -572,9 +658,7 @@ test('HU20 muestra modalidad e instrucciones virtuales sin ofrecer una llamada f
   await expect(
     page.getByRole('heading', { name: 'Solicitar cita virtual' }),
   ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Confirmar solicitud de cita' })
-    .click();
+  await page.getByRole('button', { name: 'Enviar solicitud de cita' }).click();
   await page.getByRole('link', { name: 'Ver detalle de la solicitud' }).click();
   await expect(
     page.getByRole('region', { name: 'Instrucciones de la cita' }),
@@ -621,7 +705,7 @@ test('sin conexión no envía solicitudes y un detalle ajeno explica el acceso d
   await choose(page);
   await context.setOffline(true);
   await expect(
-    page.getByRole('button', { name: 'Confirmar solicitud de cita' }),
+    page.getByRole('button', { name: 'Enviar solicitud de cita' }),
   ).toBeDisabled();
   expect(api.requests).toHaveLength(0);
   await context.setOffline(false);

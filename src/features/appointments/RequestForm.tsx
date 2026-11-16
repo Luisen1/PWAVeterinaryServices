@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { authClient } from '@/features/auth/api';
@@ -21,7 +21,7 @@ export function RequestForm({
 }: {
   owner: string;
   context: Availability;
-  slot: AvailableSlot;
+  slot: AvailableSlot | null;
   holdId: string | null;
   cached: boolean;
 }) {
@@ -29,9 +29,10 @@ export function RequestForm({
   const policy = useAppointmentPolicy(context.establishment_id);
   const refresh = useRefreshAppointments();
   const [pet, setPet] = useState('');
+  const helpId = useId();
   const pending = useRef(false);
   const operation = useRef<{ key: string; id: string } | null>(null);
-  const key = `${context.service_id}:${slot.assignment_id}:${slot.starts_at}:${context.modality}:${pet}`;
+  const key = `${context.service_id}:${slot?.assignment_id ?? ''}:${slot?.starts_at ?? ''}:${context.modality}:${pet}`;
   const pets = useQuery({
     queryKey: ['pets', owner],
     enabled: online,
@@ -48,6 +49,7 @@ export function RequestForm({
   });
   const request = useMutation({
     mutationFn: async (args: { id: string; key: string }) => {
+      if (!slot) throw new Error('Selecciona un horario antes de solicitar.');
       if (context.modality === 'Domicilio')
         throw new Error('Modalidad no habilitada');
       const value = await requestAppointment(owner, {
@@ -64,6 +66,23 @@ export function RequestForm({
     onSuccess: () => void refresh(),
   });
   const result = request.data?.key === key ? request.data.value : null;
+  const blockedReason = !online
+    ? 'Recupera conexión para enviar la solicitud.'
+    : cached
+      ? 'Actualiza la disponibilidad con conexión antes de solicitar.'
+      : !slot
+        ? context.slots.length === 0
+          ? 'No puedes enviar todavía: no hay horarios disponibles. Consulta el aviso de disponibilidad o elige otra fecha.'
+          : 'Elige un horario de la lista para enviar tu solicitud.'
+        : pets.isPending
+          ? 'Estamos consultando tus mascotas.'
+          : pets.isError
+            ? 'Reintenta la consulta de mascotas antes de enviar.'
+            : !pet
+              ? 'Selecciona tu mascota para enviar la solicitud.'
+              : policy.isError || !policy.data
+                ? 'Debes consultar la regla publicada de cambios antes de enviar.'
+                : '';
   useEffect(() => {
     if (!pet || result) return;
     const release = acquireReloadBlock('solicitud de cita sin enviar');
@@ -89,7 +108,8 @@ export function RequestForm({
       </h3>
       <p className="text-sm">
         La solicitud quedará pendiente de revisión del establecimiento. No es
-        una confirmación de atención.
+        una confirmación de atención. No necesitas apartar el horario antes de
+        enviarla.
       </p>
       <PolicyNotice establishment={context.establishment_id} />
       {pets.isPending && online && <Notice>Cargando tus mascotas…</Notice>}
@@ -137,19 +157,12 @@ export function RequestForm({
         </p>
       )}
       <button
+        type="button"
         className="button button-primary"
-        disabled={
-          !online ||
-          cached ||
-          !pet ||
-          request.isPending ||
-          !!result ||
-          pets.isError ||
-          !policy.data ||
-          policy.isError
-        }
+        aria-describedby={helpId}
+        disabled={!!blockedReason || request.isPending || !!result}
         onClick={() => {
-          if (pending.current) return;
+          if (pending.current || blockedReason || result) return;
           pending.current = true;
           if (operation.current?.key !== key)
             operation.current = { key, id: crypto.randomUUID() };
@@ -160,10 +173,16 @@ export function RequestForm({
           });
         }}
       >
-        {request.isPending
-          ? 'Enviando solicitud…'
-          : 'Confirmar solicitud de cita'}
+        {request.isPending ? 'Enviando solicitud…' : 'Enviar solicitud de cita'}
       </button>
+      <p id={helpId} className="text-sm">
+        {result
+          ? 'Tu solicitud ya fue enviada.'
+          : request.isPending
+            ? 'Espera mientras comprobamos y registramos la solicitud.'
+            : blockedReason ||
+              'Al enviar, revalidamos el horario y registramos la solicitud.'}
+      </p>
       {request.isError && request.variables?.key === key && (
         <Notice error>{appointmentError(request.error)}</Notice>
       )}
