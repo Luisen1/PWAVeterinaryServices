@@ -74,8 +74,8 @@ export function AccountMenu({ context }: { context: AccountContext }) {
         },
         {
           to: '/citas/solicitudes',
-          title: 'Mis solicitudes y avisos de citas',
-          help: 'Consulta respuestas e instrucciones',
+          title: 'Mis citas y solicitudes',
+          help: 'Pendientes, confirmadas, respuestas y chat',
           icon: 'calendar',
         },
         {

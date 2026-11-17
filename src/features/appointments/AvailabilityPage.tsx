@@ -15,6 +15,7 @@ import {
 } from '@/features/directory/Workspace';
 import { dataError } from '@/features/directory/api';
 import { RequestForm } from './RequestForm';
+import { MyUpcomingAppointments } from './MyUpcomingAppointments';
 import { useNow } from '@/features/directory/useNow';
 import {
   acquireSlot,
@@ -80,14 +81,32 @@ export function AvailabilityPage() {
   return (
     <Workspace
       title="Citas"
-      description="Consulta horarios por sede y profesional y prepara tu próxima cita."
+      description="Consulta las citas de tus mascotas, conversa con tu veterinaria y solicita una nueva atención."
     >
-      <Link to="/explorar" className={secondaryClass}>
-        Explorar establecimientos
-      </Link>
-      <Link to="/citas/solicitudes" className={secondaryClass}>
-        Mis solicitudes y avisos de citas
-      </Link>
+      <nav aria-label="Opciones de citas" className="flex flex-wrap gap-3">
+        <Link to="/citas/solicitudes" className={secondaryClass}>
+          Mis citas y solicitudes
+        </Link>
+        <Link to="/mensajes" className={secondaryClass}>
+          Mis chats con veterinarias
+        </Link>
+        <a href="#nueva-cita" className={secondaryClass}>
+          Solicitar una nueva cita
+        </a>
+        <Link to="/explorar" className={secondaryClass}>
+          Explorar establecimientos
+        </Link>
+      </nav>
+      {user && (
+        <MyUpcomingAppointments
+          key={service ? 'booking' : 'overview'}
+          owner={user.id}
+          collapsed={!!service}
+        />
+      )}
+      <h2 id="nueva-cita" className="scroll-mt-24 text-lg font-semibold">
+        Solicitar una nueva cita
+      </h2>
       <Notice>
         <ol className="list-inside list-decimal space-y-1">
           <li>Elige establecimiento, sede, servicio y fecha.</li>

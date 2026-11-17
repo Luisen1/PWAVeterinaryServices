@@ -38,9 +38,9 @@ export function ChatInboxPage({ team = false }: { team?: boolean }) {
     >
       <Link
         className={secondaryClass}
-        to={team ? '/mensajes' : '/oferentes/mensajes'}
+        to={team ? '/oferentes/citas' : '/citas/solicitudes'}
       >
-        {team ? 'Mis conversaciones' : 'Bandeja del establecimiento'}
+        {team ? 'Solicitudes de citas' : 'Mis solicitudes de citas'}
       </Link>
       <Verified>{(owner) => <Inbox owner={owner} team={team} />}</Verified>
     </Workspace>

@@ -4,6 +4,7 @@ import { E2E_ENVIRONMENT } from './environment';
 import { OFFERING_ESTABLISHMENT, OFFERING_SITE } from './offerings-fixture';
 import sharp from 'sharp';
 import { validateMedia } from '../../supabase/functions/_shared/media-validator';
+import { mockDirectoryApi } from './directory-fixture';
 test.use({
   launchOptions: {
     args: [
@@ -15,6 +16,7 @@ test.use({
 });
 const team = '22222222-2222-4222-8222-222222222222';
 const conversation = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const appointmentId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 function server() {
   const messages: {
     id: string;
@@ -33,6 +35,11 @@ function server() {
   const cursors: (string | null)[] = [];
   const files = new Map<string, Uint8Array>();
   const uploadIds: string[] = [];
+  const appointmentChats: unknown[] = [];
+  let appointmentChatAllowed = true;
+  let rejectOpening = false;
+  let upcomingMode: 'normal' | 'two' | 'empty' | 'error' = 'normal';
+  const upcomingQueries: Record<string, unknown>[] = [];
   let loseUpload = false;
   async function setup(context: BrowserContext, asTeam = false) {
     await mockAuthApi(context, {
@@ -146,6 +153,70 @@ function server() {
       async (route) => {
         const name = new URL(route.request().url()).pathname.split('/').at(-1);
         const body = route.request().postDataJSON();
+        const appointment = {
+          id: appointmentId,
+          owner_id: TEST_USER_ID,
+          pet_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          establishment_id: OFFERING_ESTABLISHMENT,
+          site_id: OFFERING_SITE,
+          service_id: '77777777-7777-4777-8777-777777777777',
+          assignment_id: '99999999-9999-4999-8999-999999999999',
+          professional_id: '88888888-8888-4888-8888-888888888888',
+          resource_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          starts_at: new Date(Date.now() + 86400000).toISOString(),
+          ends_at: new Date(Date.now() + 88200000).toISOString(),
+          status: 'confirmed',
+          revision: 2,
+          modality: 'Presencial',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          can_decide: asTeam,
+          can_chat: appointmentChatAllowed,
+          snapshot: {
+            establishment_name: 'Veterinaria Horizonte',
+            site_name: 'Sede central',
+            site_address: 'Calle de prueba',
+            timezone: 'America/Bogota',
+            service_name: 'Consulta general',
+            pet_name: 'Luna',
+            pet_species: 'Perro',
+            professional_name: 'Dra. Laura',
+            instructions: 'Asiste con tu mascota.',
+          },
+          events: [],
+        };
+        if (name === 'appointment_agenda' && body.p_view === 'upcoming') {
+          upcomingQueries.push(body);
+          if (upcomingMode === 'error')
+            return route.fulfill({
+              status: 503,
+              json: { message: 'Sin servicio' },
+            });
+          if (upcomingMode === 'empty') return route.fulfill({ json: [] });
+          const pending = {
+            ...appointment,
+            id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+            status: 'requested',
+            snapshot: { ...appointment.snapshot, pet_name: 'Milo' },
+          };
+          return route.fulfill({
+            json:
+              upcomingMode === 'two' ? [pending, appointment] : [appointment],
+          });
+        }
+        if (name === 'appointment_requests' || name === 'appointment_agenda')
+          return route.fulfill({ json: [appointment] });
+        if (name === 'appointment_detail')
+          return route.fulfill({ json: appointment });
+        if (name === 'offering_workspaces') return route.fulfill({ json: [] });
+        if (name === 'open_appointment_chat') {
+          appointmentChats.push(body);
+          if (rejectOpening) {
+            rejectOpening = false;
+            return route.fulfill({ status: 403, json: { code: '42501' } });
+          }
+          return route.fulfill({ json: dto() });
+        }
         if (name === 'chat_history') {
           if (body.p_conversation !== conversation) {
             await route.fulfill({ status: 403, json: { code: '42501' } });
@@ -209,6 +280,20 @@ function server() {
     sendIds,
     cursors,
     uploadIds,
+    appointmentChats,
+    upcomingQueries,
+    setUpcomingMode: (mode: typeof upcomingMode) => {
+      upcomingMode = mode;
+    },
+    hideAppointmentChat: () => {
+      appointmentChatAllowed = false;
+    },
+    allowAppointmentChat: () => {
+      appointmentChatAllowed = true;
+    },
+    rejectAppointmentChat: () => {
+      rejectOpening = true;
+    },
     loseMedia: () => {
       loseUpload = true;
     },
@@ -217,6 +302,333 @@ function server() {
     },
   };
 }
+test('el dueño ve citas pendientes y confirmadas en Citas y abre Chat con su veterinaria', async ({
+  page,
+  context,
+}, info) => {
+  await mockDirectoryApi(context, () => 'user');
+  const api = server();
+  await api.setup(context);
+  api.setUpcomingMode('two');
+  await login(page);
+  await page.goto('/citas');
+  const upcoming = page.locator('#mis-citas');
+  await expect(
+    upcoming.getByText('Milo · Consulta general', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    upcoming.getByText('Luna · Consulta general', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    upcoming.getByText('Pendiente de confirmación del establecimiento.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(upcoming.getByText('Confirmada', { exact: true })).toBeVisible();
+  expect(api.upcomingQueries[0]).toMatchObject({
+    p_scope: 'mine',
+    p_view: 'upcoming',
+    p_after: null,
+  });
+  await expect(
+    page.getByRole('heading', {
+      name: 'Solicitar una nueva cita',
+      exact: true,
+    }),
+  ).toBeVisible();
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: info.outputPath(`citas-dueno-${width}.png`),
+      fullPage: true,
+    });
+  }
+  await upcoming
+    .getByRole('button', { name: 'Chat de la cita de Luna', exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/mensajes/${conversation}$`));
+  await page
+    .getByLabel('Mensaje de texto')
+    .fill('Tengo una pregunta sobre la cita de Luna.');
+  await page
+    .getByRole('button', { name: 'Enviar mensaje', exact: true })
+    .click();
+  await expect(
+    page.getByText('Tengo una pregunta sobre la cita de Luna.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel('Seleccionar fotografía', { exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole('button', { name: 'Grabar nota de voz', exact: true }),
+  ).toBeEnabled();
+  expect(api.appointmentChats).toEqual([{ p_appointment: appointmentId }]);
+});
+
+test('las citas propias distinguen vacío, fallo y desconexión sin mostrar datos como actuales', async ({
+  page,
+  context,
+}) => {
+  await mockDirectoryApi(context, () => 'user');
+  const api = server();
+  await api.setup(context);
+  api.setUpcomingMode('empty');
+  await login(page);
+  await page.goto('/citas');
+  const upcoming = page.locator('#mis-citas');
+  await expect(
+    upcoming.getByText(
+      'No tienes citas pendientes ni confirmadas por atender.',
+      { exact: false },
+    ),
+  ).toBeVisible();
+  api.setUpcomingMode('error');
+  await upcoming
+    .getByRole('button', { name: 'Actualizar mis citas', exact: true })
+    .click();
+  await expect(upcoming.getByRole('alert')).toContainText(
+    'No pudimos consultar tus citas',
+  );
+  await expect(
+    upcoming.getByText(
+      'No tienes citas pendientes ni confirmadas por atender.',
+      { exact: false },
+    ),
+  ).toHaveCount(0);
+  api.setUpcomingMode('normal');
+  await upcoming
+    .getByRole('button', { name: 'Actualizar mis citas', exact: true })
+    .click();
+  await expect(
+    upcoming.getByText('Luna · Consulta general', { exact: true }),
+  ).toBeVisible();
+  await context.setOffline(true);
+  await expect(
+    upcoming.getByText(
+      'Conecta para consultar el estado de tus citas y abrir el chat.',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    upcoming.getByRole('button', {
+      name: 'Chat de la cita de Luna',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  expect(api.appointmentChats).toHaveLength(0);
+});
+
+test('la reserva contextual mantiene plegadas las citas propias hasta que el dueño las abre', async ({
+  page,
+  context,
+}) => {
+  await mockDirectoryApi(context, () => 'user');
+  const api = server();
+  await api.setup(context);
+  await login(page);
+  await page.goto('/citas?servicio=77777777-7777-4777-8777-777777777777');
+  const upcoming = page.locator('#mis-citas');
+  await expect(upcoming).not.toHaveAttribute('open');
+  await expect(upcoming.getByRole('article')).toHaveCount(0);
+  expect(api.upcomingQueries).toHaveLength(0);
+  await upcoming.locator('summary').click();
+  await expect(
+    upcoming.getByText('Luna · Consulta general', { exact: true }),
+  ).toBeVisible();
+  expect(api.upcomingQueries[0]).toMatchObject({
+    p_scope: 'mine',
+    p_view: 'upcoming',
+  });
+});
+
+test('el centro abre Chat desde una cita y envía texto, fotografía y voz al cliente', async ({
+  page,
+  context,
+  browser,
+  baseURL,
+}, info) => {
+  const api = server();
+  await api.setup(context, true);
+  await login(page);
+  await page.goto('/oferentes/citas');
+  await page
+    .getByRole('button', { name: 'Chat de la cita de Luna', exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/mensajes/${conversation}$`));
+  expect(api.appointmentChats).toEqual([{ p_appointment: appointmentId }]);
+  await page
+    .getByLabel('Mensaje de texto')
+    .fill('Te compartimos las indicaciones para Luna.');
+  await page
+    .getByRole('button', { name: 'Enviar mensaje', exact: true })
+    .click();
+  await expect(
+    page.getByText('Te compartimos las indicaciones para Luna.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  const image = await sharp({
+    create: { width: 32, height: 24, channels: 3, background: '#00bfa6' },
+  })
+    .jpeg()
+    .toBuffer();
+  await page
+    .getByLabel('Seleccionar fotografía', { exact: true })
+    .setInputFiles({
+      name: 'indicaciones.jpg',
+      mimeType: 'image/jpeg',
+      buffer: image,
+    });
+  await page
+    .getByRole('button', { name: 'Guardar archivo pendiente', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Enviar archivo pendiente', exact: true })
+    .click();
+  await expect(
+    page.getByRole('button', { name: 'Ver fotografía', exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Grabar nota de voz', exact: true })
+    .click();
+  await expect(page.getByText(/Grabando: [1-9]/)).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Detener grabación', exact: true })
+    .click();
+  await expect(
+    page.getByLabel('Escuchar nota de voz antes de enviar'),
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Guardar archivo pendiente', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Enviar archivo pendiente', exact: true })
+    .click();
+  await expect(
+    page.getByRole('button', { name: 'Cargar nota de voz', exact: true }),
+  ).toBeVisible();
+  expect(api.messages).toHaveLength(3);
+  expect(api.messages.every((m) => m.author_side === 'team')).toBe(true);
+  const customer = await browser.newContext({ baseURL });
+  try {
+    await api.setup(customer);
+    const recipient = await customer.newPage();
+    await login(recipient);
+    await recipient.goto(`/citas/solicitudes/${appointmentId}`);
+    await recipient
+      .getByRole('button', { name: 'Chat de la cita de Luna', exact: true })
+      .click();
+    await expect(recipient).toHaveURL(new RegExp(`/mensajes/${conversation}$`));
+    await expect(
+      recipient.getByText('Te compartimos las indicaciones para Luna.', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await recipient
+      .getByRole('button', { name: 'Ver fotografía', exact: true })
+      .click();
+    await expect(
+      recipient.getByAltText('Fotografía compartida en la conversación'),
+    ).toBeVisible();
+    await recipient
+      .getByRole('button', { name: 'Cargar nota de voz', exact: true })
+      .click();
+    const audio = recipient.getByLabel('Reproducir nota de voz recibida');
+    await expect(audio).toBeVisible();
+    await audio.evaluate((element: HTMLAudioElement) => element.play());
+    await expect
+      .poll(() =>
+        audio.evaluate((element: HTMLAudioElement) => element.currentTime),
+      )
+      .toBeGreaterThan(0);
+  } finally {
+    await customer.close();
+  }
+  await page.setViewportSize({ width: 320, height: 900 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: info.outputPath('chat-centro-cliente-320.png'),
+    fullPage: true,
+  });
+});
+
+test('agenda y detalle recuperan el mismo chat y un error de permiso no cambia de conversación', async ({
+  page,
+  context,
+}) => {
+  const api = server();
+  await api.setup(context, true);
+  await login(page);
+  await page.goto('/oferentes/agenda');
+  api.rejectAppointmentChat();
+  await page
+    .getByRole('button', { name: 'Chat de la cita de Luna', exact: true })
+    .click();
+  await expect(page.getByRole('alert').first()).toContainText(
+    'No pudimos abrir el chat',
+  );
+  await expect(page).toHaveURL(/\/oferentes\/agenda$/);
+  await page
+    .getByRole('button', { name: 'Chat de la cita de Luna', exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/mensajes/${conversation}$`));
+  await page.goto(`/citas/solicitudes/${appointmentId}?equipo=1`);
+  await page
+    .getByRole('button', { name: 'Chat de la cita de Luna', exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/mensajes/${conversation}$`));
+  expect(api.appointmentChats).toEqual(
+    Array.from({ length: 3 }, () => ({ p_appointment: appointmentId })),
+  );
+});
+
+test('no ofrece chat de cita sin permiso y no lo abre offline', async ({
+  page,
+  context,
+}) => {
+  const api = server();
+  await api.setup(context, true);
+  await login(page);
+  api.hideAppointmentChat();
+  await page.goto('/oferentes/citas');
+  await expect(
+    page.getByText('Luna · Consulta general', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Chat de la cita de Luna', exact: true }),
+  ).toHaveCount(0);
+  api.hideAppointmentChat();
+  await page.goto(`/citas/solicitudes/${appointmentId}`);
+  await expect(
+    page.getByRole('heading', { name: 'Consulta general · Luna', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Chat de la cita de Luna', exact: true }),
+  ).toHaveCount(0);
+  expect(api.appointmentChats).toHaveLength(0);
+  api.allowAppointmentChat();
+  await page.goto('/oferentes/citas');
+  const chat = page.getByRole('button', {
+    name: 'Chat de la cita de Luna',
+    exact: true,
+  });
+  await expect(chat).toBeEnabled();
+  await context.setOffline(true);
+  await expect(chat).toBeDisabled();
+  expect(api.appointmentChats).toHaveLength(0);
+});
+
 test('HU24 conversa entre dos cuentas, confirma lectura y recupera mensajes al reconectar sin duplicarlos', async ({
   browser,
   baseURL,
