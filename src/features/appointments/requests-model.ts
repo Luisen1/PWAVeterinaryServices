@@ -39,6 +39,7 @@ export const appointmentSchema = z.object({
   created_at: z.iso.datetime({ offset: true }),
   updated_at: z.iso.datetime({ offset: true }),
   can_decide: z.boolean(),
+  can_chat: z.boolean().default(false),
   snapshot: z.object({
     establishment_name: z.string(),
     site_name: z.string(),

@@ -70,6 +70,12 @@ it('verifica el contrato de tipos de cuenta con operaciones permitidas y denegad
     .replace(/rollback;\s*$/, '');
   await db.exec(sql);
 });
+it('ejecuta el contrato SQL de chat desde cita con datos sintéticos y rollback', async () => {
+  const sql = readFileSync('supabase/tests/appointment_chat.sql', 'utf8')
+    .replace(/\nbegin;\r?\n/, '\n')
+    .replace(/rollback;\s*$/, '');
+  await db.exec(sql);
+});
 const owner = 'de170000-0000-4000-8000-000000000001';
 const user = '11111111-1111-4111-8111-111111111111';
 const stranger = '22222222-2222-4222-8222-222222222222';
@@ -157,6 +163,188 @@ async function createTypedAccount(
   );
   return id;
 }
+it('el equipo inicia el chat de la cita, el cliente lo recupera y no se duplican conversaciones', async () => {
+  await asUser(user);
+  await db.query('select public.request_appointment($1,$2,$3,$4,$5,$6,null)', [
+    appointment,
+    service(),
+    assignment(),
+    start,
+    pet,
+    'Presencial',
+  ]);
+  await asUser(owner);
+  const detail = (
+    await db.query<{ result: { can_chat: boolean } }>(
+      'select public.appointment_detail($1) result',
+      [appointment],
+    )
+  ).rows[0]!.result;
+  expect(detail.can_chat).toBe(true);
+  const opened = (
+    await db.query<{ result: { id: string; side: string; last_seq: string } }>(
+      'select public.open_appointment_chat($1) result',
+      [appointment],
+    )
+  ).rows[0]!.result;
+  expect(opened.side).toBe('team');
+  expect(opened.last_seq).toBe('0');
+  await db.query('select public.open_appointment_chat($1)', [appointment]);
+  await asUser(user);
+  const fromSite = (
+    await db.query<{ result: { id: string; side: string } }>(
+      'select public.open_chat($1,$2) result',
+      [
+        'de171000-0000-4000-8000-000000000001',
+        'de172000-0000-4000-8000-000000000001',
+      ],
+    )
+  ).rows[0]!.result;
+  expect(fromSite).toMatchObject({ id: opened.id, side: 'customer' });
+  const fromAppointment = (
+    await db.query<{ result: { id: string } }>(
+      'select public.open_appointment_chat($1) result',
+      [appointment],
+    )
+  ).rows[0]!.result;
+  expect(fromAppointment.id).toBe(opened.id);
+  await asUser(owner);
+  const message = (
+    await db.query<{ result: { author_side: string } }>(
+      'select public.send_chat_message($1,$2,$3) result',
+      [crypto.randomUUID(), opened.id, 'Mensaje del centro'],
+    )
+  ).rows[0]!.result;
+  expect(message.author_side).toBe('team');
+  await asUser(user);
+  const history = (
+    await db.query<{ result: { messages: unknown[] } }>(
+      'select public.chat_history($1) result',
+      [opened.id],
+    )
+  ).rows[0]!.result;
+  expect(history.messages).toHaveLength(1);
+  await db.exec('reset role');
+  expect(
+    (
+      await db.query<{ n: number }>(
+        'select count(*)::integer n from public.chat_conversations',
+      )
+    ).rows[0]!.n,
+  ).toBe(1);
+});
+
+it.each([
+  ['schedule'],
+  ['read'],
+  ['messages'],
+  ['services'],
+  ['schedule', 'messages'],
+  ['read', 'messages'],
+])(
+  'abrir chat desde cita requiere permisos de pacientes y messages: %j',
+  async (...permissions) => {
+    // it.each expande la fila; cada argumento es uno de los permisos de la cuenta.
+    const collaborator = await createTypedAccount('veterinary');
+    await db.query(
+      "insert into public.establishment_collaborators(establishment_id,email,user_id,status,permissions) values($1,$2,$3,'accepted',$4)",
+      [
+        'de171000-0000-4000-8000-000000000001',
+        `${collaborator}@example.invalid`,
+        collaborator,
+        permissions,
+      ],
+    );
+    await asUser(user);
+    await db.query(
+      'select public.request_appointment($1,$2,$3,$4,$5,$6,null)',
+      [appointment, service(), assignment(), start, pet, 'Presencial'],
+    );
+    await asUser(collaborator);
+    if (
+      permissions.includes('messages') &&
+      (permissions.includes('read') || permissions.includes('schedule'))
+    ) {
+      const result = (
+        await db.query<{ result: { side: string } }>(
+          'select public.open_appointment_chat($1) result',
+          [appointment],
+        )
+      ).rows[0]!.result;
+      expect(result.side).toBe('team');
+    } else {
+      await expect(
+        db.query('select public.open_appointment_chat($1)', [appointment]),
+      ).rejects.toMatchObject({ code: '42501' });
+    }
+  },
+);
+
+it.each([null, stranger])(
+  'deniega el chat desde la cita a una identidad ajena: %s',
+  async (identity) => {
+    await asUser(user);
+    await db.query(
+      'select public.request_appointment($1,$2,$3,$4,$5,$6,null)',
+      [appointment, service(), assignment(), start, pet, 'Presencial'],
+    );
+    await asUser(identity);
+    await expect(
+      db.query('select public.open_appointment_chat($1)', [appointment]),
+    ).rejects.toMatchObject({ code: '42501' });
+  },
+);
+
+it('un permiso de chat revocado impide abrir y leer la conversación', async () => {
+  const collaborator = await createTypedAccount('veterinary');
+  await db.query(
+    "insert into public.establishment_collaborators(establishment_id,email,user_id,status,permissions) values($1,$2,$3,'accepted',array['schedule','messages'])",
+    [
+      'de171000-0000-4000-8000-000000000001',
+      `${collaborator}@example.invalid`,
+      collaborator,
+    ],
+  );
+  await asUser(user);
+  await db.query('select public.request_appointment($1,$2,$3,$4,$5,$6,null)', [
+    appointment,
+    service(),
+    assignment(),
+    start,
+    pet,
+    'Presencial',
+  ]);
+  await asUser(collaborator);
+  const chat = (
+    await db.query<{ result: { id: string } }>(
+      'select public.open_appointment_chat($1) result',
+      [appointment],
+    )
+  ).rows[0]!.result;
+  await db.exec(
+    "reset role; update public.establishment_collaborators set permissions=array['schedule'] where user_id='" +
+      collaborator +
+      "';",
+  );
+  await asUser(collaborator);
+  expect(
+    (
+      await db.query<{ result: { can_chat: boolean } }>(
+        'select public.appointment_detail($1) result',
+        [appointment],
+      )
+    ).rows[0]!.result.can_chat,
+  ).toBe(false);
+  // Subtransacciones para comprobar ambas denegaciones sin dejar abortada la prueba.
+  await db.exec('savepoint rejected_chat');
+  await expect(
+    db.query('select public.open_appointment_chat($1)', [appointment]),
+  ).rejects.toMatchObject({ code: '42501' });
+  await db.exec('rollback to savepoint rejected_chat');
+  await expect(
+    db.query('select public.chat_history($1)', [chat.id]),
+  ).rejects.toMatchObject({ code: '42501' });
+});
 it.each(['pet_owner', 'veterinary'])(
   'persiste tipo %s sin conceder provider/admin desde metadatos',
   async (kind) => {
