@@ -11,10 +11,24 @@ export async function mockAuthApi(
   options: {
     confirmed?: boolean;
     role?: 'user' | 'provider' | 'admin';
+    accountType?: 'pet_owner' | 'veterinary';
+    accountTypeSelected?: boolean;
+    canReadAppointments?: boolean;
+    canMessageTeam?: boolean;
     userId?: string;
   } = {},
 ) {
   let role = options.role ?? 'user';
+  let accountType = options.accountType;
+  let accountTypeSelected = options.accountTypeSelected ?? true;
+  const accountContext = () => ({
+    role,
+    account_type:
+      accountType ?? (role === 'provider' ? 'veterinary' : 'pet_owner'),
+    account_type_selected: accountTypeSelected,
+    can_read_appointments: options.canReadAppointments ?? role === 'provider',
+    can_message_team: options.canMessageTeam ?? role === 'provider',
+  });
   let password = TEST_PASSWORD;
   let active = false;
   let recoveryUsed = false;
@@ -134,6 +148,17 @@ export async function mockAuthApi(
       }
       if (url.pathname === '/rest/v1/rpc/current_account_role' && active) {
         await route.fulfill({ json: role });
+        return;
+      }
+      if (url.pathname === '/rest/v1/rpc/current_account_context' && active) {
+        await route.fulfill({ json: accountContext() });
+        return;
+      }
+      if (url.pathname === '/rest/v1/rpc/select_account_type' && active) {
+        accountType =
+          body?.p_type === 'veterinary' ? 'veterinary' : 'pet_owner';
+        accountTypeSelected = true;
+        await route.fulfill({ json: accountContext() });
         return;
       }
       if (url.pathname === '/auth/v1/logout') {

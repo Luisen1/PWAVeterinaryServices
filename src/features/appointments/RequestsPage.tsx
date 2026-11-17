@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { z } from 'zod';
 import {
   Notice,
@@ -29,6 +29,9 @@ import { AppointmentChanges } from './AppointmentChanges';
 import { readSavedAppointment, rememberAppointment } from './change-store';
 import { AppointmentPolicy } from './AppointmentPolicy';
 import { CallPanel } from '@/features/calls/CallPanel';
+import { useAccountContext } from '@/features/auth/useAccountContext';
+import { AppointmentChatButton } from '@/features/messaging/AppointmentChatButton';
+import { AppointmentCard } from './AppointmentCard';
 
 export function RequestsPage({
   team = false,
@@ -47,7 +50,7 @@ export function RequestsPage({
             : 'Mi agenda e historial'
           : team
             ? 'Solicitudes del establecimiento'
-            : 'Mis solicitudes y avisos'
+            : 'Mis citas y solicitudes'
       }
       description={
         team
@@ -55,8 +58,11 @@ export function RequestsPage({
           : 'Consulta la respuesta de tu veterinario y los detalles de tus solicitudes.'
       }
     >
-      <Link className={secondaryClass} to="/citas">
-        Consultar horarios
+      <Link
+        className={secondaryClass}
+        to={team ? '/oferentes/servicios' : '/citas'}
+      >
+        {team ? 'Servicios y disponibilidad' : 'Consultar horarios'}
       </Link>
       <Link
         className={secondaryClass}
@@ -66,11 +72,9 @@ export function RequestsPage({
       </Link>
       <Link
         className={secondaryClass}
-        to={team ? '/citas/solicitudes' : '/oferentes/citas'}
+        to={team ? '/oferentes/mensajes' : '/mensajes'}
       >
-        {team
-          ? 'Ver mis solicitudes'
-          : 'Gestionar solicitudes de mis establecimientos'}
+        {team ? 'Chats del establecimiento' : 'Mis conversaciones'}
       </Link>
       <Verified>
         {(owner) => (
@@ -257,34 +261,7 @@ function RequestList({
         </Notice>
       )}
       {query.data?.map((a) => (
-        <article
-          key={a.id}
-          className="sv-card space-y-2"
-          aria-label={`Solicitud de ${a.snapshot.pet_name}`}
-        >
-          <p className="font-semibold">
-            {a.snapshot.pet_name} · {a.snapshot.service_name}
-          </p>
-          <p>
-            <span className="status-badge">{appointmentStatus[a.status]}</span>{' '}
-            · {a.modality}
-          </p>
-          <p className="text-sm">
-            {a.snapshot.establishment_name} · {a.snapshot.site_name}
-          </p>
-          <p className="text-sm">
-            {slotLabel({ ...a, timezone: a.snapshot.timezone })}
-          </p>
-          {!!a.events.at(-1)?.reason && (
-            <p className="text-sm">{a.events.at(-1)!.reason}</p>
-          )}
-          <Link
-            className={secondaryClass}
-            to={`/citas/solicitudes/${a.id}${team ? '?equipo=1' : ''}`}
-          >
-            Ver detalle de {a.snapshot.pet_name}
-          </Link>
-        </article>
+        <AppointmentCard key={a.id} appointment={a} team={team} />
       ))}
       <div className="flex flex-wrap gap-3">
         {cursor && (
@@ -319,7 +296,7 @@ function RequestList({
 
 export function AppointmentDetailsPage() {
   const { id } = useParams();
-  const [params] = useSearchParams();
+  const account = useAccountContext();
   return (
     <Workspace
       title="Detalle de la solicitud"
@@ -328,7 +305,7 @@ export function AppointmentDetailsPage() {
       <Link
         className={secondaryClass}
         to={
-          params.get('equipo') === '1'
+          account.data?.account_type === 'veterinary'
             ? '/oferentes/citas'
             : '/citas/solicitudes'
         }
@@ -404,6 +381,7 @@ function Detail({ owner, id }: { owner: string; id: string }) {
               {a.snapshot.establishment_name} · {a.snapshot.site_name}
             </p>
             <p>Profesional: {a.snapshot.professional_name}</p>
+            <AppointmentChatButton appointment={a} />
             {a.modality === 'Presencial' && (
               <p>Dirección: {a.snapshot.site_address}</p>
             )}

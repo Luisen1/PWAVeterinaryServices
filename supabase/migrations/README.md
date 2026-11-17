@@ -18,8 +18,12 @@ Aplicar las migraciones en orden al proyecto Supabase de desarrollo.
 14. `20261116150621_reject_blank_chat_messages.sql` rechaza texto compuesto únicamente por espacios, tabulaciones o saltos de línea.
 15. `20261116151747_allow_public_appointment_policy_reads.sql` permite consulta pública de reglas mediante un auxiliar protegido, sin conceder gestión a visitantes.
 16. `20261116165558_private_chat_media_and_call_authorization.sql` añade archivos privados y publicación de backend, asignación de cuenta profesional, autorización de salas e invalidación/cierre.
+17. `20261116184257_account_types_and_role_separation.sql` separa tipo de cuenta de privilegios, clasifica cuentas anteriores, añade elección pendiente/contexto protegido y guardas de área sin borrar datos.
+18. `20261117210111_appointment_chat_entry.sql` permite abrir desde una cita el chat del cliente, valida ambos permisos del equipo y deriva el destinatario; añade `can_chat` y reutiliza la conversación única por cliente/sede.
 
-Las dieciséis migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-16. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las cinco últimas el 2026-11-16. No volver a ejecutarlas manualmente sobre este proyecto.
+Las dieciocho migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-17. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las 12–17 el 2026-11-16 y la 18 el 2026-11-17. No volver a ejecutarlas manualmente sobre este proyecto.
+
+`supabase/tests/appointment_chat.sql` verifica apertura desde cita por responsable/cliente, conversación compartida con la ficha, permisos combinados, revocación y seguimiento tras despublicar. Pasó en PostgreSQL embebido y desarrollo con rollback, sin conservar cuentas/citas/mensajes temporales.
 
 La segunda migración exige `privacy_accepted: true` y `privacy_policy_version: '2026-11-14'` al registrar una cuenta. Asigna el rol `user` y preserva los consentimientos existentes. Las cuentas previas obtienen un perfil y rol básico mediante backfill, sin fabricar aceptación del aviso.
 
@@ -38,3 +42,5 @@ Los datos ficticios de Tunja están separados en `supabase/seed.sql`; no forman 
 HU22-HU24 se verifican con `supabase/tests/hu22_hu24.sql`, ejecutado contra desarrollo con rollback. La prueba de Realtime real utilizó cuentas técnicas temporales que fueron retiradas; ver [guía](../../docs/hu22-hu24.md).
 
 HU25-HU27 se verifican con `supabase/tests/hu25_hu27.sql`, con rollback, y HTTP real de archivos contra Edge/Storage con fixtures retirados. LiveKit Cloud y Cron/pg_net de cierre no se han activado: ver [guía](../../docs/hu25-hu27.md). `supabase/operations/enable_call_maintenance.sql` es una operación manual posterior, no una migración aplicada.
+
+Los tipos de cuenta se verifican con `supabase/tests/account_types.sql`, ejecutado local y remotamente con rollback. Se conserva la identidad y el contenido de las cuentas previas; las nuevas guardas no deben sustituirse por botones ocultos. Ver [clasificación, elección pendiente y límites](../../docs/tipos-de-cuenta.md).

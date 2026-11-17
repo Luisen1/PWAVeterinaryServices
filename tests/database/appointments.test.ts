@@ -64,6 +64,18 @@ it('ejecuta el recorrido SQL reproducible de HU25-HU27 con rollback', async () =
     .replace(/rollback;\s*$/, '');
   await db.exec(sql);
 });
+it('verifica el contrato de tipos de cuenta con operaciones permitidas y denegadas', async () => {
+  const sql = readFileSync('supabase/tests/account_types.sql', 'utf8')
+    .replace(/\nbegin;\r?\n/, '\n')
+    .replace(/rollback;\s*$/, '');
+  await db.exec(sql);
+});
+it('ejecuta el contrato SQL de chat desde cita con datos sintéticos y rollback', async () => {
+  const sql = readFileSync('supabase/tests/appointment_chat.sql', 'utf8')
+    .replace(/\nbegin;\r?\n/, '\n')
+    .replace(/rollback;\s*$/, '');
+  await db.exec(sql);
+});
 const owner = 'de170000-0000-4000-8000-000000000001';
 const user = '11111111-1111-4111-8111-111111111111';
 const stranger = '22222222-2222-4222-8222-222222222222';
@@ -104,7 +116,11 @@ beforeAll(async () => {
       [
         id,
         `${id}@example.invalid`,
-        { privacy_accepted: true, privacy_policy_version: '2026-11-14' },
+        {
+          privacy_accepted: true,
+          privacy_policy_version: '2026-11-14',
+          account_type: 'pet_owner',
+        },
       ],
     );
   }
@@ -127,6 +143,365 @@ async function asUser(id: string | null) {
     id ?? '',
   ]);
 }
+async function createTypedAccount(
+  kind: string,
+  extra: Record<string, unknown> = {},
+) {
+  const id = crypto.randomUUID();
+  await db.query(
+    'insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data) values($1,$2,now(),$3)',
+    [
+      id,
+      `${id}@example.invalid`,
+      {
+        privacy_accepted: true,
+        privacy_policy_version: '2026-11-14',
+        account_type: kind,
+        ...extra,
+      },
+    ],
+  );
+  return id;
+}
+it('el equipo inicia el chat de la cita, el cliente lo recupera y no se duplican conversaciones', async () => {
+  await asUser(user);
+  await db.query('select public.request_appointment($1,$2,$3,$4,$5,$6,null)', [
+    appointment,
+    service(),
+    assignment(),
+    start,
+    pet,
+    'Presencial',
+  ]);
+  await asUser(owner);
+  const detail = (
+    await db.query<{ result: { can_chat: boolean } }>(
+      'select public.appointment_detail($1) result',
+      [appointment],
+    )
+  ).rows[0]!.result;
+  expect(detail.can_chat).toBe(true);
+  const opened = (
+    await db.query<{ result: { id: string; side: string; last_seq: string } }>(
+      'select public.open_appointment_chat($1) result',
+      [appointment],
+    )
+  ).rows[0]!.result;
+  expect(opened.side).toBe('team');
+  expect(opened.last_seq).toBe('0');
+  await db.query('select public.open_appointment_chat($1)', [appointment]);
+  await asUser(user);
+  const fromSite = (
+    await db.query<{ result: { id: string; side: string } }>(
+      'select public.open_chat($1,$2) result',
+      [
+        'de171000-0000-4000-8000-000000000001',
+        'de172000-0000-4000-8000-000000000001',
+      ],
+    )
+  ).rows[0]!.result;
+  expect(fromSite).toMatchObject({ id: opened.id, side: 'customer' });
+  const fromAppointment = (
+    await db.query<{ result: { id: string } }>(
+      'select public.open_appointment_chat($1) result',
+      [appointment],
+    )
+  ).rows[0]!.result;
+  expect(fromAppointment.id).toBe(opened.id);
+  await asUser(owner);
+  const message = (
+    await db.query<{ result: { author_side: string } }>(
+      'select public.send_chat_message($1,$2,$3) result',
+      [crypto.randomUUID(), opened.id, 'Mensaje del centro'],
+    )
+  ).rows[0]!.result;
+  expect(message.author_side).toBe('team');
+  await asUser(user);
+  const history = (
+    await db.query<{ result: { messages: unknown[] } }>(
+      'select public.chat_history($1) result',
+      [opened.id],
+    )
+  ).rows[0]!.result;
+  expect(history.messages).toHaveLength(1);
+  await db.exec('reset role');
+  expect(
+    (
+      await db.query<{ n: number }>(
+        'select count(*)::integer n from public.chat_conversations',
+      )
+    ).rows[0]!.n,
+  ).toBe(1);
+});
+
+it.each([
+  ['schedule'],
+  ['read'],
+  ['messages'],
+  ['services'],
+  ['schedule', 'messages'],
+  ['read', 'messages'],
+])(
+  'abrir chat desde cita requiere permisos de pacientes y messages: %j',
+  async (...permissions) => {
+    // it.each expande la fila; cada argumento es uno de los permisos de la cuenta.
+    const collaborator = await createTypedAccount('veterinary');
+    await db.query(
+      "insert into public.establishment_collaborators(establishment_id,email,user_id,status,permissions) values($1,$2,$3,'accepted',$4)",
+      [
+        'de171000-0000-4000-8000-000000000001',
+        `${collaborator}@example.invalid`,
+        collaborator,
+        permissions,
+      ],
+    );
+    await asUser(user);
+    await db.query(
+      'select public.request_appointment($1,$2,$3,$4,$5,$6,null)',
+      [appointment, service(), assignment(), start, pet, 'Presencial'],
+    );
+    await asUser(collaborator);
+    if (
+      permissions.includes('messages') &&
+      (permissions.includes('read') || permissions.includes('schedule'))
+    ) {
+      const result = (
+        await db.query<{ result: { side: string } }>(
+          'select public.open_appointment_chat($1) result',
+          [appointment],
+        )
+      ).rows[0]!.result;
+      expect(result.side).toBe('team');
+    } else {
+      await expect(
+        db.query('select public.open_appointment_chat($1)', [appointment]),
+      ).rejects.toMatchObject({ code: '42501' });
+    }
+  },
+);
+
+it.each([null, stranger])(
+  'deniega el chat desde la cita a una identidad ajena: %s',
+  async (identity) => {
+    await asUser(user);
+    await db.query(
+      'select public.request_appointment($1,$2,$3,$4,$5,$6,null)',
+      [appointment, service(), assignment(), start, pet, 'Presencial'],
+    );
+    await asUser(identity);
+    await expect(
+      db.query('select public.open_appointment_chat($1)', [appointment]),
+    ).rejects.toMatchObject({ code: '42501' });
+  },
+);
+
+it('un permiso de chat revocado impide abrir y leer la conversación', async () => {
+  const collaborator = await createTypedAccount('veterinary');
+  await db.query(
+    "insert into public.establishment_collaborators(establishment_id,email,user_id,status,permissions) values($1,$2,$3,'accepted',array['schedule','messages'])",
+    [
+      'de171000-0000-4000-8000-000000000001',
+      `${collaborator}@example.invalid`,
+      collaborator,
+    ],
+  );
+  await asUser(user);
+  await db.query('select public.request_appointment($1,$2,$3,$4,$5,$6,null)', [
+    appointment,
+    service(),
+    assignment(),
+    start,
+    pet,
+    'Presencial',
+  ]);
+  await asUser(collaborator);
+  const chat = (
+    await db.query<{ result: { id: string } }>(
+      'select public.open_appointment_chat($1) result',
+      [appointment],
+    )
+  ).rows[0]!.result;
+  await db.exec(
+    "reset role; update public.establishment_collaborators set permissions=array['schedule'] where user_id='" +
+      collaborator +
+      "';",
+  );
+  await asUser(collaborator);
+  expect(
+    (
+      await db.query<{ result: { can_chat: boolean } }>(
+        'select public.appointment_detail($1) result',
+        [appointment],
+      )
+    ).rows[0]!.result.can_chat,
+  ).toBe(false);
+  // Subtransacciones para comprobar ambas denegaciones sin dejar abortada la prueba.
+  await db.exec('savepoint rejected_chat');
+  await expect(
+    db.query('select public.open_appointment_chat($1)', [appointment]),
+  ).rejects.toMatchObject({ code: '42501' });
+  await db.exec('rollback to savepoint rejected_chat');
+  await expect(
+    db.query('select public.chat_history($1)', [chat.id]),
+  ).rejects.toMatchObject({ code: '42501' });
+});
+it.each(['pet_owner', 'veterinary'])(
+  'persiste tipo %s sin conceder provider/admin desde metadatos',
+  async (kind) => {
+    const id = await createTypedAccount(kind, {
+      role: 'admin',
+      account_role: 'provider',
+    });
+    await asUser(id);
+    const context = (
+      await db.query<{
+        result: {
+          role: string;
+          account_type: string;
+          can_read_appointments: boolean;
+          can_message_team: boolean;
+        };
+      }>('select public.current_account_context() result')
+    ).rows[0]!.result;
+    expect(context).toEqual({
+      account_type_selected: true,
+      role: 'user',
+      account_type: kind,
+      can_read_appointments: false,
+      can_message_team: false,
+    });
+  },
+);
+it('rechaza un tipo administrativo al crear la cuenta', async () => {
+  await expect(createTypedAccount('admin')).rejects.toThrow('Elige Dueño');
+});
+it('una cuenta antigua sin actividad elige una sola vez y no obtiene aprobación por elegir veterinaria', async () => {
+  const id = await createTypedAccount('pet_owner');
+  await db.query(
+    'update private.account_roles set account_type_selected=false where user_id=$1',
+    [id],
+  );
+  await asUser(id);
+  const first = (
+    await db.query<{ result: unknown }>(
+      "select public.select_account_type('veterinary') result",
+    )
+  ).rows[0]!.result;
+  expect(first).toMatchObject({
+    account_type: 'veterinary',
+    account_type_selected: true,
+    role: 'user',
+    can_read_appointments: false,
+  });
+  expect(
+    (
+      await db.query<{ result: unknown }>(
+        "select public.select_account_type('veterinary') result",
+      )
+    ).rows[0]!.result,
+  ).toEqual(first);
+  await expect(
+    db.query("select public.select_account_type('pet_owner')"),
+  ).rejects.toThrow('ya fue definido');
+});
+it('una cuenta sin elección no realiza operaciones de dueño por el valor predeterminado', async () => {
+  const id = await createTypedAccount('pet_owner');
+  await db.query(
+    'update private.account_roles set account_type_selected=false where user_id=$1',
+    [id],
+  );
+  await asUser(id);
+  await expect(
+    db.query('select public.save_pet($1,$2,$3,$4)', [
+      crypto.randomUUID(),
+      id,
+      'Luna',
+      'Perro',
+    ]),
+  ).rejects.toThrow('dueño de mascota');
+});
+it('editar metadatos no cambia el tipo persistido ni permite escribir roles', async () => {
+  await db.query(
+    'update auth.users set raw_user_meta_data=raw_user_meta_data||\'{"account_type":"veterinary","role":"admin"}\'::jsonb where id=$1',
+    [user],
+  );
+  await asUser(user);
+  const context = (
+    await db.query<{ result: { role: string; account_type: string } }>(
+      'select public.current_account_context() result',
+    )
+  ).rows[0]!.result;
+  expect(context).toMatchObject({ role: 'user', account_type: 'pet_owner' });
+  await expect(
+    db.query(
+      "update private.account_roles set account_type='veterinary' where user_id=$1",
+      [user],
+    ),
+  ).rejects.toThrow('permission denied');
+});
+it('un dueño no registra establecimientos aunque invoque el auxiliar privado', async () => {
+  const document = (
+    await db.query<{ document: unknown }>(
+      'select document from public.establishments limit 1',
+    )
+  ).rows[0]!.document;
+  await asUser(user);
+  await expect(
+    db.query('select private.submit_establishment(null,null,$1)', [document]),
+  ).rejects.toThrow('cuenta de veterinaria');
+});
+it('una veterinaria no crea mascotas por RPC', async () => {
+  const id = await createTypedAccount('veterinary');
+  await asUser(id);
+  await expect(
+    db.query('select public.save_pet($1,$2,$3,$4)', [
+      crypto.randomUUID(),
+      id,
+      'Luna',
+      'Perro',
+    ]),
+  ).rejects.toThrow('dueño de mascota');
+});
+it('una veterinaria no puede crear apartados como cliente', async () => {
+  await asUser(owner);
+  await expect(
+    db.query('select public.acquire_slot_hold($1,$2,$3,$4)', [
+      crypto.randomUUID(),
+      service(),
+      assignment(),
+      start,
+    ]),
+  ).rejects.toThrow('dueño de mascota');
+});
+it('un dueño no acepta invitaciones del equipo veterinario', async () => {
+  await asUser(owner);
+  const id = (
+    await db.query<{ id: string }>(
+      "select public.manage_offering_invitation($1,'invite',null,$2,array['schedule']) id",
+      ['de171000-0000-4000-8000-000000000001', `${user}@example.invalid`],
+    )
+  ).rows[0]!.id;
+  await asUser(user);
+  await expect(
+    db.query("select public.manage_offering_invitation($1,'accept',$2)", [
+      'de171000-0000-4000-8000-000000000001',
+      id,
+    ]),
+  ).rejects.toThrow('cuenta de veterinaria');
+});
+it('el tipo veterinaria no permite aprobar publicaciones ni leer datos de otro equipo', async () => {
+  const id = await createTypedAccount('veterinary');
+  await asUser(id);
+  const rows = await db.query<{ result: unknown[] }>(
+    'select public.offering_workspaces() result',
+  );
+  expect(rows.rows[0]!.result).toEqual([]);
+  await expect(
+    db.query("select public.review_establishment($1,1,'approved','')", [
+      'de171000-0000-4000-8000-000000000001',
+    ]),
+  ).rejects.toThrow();
+});
 async function request(
   overrides: {
     id?: string;

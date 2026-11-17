@@ -259,8 +259,31 @@ function OfferingManager({
     <div className="space-y-5">
       <Notice>
         Los cambios se confirman al guardar con conexión. Los servicios
-        desactivados conservan sus referencias históricas. Las reservas se
-        incorporarán en la fase de citas.
+        desactivados conservan sus referencias históricas.
+      </Notice>
+      <Notice>
+        <p className="font-semibold">
+          Para que tus clientes puedan solicitar citas
+        </p>
+        <ol className="list-inside list-decimal space-y-1">
+          <li>Crea un servicio y un profesional activos en la misma sede.</li>
+          <li>
+            En Recursos, crea el consultorio, equipo o sala virtual disponible.
+          </li>
+          <li>
+            En Asignaciones, vincula el servicio, el profesional y el recurso
+            compatibles.
+          </li>
+          <li>
+            En Jornadas, define los días y horas del profesional, dentro del
+            horario de atención de la sede.
+          </li>
+        </ol>
+        <p className="mt-2">
+          Crear solo el servicio o el profesional no genera horarios. Comprueba
+          el resultado en la consulta de disponibilidad de abajo; la sede debe
+          estar publicada para recibir solicitudes de clientes.
+        </p>
       </Notice>
       <nav className="category-chips" aria-label="Configurar catálogo y agenda">
         {(Object.keys(labels) as Kind[]).map((k) => (

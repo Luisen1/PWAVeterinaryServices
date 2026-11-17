@@ -2,8 +2,14 @@ import { useEffect } from 'react';
 import { Link } from 'react-router';
 import { BrandSymbol } from '@/components/ui/Brand';
 import { Icon } from '@/components/ui/Icon';
+import { useAccountContext } from '@/features/auth/useAccountContext';
 
 export function HomePage() {
+  const account = useAccountContext();
+  const context = !account.isError ? account.data : undefined;
+  const veterinary =
+    context?.account_type === 'veterinary' && context.role !== 'admin';
+  const admin = context?.role === 'admin';
   useEffect(() => {
     document.title = 'Inicio · Servicios veterinarios';
   }, []);
@@ -20,12 +26,28 @@ export function HomePage() {
             <span className="text-brand-700">más cerca de ti.</span>
           </h2>
           <p>
-            Encuentra establecimientos veterinarios, organiza los datos de tus
-            mascotas y conecta con el cuidado que necesitan.
+            {admin
+              ? 'Revisa solicitudes de establecimientos y administra su publicación.'
+              : veterinary
+                ? 'Organiza tu establecimiento, su equipo y la atención de sus pacientes.'
+                : 'Encuentra establecimientos veterinarios, organiza los datos de tus mascotas y conecta con el cuidado que necesitan.'}
           </p>
-          <Link to="/explorar" className="button button-primary">
+          <Link
+            to={
+              admin
+                ? '/administracion/oferentes'
+                : veterinary
+                  ? '/oferentes'
+                  : '/explorar'
+            }
+            className="button button-primary"
+          >
             <Icon name="search" />
-            Explorar establecimientos
+            {admin
+              ? 'Revisar establecimientos'
+              : veterinary
+                ? 'Gestionar mi veterinaria'
+                : 'Explorar establecimientos'}
           </Link>
         </div>
         <div className="home-hero__mark">
@@ -33,20 +55,24 @@ export function HomePage() {
         </div>
       </div>
       <div className="quick-links">
-        <Link to="/perfil" className="quick-link">
-          <Icon name="paw" />
-          <div>
-            <h2>Tus mascotas</h2>
-            <p>Un espacio para quienes son parte de tu familia.</p>
-          </div>
-        </Link>
-        <Link to="/oferentes" className="quick-link">
-          <Icon name="store" />
-          <div>
-            <h2>Tu establecimiento</h2>
-            <p>Regístralo y consulta el estado de su revisión.</p>
-          </div>
-        </Link>
+        {!veterinary && !admin && (
+          <Link to="/perfil" className="quick-link">
+            <Icon name="paw" />
+            <div>
+              <h2>Tus mascotas</h2>
+              <p>Un espacio para quienes son parte de tu familia.</p>
+            </div>
+          </Link>
+        )}
+        {(!context || veterinary) && (
+          <Link to="/oferentes" className="quick-link">
+            <Icon name="store" />
+            <div>
+              <h2>Tu establecimiento</h2>
+              <p>Regístralo y consulta el estado de su revisión.</p>
+            </div>
+          </Link>
+        )}
         <Link to="/cuenta" className="quick-link">
           <Icon name="user" />
           <div>

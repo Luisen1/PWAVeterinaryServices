@@ -11,6 +11,7 @@ import {
 } from 'vitest';
 
 const db = new PGlite();
+const customer = '88888888-8888-4888-8888-888888888888';
 const owner = '11111111-1111-4111-8111-111111111111';
 const collaborator = '22222222-2222-4222-8222-222222222222';
 const stranger = '33333333-3333-4333-8333-333333333333';
@@ -126,13 +127,20 @@ beforeAll(async () => {
     [owner, 'owner@example.test'],
     [collaborator, 'collaborator@example.test'],
     [stranger, 'stranger@example.test'],
+    [customer, 'customer@example.test'],
   ]) {
     await db.query(
       'insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data) values($1,$2,now(),$3)',
       [
         id,
         email,
-        { privacy_accepted: true, privacy_policy_version: '2026-11-14' },
+        {
+          privacy_accepted: true,
+          privacy_policy_version: '2026-11-14',
+          account_type: [stranger, customer].includes(id!)
+            ? 'pet_owner'
+            : 'veterinary',
+        },
       ],
     );
   }
@@ -564,11 +572,21 @@ describe('HU18: consulta reservable y apartado atomicamente revalidado', () => {
       day,
       professionalId,
     ]);
-  const hold = (id = holdId, start = at, linkId = assignment) =>
-    db.query<{ result: { id: string; expires_at: string; owner_id: string } }>(
-      'select public.acquire_slot_hold($1,$2,$3,$4) result',
-      [id, service, linkId, start],
+  const hold = async (id = holdId, start = at, linkId = assignment) => {
+    const current = await db.query<{ id: string; verified: boolean }>(
+      'select auth.uid() id,private.is_verified_user() verified',
     );
+    if (current.rows[0]?.id === owner && current.rows[0].verified)
+      await asUser(customer);
+    return db.query<{
+      result: { id: string; expires_at: string; owner_id: string };
+    }>('select public.acquire_slot_hold($1,$2,$3,$4) result', [
+      id,
+      service,
+      linkId,
+      start,
+    ]);
+  };
   it('expone solo intervalos publicados con profesional, zona, modalidad y fecha de consulta', async () => {
     await asUser(null);
     const result = (await availability()).rows[0]!.result;
@@ -662,7 +680,7 @@ describe('HU18: consulta reservable y apartado atomicamente revalidado', () => {
         )
       ).rows[0]!.result,
     ).toBe(false);
-    await asUser(owner);
+    await asUser(customer);
     expect(
       (
         await db.query<{ result: boolean }>(

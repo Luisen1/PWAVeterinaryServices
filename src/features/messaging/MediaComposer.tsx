@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Icon } from '@/components/ui/Icon';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { authClient } from '@/features/auth/api';
@@ -23,10 +24,16 @@ export function MediaComposer({
   owner,
   conversation,
   canCompose,
+  textInput,
+  sendButton,
+  textHint,
 }: {
   owner: string;
   conversation: string;
   canCompose: boolean;
+  textInput?: ReactNode;
+  sendButton?: ReactNode;
+  textHint?: ReactNode;
 }) {
   const online = useOnline();
   const cache = useQueryClient();
@@ -158,37 +165,46 @@ export function MediaComposer({
     recording ||
     preparing;
   return (
-    <section
-      className="sv-card space-y-4"
-      aria-label="Fotografías y notas de voz"
-    >
-      <h2 className="font-semibold">Fotografías y notas de voz</h2>
-      <p className="text-xs">
-        Archivos privados de hasta 5 MB; voz de hasta 60 segundos. Puedes
-        previsualizar y descartar antes de guardar. Los pendientes no se envían
-        automáticamente al reconectar.
-      </p>
-      <p className="text-xs">
-        Las fotos se comprimen en este dispositivo antes de guardar: hasta 1600
-        px y 512 KB. Conserva el original si necesitas revisar detalles
-        clínicos.
-      </p>
+    <section className="chat-composer" aria-label="Fotografías y notas de voz">
+      <h2 className="sr-only">Fotografías y notas de voz</h2>
+      <details className="chat-composer-help">
+        <summary>Ayuda de fotos, voz y envío</summary>
+        <p>
+          Archivos privados de hasta 5 MB; voz de hasta 60 segundos. Puedes
+          previsualizar y descartar antes de guardar. Los pendientes no se
+          envían automáticamente al reconectar.
+        </p>
+        <p>
+          Las fotos se comprimen en este dispositivo antes de guardar: hasta
+          1600 px y 512 KB. Conserva el original si necesitas revisar detalles
+          clínicos.
+        </p>
+      </details>
       {preparing && <Notice>Optimizando fotografía para compartir…</Notice>}
       {canCompose && (
-        <>
-          <div className="flex flex-wrap gap-3">
+        <div className="chat-compose-toolbar">
+          {textInput}
+          <div
+            className="chat-compose-actions"
+            role="group"
+            aria-label="Adjuntar fotos y grabar audio"
+          >
             <button
-              className={secondaryClass}
+              type="button"
+              className="chat-icon-button"
+              aria-label="Tomar fotografía"
+              title="Tomar fotografía"
               onClick={() => {
                 setError('');
                 setCamera(true);
               }}
               disabled={busy}
             >
-              Tomar fotografía
+              <Icon name="camera" />
             </button>
-            <label className={secondaryClass}>
-              Seleccionar fotografía
+            <label className="chat-icon-button" title="Seleccionar fotografía">
+              <Icon name="photo" />
+              <span className="sr-only">Seleccionar fotografía</span>
               <input
                 className="sr-only"
                 type="file"
@@ -202,14 +218,16 @@ export function MediaComposer({
                 }}
               />
             </label>
+            <VoiceRecorder
+              disabled={busy || !!selected}
+              onReady={(file) => void choose('audio', file)}
+              onError={setError}
+              onActive={setRecording}
+            />
+            {sendButton}
           </div>
-          <VoiceRecorder
-            disabled={busy || !!selected}
-            onReady={(file) => void choose('audio', file)}
-            onError={setError}
-            onActive={setRecording}
-          />
-        </>
+          {textHint && <p className="chat-compose-hint">{textHint}</p>}
+        </div>
       )}
       {camera && (
         <CameraCapture
@@ -636,26 +654,37 @@ function VoiceRecorder({
     }
   };
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-3">
+    <div
+      className={`chat-voice ${phase !== 'idle' ? 'chat-voice--active' : ''}`}
+    >
+      <div className="flex flex-wrap gap-2">
         <button
-          className={secondaryClass}
+          type="button"
+          className="chat-icon-button chat-icon-button--primary"
+          aria-label="Grabar nota de voz"
+          title="Grabar nota de voz"
           disabled={disabled || phase !== 'idle'}
           onClick={() => void start()}
         >
-          Grabar nota de voz
+          <Icon name="microphone" />
         </button>
         {phase === 'recording' && (
           <button
-            className="button button-primary"
+            type="button"
+            className="chat-icon-button chat-icon-button--primary"
+            aria-label="Detener grabación"
+            title="Detener grabación"
             onClick={() => recorder.current?.stop()}
           >
-            Detener grabación
+            <Icon name="stop" />
           </button>
         )}
         {phase !== 'idle' && (
           <button
-            className={secondaryClass}
+            type="button"
+            className="chat-icon-button"
+            aria-label="Descartar grabación"
+            title="Descartar grabación"
             onClick={() => {
               cancelled.current = true;
               generation.current++;
@@ -665,11 +694,11 @@ function VoiceRecorder({
               setPhase('idle');
             }}
           >
-            Descartar grabación
+            <Icon name="close" />
           </button>
         )}
       </div>
-      <p className="text-xs" role="status">
+      <p className={phase === 'idle' ? 'sr-only' : 'text-xs'} role="status">
         {phase === 'recording'
           ? `Grabando: ${elapsed} / 60 segundos`
           : phase === 'starting'

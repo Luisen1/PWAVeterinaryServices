@@ -13,7 +13,7 @@ declare
   day_date date:=current_date+7; counter integer; result jsonb; doc jsonb; service_doc jsonb; prof_doc jsonb; resource_doc jsonb;
 begin
   insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data)
-    select id,id::text||'@example.invalid',now(),'{"privacy_accepted":true,"privacy_policy_version":"2026-11-14"}'::jsonb
+    select id,id::text||'@example.invalid',now(),jsonb_build_object('privacy_accepted',true,'privacy_policy_version','2026-11-14','account_type',case when id in (owner_id,colleague) then 'veterinary' else 'pet_owner' end)
     from unnest(array[owner_id,colleague,stranger,admin_id]) id;
   update private.account_roles set role='admin' where user_id=admin_id;
   doc:=jsonb_build_object('name','Integración HU25-HU27','category','Veterinaria','phone','3001234567',

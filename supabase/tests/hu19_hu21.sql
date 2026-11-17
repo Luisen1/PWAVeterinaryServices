@@ -4,15 +4,15 @@ begin;
 do $$
 <<check_hu>>
 declare
-  owner_id uuid:=gen_random_uuid(); colleague uuid:=gen_random_uuid(); stranger uuid:=gen_random_uuid(); admin_id uuid:=gen_random_uuid();
+  customer uuid:=gen_random_uuid(); owner_id uuid:=gen_random_uuid(); colleague uuid:=gen_random_uuid(); stranger uuid:=gen_random_uuid(); admin_id uuid:=gen_random_uuid();
   site_id uuid:=gen_random_uuid(); est uuid; svc uuid:=gen_random_uuid(); prof uuid:=gen_random_uuid(); resource_id uuid:=gen_random_uuid();
   assignment uuid:=gen_random_uuid(); shift_id uuid:=gen_random_uuid(); closure uuid:=gen_random_uuid(); invitation uuid;
   pet_id uuid:=gen_random_uuid(); other_pet uuid:=gen_random_uuid(); appt uuid:=gen_random_uuid(); virtual_svc uuid:=gen_random_uuid(); virtual_assignment uuid:=gen_random_uuid(); requested_at timestamptz;
   day_date date:=current_date+7; counter integer; result jsonb; doc jsonb; service_doc jsonb; prof_doc jsonb; resource_doc jsonb;
 begin
   insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data)
-    select id,id::text||'@example.invalid',now(),'{"privacy_accepted":true,"privacy_policy_version":"2026-11-14"}'::jsonb
-    from unnest(array[owner_id,colleague,stranger,admin_id]) id;
+    select id,id::text||'@example.invalid',now(),jsonb_build_object('privacy_accepted',true,'privacy_policy_version','2026-11-14','account_type',case when id in (owner_id,colleague) then 'veterinary' else 'pet_owner' end)
+    from unnest(array[owner_id,colleague,stranger,admin_id,customer]) id;
   update private.account_roles set role='admin' where user_id=admin_id;
   doc:=jsonb_build_object('name','Integración HU18','category','Veterinaria','phone','3001234567',
     'email','contacto@example.invalid','responsible_name','Responsable prueba','logo_path',null,
@@ -38,26 +38,31 @@ begin
   perform public.save_offering_item(est,'shift',shift_id,null,jsonb_build_object('professional_id',prof,'day',extract(dow from day_date)::integer,'start','08:00','end','12:00','next_day',false,'active',true));
 
   requested_at:=(day_date+time '08:00') at time zone 'America/Bogota';
-  perform public.save_pet(pet_id,owner_id,'Luna','Perro');
+  perform set_config('request.jwt.claim.sub',customer::text,true);
+  perform public.save_pet(pet_id,customer,'Luna','Perro');
   perform set_config('request.jwt.claim.sub',stranger::text,true);
   perform public.save_pet(other_pet,stranger,'Milo','Perro');
-  perform set_config('request.jwt.claim.sub',owner_id::text,true);
+  perform set_config('request.jwt.claim.sub',customer::text,true);
   perform public.acquire_slot_hold(closure,svc,assignment,requested_at);
   begin
+  perform set_config('request.jwt.claim.sub',customer::text,true);
     perform public.request_appointment(appt,svc,assignment,requested_at,other_pet,'Presencial',closure);
     raise exception 'Se aceptó una mascota ajena';
   exception when insufficient_privilege then null; end;
   result:=public.current_slot_hold(svc);
   if result->'hold'->>'id'<>closure::text then raise exception 'Se perdió el apartado tras fallar'; end if;
+  perform set_config('request.jwt.claim.sub',customer::text,true);
   result:=public.request_appointment(appt,svc,assignment,requested_at,pet_id,'Presencial',closure);
   if result->>'status'<>'requested' or jsonb_array_length(result->'events')<>1 then raise exception 'Solicitud o evento inválido'; end if;
   doc:=result;
+  perform set_config('request.jwt.claim.sub',customer::text,true);
   result:=public.request_appointment(appt,svc,assignment,requested_at,pet_id,'Presencial',closure);
   if result<>doc then raise exception 'El reintento cambió la solicitud'; end if;
   result:=public.current_slot_hold(svc);
   if result->'hold'<>'null'::jsonb then raise exception 'No se consumió el apartado'; end if;
   perform set_config('request.jwt.claim.sub',stranger::text,true);
   begin
+  perform set_config('request.jwt.claim.sub',stranger::text,true);
     perform public.request_appointment(gen_random_uuid(),svc,assignment,requested_at,other_pet,'Presencial',null);
     raise exception 'Dos solicitudes ocuparon el intervalo';
   exception when exclusion_violation then null; end;
@@ -85,21 +90,27 @@ begin
   result:=public.service_availability(svc,day_date,null);
   if jsonb_array_length(result->'slots')<>8 then raise exception 'No se liberó el intervalo'; end if;
   appt:=gen_random_uuid();
+  perform set_config('request.jwt.claim.sub',customer::text,true);
   result:=public.request_appointment(appt,svc,assignment,requested_at,pet_id,'Presencial',null);
+  perform set_config('request.jwt.claim.sub',owner_id::text,true);
   result:=public.decide_appointment(appt,1,'confirmed','Asistir con antecedentes');
   if result->>'status'<>'confirmed' or result->'events'->1->>'kind'<>'confirmed' then raise exception 'Confirmación sin aviso'; end if;
   begin
+  perform set_config('request.jwt.claim.sub',customer::text,true);
     perform public.request_appointment(gen_random_uuid(),svc,assignment,requested_at+interval '1 hour',pet_id,'Virtual',null);
     raise exception 'El cliente alteró la modalidad';
   exception when check_violation then null; end;
+  perform set_config('request.jwt.claim.sub',owner_id::text,true);
   perform public.save_offering_item(est,'service',virtual_svc,null,service_doc||'{"name":"Orientación virtual","modality":"Virtual"}'::jsonb);
   perform public.save_offering_item(est,'assignment',virtual_assignment,null,jsonb_build_object('service_id',virtual_svc,'professional_id',prof,'resource_id',resource_id,'active',true));
   appt:=gen_random_uuid();
+  perform set_config('request.jwt.claim.sub',customer::text,true);
   result:=public.request_appointment(appt,virtual_svc,virtual_assignment,requested_at+interval '1 hour',pet_id,'Virtual',null);
   if result->>'modality'<>'Virtual' or (result->'snapshot'->>'instructions' not like '%no incluye videollamadas%' and result->'snapshot'->>'instructions' not like '%servicio de videollamadas activado%') then raise exception 'Solicitud virtual incompleta'; end if;
   execute 'reset role';
   update public.offering_appointments set starts_at=clock_timestamp()-interval '1 minute' where id=appt;
   execute 'set local role authenticated';
+  perform set_config('request.jwt.claim.sub',owner_id::text,true);
   begin
     perform public.decide_appointment(appt,1,'confirmed','');
     raise exception 'Se confirmó una solicitud vencida';

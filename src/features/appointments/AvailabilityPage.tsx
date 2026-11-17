@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { useAuth } from '@/features/auth/useAuth';
@@ -15,6 +15,7 @@ import {
 } from '@/features/directory/Workspace';
 import { dataError } from '@/features/directory/api';
 import { RequestForm } from './RequestForm';
+import { MyUpcomingAppointments } from './MyUpcomingAppointments';
 import { useNow } from '@/features/directory/useNow';
 import {
   acquireSlot,
@@ -80,18 +81,42 @@ export function AvailabilityPage() {
   return (
     <Workspace
       title="Citas"
-      description="Consulta horarios por sede y profesional y prepara tu próxima cita."
+      description="Consulta las citas de tus mascotas, conversa con tu veterinaria y solicita una nueva atención."
     >
-      <Link to="/explorar" className={secondaryClass}>
-        Explorar establecimientos
-      </Link>
-      <Link to="/citas/solicitudes" className={secondaryClass}>
-        Mis solicitudes y avisos de citas
-      </Link>
+      <nav aria-label="Opciones de citas" className="flex flex-wrap gap-3">
+        <Link to="/citas/solicitudes" className={secondaryClass}>
+          Mis citas y solicitudes
+        </Link>
+        <Link to="/mensajes" className={secondaryClass}>
+          Mis chats con veterinarias
+        </Link>
+        <a href="#nueva-cita" className={secondaryClass}>
+          Solicitar una nueva cita
+        </a>
+        <Link to="/explorar" className={secondaryClass}>
+          Explorar establecimientos
+        </Link>
+      </nav>
+      {user && (
+        <MyUpcomingAppointments
+          key={service ? 'booking' : 'overview'}
+          owner={user.id}
+          collapsed={!!service}
+        />
+      )}
+      <h2 id="nueva-cita" className="scroll-mt-24 text-lg font-semibold">
+        Solicitar una nueva cita
+      </h2>
       <Notice>
-        Consulta horarios, elige tu mascota y envía una solicitud presencial o
-        virtual. Un apartado temporal no es una solicitud de cita ni una
-        confirmación de atención.
+        <ol className="list-inside list-decimal space-y-1">
+          <li>Elige establecimiento, sede, servicio y fecha.</li>
+          <li>Selecciona uno de los horarios disponibles.</li>
+          <li>Elige tu mascota y pulsa Enviar solicitud de cita.</li>
+        </ol>
+        <p className="mt-2">
+          Apartar cinco minutos es opcional. Enviar una solicitud requiere
+          respuesta del establecimiento; no confirma la atención.
+        </p>
       </Notice>
       {(publications.isError || services.isError) && (
         <Notice error>
@@ -246,8 +271,12 @@ function Slots({
   } | null>(null);
   const [operation, setOperation] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const requestPanel = useRef<HTMLDivElement>(null);
   const availability = query.data?.value;
   const cached = query.data?.fromCache ?? !online;
+  useEffect(() => {
+    if (selected) requestPanel.current?.scrollIntoView({ block: 'start' });
+  }, [selected]);
   const refresh = async () => {
     await Promise.all([
       cache.invalidateQueries({ queryKey: ['service-availability', service] }),
@@ -350,10 +379,19 @@ function Slots({
       >
         Actualizar disponibilidad
       </button>
-      {availability?.slots.length === 0 && (
+      {availability?.slots.length === 0 && !selected && (
         <Notice>
-          No hay intervalos disponibles para esta fecha y profesional. Prueba
-          otra fecha o profesional.
+          <p>
+            {availability.professionals.length === 0
+              ? 'Este servicio todavía no tiene profesionales asignados para reservar. El establecimiento debe vincular el servicio con un profesional y un recurso, y configurar sus jornadas y el horario de la sede.'
+              : 'No hay intervalos disponibles para esta fecha y profesional. Prueba otra fecha o profesional; los horarios dependen de las jornadas, el horario de la sede y los cupos libres.'}
+          </p>
+          <Link
+            className="underline"
+            to={`/establecimientos/${availability.establishment_id}?sede=${availability.site_id}`}
+          >
+            Ver ficha y contactar al establecimiento
+          </Link>
         </Notice>
       )}
       <div
@@ -399,7 +437,7 @@ function Slots({
                 Guardar borrador de horario
               </button>
               <button
-                className="button button-primary"
+                className={secondaryClass}
                 disabled={
                   !online || cached || hold.isPending || release.isPending
                 }
@@ -425,20 +463,43 @@ function Slots({
           )}
         </div>
       )}
-      {selected && owner && (
-        <RequestForm
-          owner={owner}
-          context={selected.context}
-          slot={selected.slot}
-          cached={cached}
-          holdId={
-            current.data?.hold?.assignment_id === selected.slot.assignment_id &&
-            current.data.hold.starts_at === selected.slot.starts_at &&
-            remaining > 0
-              ? current.data.hold.id
-              : null
-          }
-        />
+      {availability && (
+        <div
+          ref={requestPanel}
+          className="scroll-mt-24 rounded-2xl border border-brand-100 p-4"
+        >
+          {owner ? (
+            <RequestForm
+              owner={owner}
+              context={selected?.context ?? availability}
+              slot={selected?.slot ?? null}
+              cached={cached}
+              holdId={
+                selected &&
+                current.data?.hold?.assignment_id ===
+                  selected.slot.assignment_id &&
+                current.data.hold.starts_at === selected.slot.starts_at &&
+                remaining > 0
+                  ? current.data.hold.id
+                  : null
+              }
+            />
+          ) : (
+            <Notice>
+              Necesitas una cuenta de Dueño de mascota con correo confirmado
+              para enviar la solicitud.{' '}
+              <Link
+                className={secondaryClass}
+                to={authWithReturn(
+                  '/acceso',
+                  location.pathname + location.search,
+                )}
+              >
+                Acceder para solicitar cita
+              </Link>
+            </Notice>
+          )}
+        </div>
       )}
       {current.data?.hold && (
         <Notice>

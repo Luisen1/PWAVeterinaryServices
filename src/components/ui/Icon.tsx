@@ -21,6 +21,7 @@ const paths = {
   store:
     'M3 10V4h18v6M2 10h20l-2-6H4l-2 6Zm1 0v2a3 3 0 0 0 5 2 3 3 0 0 0 4 0 3 3 0 0 0 4 0 3 3 0 0 0 5-2v-2M4 15v6h16v-6M9 21v-6h6v6',
   mail: 'M3 5h18v14H3V5Zm0 1 9 7 9-7',
+  chat: 'M21 11a8 8 0 0 1-8 8H7l-5 3 2-6a8 8 0 1 1 17-5ZM8 10h8M8 14h5',
   lock: 'M6 10h12v11H6V10Zm3 0V6a3 3 0 0 1 6 0v4m-3 4v3',
   key: 'M14 8a5 5 0 1 1-9-3 5 5 0 0 1 9 3Zm0 2 7 7v4h-4v-3h-3l-3-3M7 7h.01',
   eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Zm13 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
@@ -38,6 +39,13 @@ const paths = {
   info: 'M12 11v6m0-10h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',
   upload: 'M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5',
   photo: 'M3 3h18v18H3V3Zm0 14 6-6 4 4 3-3 5 5M15 7h.01',
+  camera:
+    'M8 5 10 3h4l2 2h4a1 1 0 0 1 1 1v13H3V6a1 1 0 0 1 1-1h4Zm8 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
+  microphone:
+    'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0V5Zm-4 6v1a7 7 0 0 0 14 0v-1M12 19v3m-4 0h8',
+  send: 'm3 3 19 9-19 9 4-9-4-9Zm4 9h15',
+  stop: 'M7 7h10v10H7V7Z',
+  close: 'm6 6 12 12M6 18 18 6',
   settings: 'M3 7h18M3 17h18M8 4v6m8 4v6',
   list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
 } satisfies Record<string, string>;

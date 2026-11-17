@@ -14,6 +14,11 @@ export function PrivacyPage() {
           el acceso y recuperar la contraseña.
         </p>
         <p>
+          El tipo elegido, Dueño de mascota o Veterinaria, se guarda para
+          separar las opciones de la cuenta. Esta elección no concede aprobación
+          de establecimientos ni permisos administrativos o de equipo.
+        </p>
+        <p>
           La autenticación y los datos de la cuenta se procesan mediante
           Supabase. La aplicación conserva en este navegador la sesión necesaria
           para mantener el acceso. Al cerrar sesión se eliminan los datos

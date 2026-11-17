@@ -73,3 +73,13 @@ El aviso de privacidad corresponde al entorno de desarrollo. El responsable, con
 - El usuario eligió preparar LiveKit Cloud sin tener cuenta todavía. La integración usa pistas reales y tokens breves limitados a sala/participante; no hay una llamada simulada ni aceptación de HU27 CA3. La expiración del token no expulsa una sesión activa: un worker cierra salas invalidadas o vencidas, y la emisión permanece bloqueada hasta configurar y comprobar ese mantenimiento.
 - Se verificaron fotos, tres formatos de audio, reintentos y aislamiento mediante HTTP/Auth/Storage reales con cuentas temporales posteriormente retiradas. La prueba de audio/video entre dos equipos y los navegadores móviles físicos sigue pendiente de activar el proveedor.
 - Para la baja demanda académica se añade compresión de fotos en el cliente antes de crear el pendiente: WebP/JPEG hasta 512 KiB y 1600 px. No recomprimir operaciones ya persistidas. El usuario aclaró que no pide adjuntos de video: se limita el flujo de la llamada a 360p/15 fps y bitrates de voz/video reducidos, sin guardar medios en Supabase. LiveKit Cloud Build es la recomendación gratuita por la integración existente y su límite duro de cuota; no se cambia de proveedor sin elección del usuario.
+
+## Tipos de cuenta separados (2026-11-16)
+
+El usuario solicita elegir Dueño de mascota o Veterinaria al registrarse y eliminar las opciones combinadas del perfil. El tipo de producto se guarda en la tabla privada y se separa del rol global: una veterinaria nueva no obtiene aprobación ni administración. Un contexto protegido compartido gobierna menús/rutas, mientras triggers y permisos existentes controlan las acciones en servidor.
+
+Las cuentas anteriores se clasifican por actividad; las desconocidas completan una elección única. Se conservan datos y pendientes, con prioridad del recorrido Veterinaria cuando una cuenta previa combinaba ambos. No se introduce alternancia de roles ni se transfieren datos entre cuentas. La copia offline solo mantiene navegación con sesión comprobada y no concede permisos remotos.
+
+## Coordenadas de sede desde el mapa (2026-11-16)
+
+El paso Ubicación incorpora un selector Google por sede, abierto bajo acción explícita y con el mismo SDK/opciones del resto de la PWA. Clic, arrastre o uso del centro completan coordenadas, sin sustituir la dirección escrita ni seleccionar automáticamente el centro de Tunja. Cada cambio requiere confirmar de nuevo la correspondencia; se mantiene la edición manual ante fallo o falta de conexión. No se añade otro proveedor ni se requiere geocodificación. El evento de arrastre MVC se conserva para el canal quarterly, junto al evento DOM nuevo; la prueba con Google real validó ambos movimientos del usuario: clic y arrastre.

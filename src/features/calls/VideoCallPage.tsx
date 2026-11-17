@@ -14,8 +14,11 @@ import { acquireReloadBlock } from '@/pwa/reload-safety';
 import { useOnline } from '@/pwa/useOnline';
 import { callGrantSchema } from './model';
 import { connectAuthorizedCall, type CallConnection } from './livekit';
+import { useAccountContext } from '@/features/auth/useAccountContext';
 
 export function VideoCallPage() {
+  const account = useAccountContext();
+  const team = account.data?.account_type === 'veterinary';
   const { id } = useParams();
   return (
     <Workspace
@@ -25,8 +28,13 @@ export function VideoCallPage() {
       <Link className={secondaryClass} to={`/citas/solicitudes/${id ?? ''}`}>
         Volver al detalle de la cita
       </Link>
-      <Link className={secondaryClass} to="/mensajes">
-        Ir a mis conversaciones
+      <Link
+        className={secondaryClass}
+        to={team ? '/oferentes/mensajes' : '/mensajes'}
+      >
+        {team
+          ? 'Ir a conversaciones del establecimiento'
+          : 'Ir a mis conversaciones'}
       </Link>
       <Verified>
         {(owner) =>

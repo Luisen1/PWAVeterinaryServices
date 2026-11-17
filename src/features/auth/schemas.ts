@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { accountTypeSchema } from './account-types';
 
 export const PRIVACY_POLICY_VERSION = '2026-11-14';
 
@@ -22,6 +23,7 @@ export const registrationSchema = z
     email,
     password,
     confirmPassword: z.string(),
+    accountType: accountTypeSchema,
     privacyAccepted: z
       .boolean()
       .refine(

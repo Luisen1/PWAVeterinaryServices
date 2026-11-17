@@ -1,3 +1,4 @@
+import { AccountArea } from '@/features/auth/AccountArea';
 import { createBrowserRouter } from 'react-router';
 import { Layout } from '@/app/Layout';
 import { AvailabilityPage } from '@/features/appointments/AvailabilityPage';
@@ -49,27 +50,94 @@ export const router = createBrowserRouter([
       },
       {
         path: '/citas',
-        element: <AvailabilityPage />,
+        element: (
+          <AccountArea area="pet_owner">
+            <AvailabilityPage />
+          </AccountArea>
+        ),
       },
       {
         path: '/cuenta',
         element: <AccountPage />,
       },
-      { path: '/citas/solicitudes', element: <RequestsPage /> },
+      {
+        path: '/citas/solicitudes',
+        element: (
+          <AccountArea area="pet_owner">
+            <RequestsPage />
+          </AccountArea>
+        ),
+      },
       { path: '/citas/solicitudes/:id', element: <AppointmentDetailsPage /> },
       {
         path: '/citas/solicitudes/:id/videollamada',
         element: <VideoCallPage />,
       },
-      { path: '/oferentes/citas', element: <RequestsPage team /> },
-      { path: '/oferentes/:id/citas', element: <RequestsPage team /> },
-      { path: '/citas/agenda', element: <RequestsPage agenda /> },
-      { path: '/oferentes/agenda', element: <RequestsPage team agenda /> },
-      { path: '/oferentes/:id/agenda', element: <RequestsPage team agenda /> },
-      { path: '/mensajes', element: <ChatInboxPage /> },
-      { path: '/mensajes/nuevo', element: <ChatStartPage /> },
+      {
+        path: '/oferentes/citas',
+        element: (
+          <AccountArea area="veterinary">
+            <RequestsPage team />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/oferentes/:id/citas',
+        element: (
+          <AccountArea area="veterinary">
+            <RequestsPage team />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/citas/agenda',
+        element: (
+          <AccountArea area="pet_owner">
+            <RequestsPage agenda />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/oferentes/agenda',
+        element: (
+          <AccountArea area="veterinary">
+            <RequestsPage team agenda />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/oferentes/:id/agenda',
+        element: (
+          <AccountArea area="veterinary">
+            <RequestsPage team agenda />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/mensajes',
+        element: (
+          <AccountArea area="pet_owner">
+            <ChatInboxPage />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/mensajes/nuevo',
+        element: (
+          <AccountArea area="pet_owner">
+            <ChatStartPage />
+          </AccountArea>
+        ),
+      },
       { path: '/mensajes/:id', element: <ConversationPage /> },
-      { path: '/oferentes/mensajes', element: <ChatInboxPage team /> },
+      {
+        path: '/oferentes/mensajes',
+        element: (
+          <AccountArea area="veterinary">
+            <ChatInboxPage team />
+          </AccountArea>
+        ),
+      },
       { path: '/acceso', element: <LoginPage /> },
       { path: '/registro', element: <RegisterPage /> },
       { path: '/recuperar-acceso', element: <RecoveryPage /> },
@@ -78,13 +146,62 @@ export const router = createBrowserRouter([
       { path: '/privacidad', element: <PrivacyPage /> },
       { path: '/terminos', element: <TermsPage /> },
       { path: '/perfil', element: <ProfilePage /> },
-      { path: '/favoritos', element: <FavoritesPage /> },
-      { path: '/oferentes', element: <ProviderPage /> },
-      { path: '/oferentes/nuevo', element: <ProviderEditPage /> },
-      { path: '/oferentes/servicios', element: <OfferingsPage /> },
-      { path: '/oferentes/:id/servicios', element: <OfferingsPage /> },
-      { path: '/oferentes/:id/editar', element: <ProviderEditPage /> },
-      { path: '/administracion/oferentes', element: <AdminPage /> },
+      {
+        path: '/favoritos',
+        element: (
+          <AccountArea area="pet_owner">
+            <FavoritesPage />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/oferentes',
+        element: (
+          <AccountArea area="veterinary">
+            <ProviderPage />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/oferentes/nuevo',
+        element: (
+          <AccountArea area="veterinary">
+            <ProviderEditPage />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/oferentes/servicios',
+        element: (
+          <AccountArea area="veterinary">
+            <OfferingsPage />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/oferentes/:id/servicios',
+        element: (
+          <AccountArea area="veterinary">
+            <OfferingsPage />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/oferentes/:id/editar',
+        element: (
+          <AccountArea area="veterinary">
+            <ProviderEditPage />
+          </AccountArea>
+        ),
+      },
+      {
+        path: '/administracion/oferentes',
+        element: (
+          <AccountArea area="admin">
+            <AdminPage />
+          </AccountArea>
+        ),
+      },
       { path: '/establecimientos/:id', element: <PublicEstablishmentPage /> },
       {
         path: '/establecimientos/:id/como-llegar',

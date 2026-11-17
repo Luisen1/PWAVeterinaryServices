@@ -33,7 +33,12 @@ export function RegisterPage() {
 
   const submit = form.handleSubmit(async (values) => {
     try {
-      await registerAccount(values.email, values.password, destination);
+      await registerAccount(
+        values.email,
+        values.password,
+        values.accountType,
+        destination,
+      );
       setRegisteredEmail(values.email);
       form.reset();
     } catch (error) {
@@ -108,6 +113,54 @@ export function RegisterPage() {
           onSubmit={(event) => void submit(event)}
           className="space-y-5"
         >
+          <fieldset
+            className="space-y-3"
+            aria-describedby={
+              errors.accountType ? 'account-type-error' : 'account-type-help'
+            }
+          >
+            <legend className="font-semibold">¿Cómo usarás tu cuenta?</legend>
+            <label className="flex gap-3 rounded-xl border border-brand-100 p-4 cursor-pointer">
+              <input
+                type="radio"
+                value="pet_owner"
+                className="accent-brand-700"
+                {...form.register('accountType')}
+              />
+              <span>
+                <strong className="block">Dueño de mascota</strong>
+                <small>
+                  Registra tus mascotas, solicita citas y habla con tu
+                  veterinaria.
+                </small>
+              </span>
+            </label>
+            <label className="flex gap-3 rounded-xl border border-brand-100 p-4 cursor-pointer">
+              <input
+                type="radio"
+                value="veterinary"
+                className="accent-brand-700"
+                {...form.register('accountType')}
+              />
+              <span>
+                <strong className="block">Veterinaria</strong>
+                <small>
+                  Registra tu establecimiento o participa como parte de su
+                  equipo.
+                </small>
+              </span>
+            </label>
+            <p id="account-type-help" className="text-xs text-stone-600">
+              Las opciones del perfil se separan según tu elección. Publicar una
+              veterinaria requiere revisión; el acceso del equipo depende de sus
+              permisos.
+            </p>
+            {errors.accountType && (
+              <p id="account-type-error" className="text-sm text-red-800">
+                {errors.accountType.message}
+              </p>
+            )}
+          </fieldset>
           <AuthField
             label="Correo electrónico"
             type="email"
