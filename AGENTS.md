@@ -1,6 +1,6 @@
 # Contexto del proyecto para asistentes de IA
 
-Última actualización: 2026-11-16, zona de referencia `America/Bogota`.
+Última actualización: 2026-11-17, zona de referencia `America/Bogota`.
 
 Este archivo es el punto de entrada para continuar el proyecto. Describe el estado comprobado y las convenciones existentes; no autoriza por sí mismo a implementar nuevas historias, desplegar ni modificar servicios externos. La solicitud actual del usuario define el alcance. Si este contexto queda desactualizado, contrastarlo con el código, las migraciones y las pruebas, y actualizarlo al terminar.
 
@@ -107,18 +107,20 @@ El alias `@/` apunta a `src/`. Hay proyectos TypeScript separados para app, herr
 - `/citas` tiene consulta real de HU18. Ya no usa `PlaceholderPage` ni los parámetros de demostración `estado=carga/error`. Conserva `establecimiento`, `sede`, `servicio`, `fecha` y `profesional` en URL; el acceso permite volver a esa ruta o a Cómo llegar, con validación del destino.
 - `/citas/solicitudes` y `/citas/solicitudes/:id`: solicitudes propias, detalle, instrucciones e historial/avisos privados. `/oferentes/citas` y `/oferentes/:id/citas`: solicitudes relacionadas con el equipo. Requieren cuenta confirmada; el servidor decide acceso y permisos.
 - En **Mis establecimientos** (`/oferentes`) hay accesos superiores **Solicitudes de citas**, **Agenda del establecimiento** y **Chats del establecimiento**. **Actualizar establecimientos** refresca el registro/revisión de oferentes; no es la bandeja de citas. Mantener estos accesos visibles antes de las fichas extensas y conservar la autorización de las pantallas/RPC de destino.
+- Para Dueño de mascota, `/citas` muestra **Citas pendientes y confirmadas** antes de **Solicitar una nueva cita**. `MyUpcomingAppointments` consulta `appointment_agenda` con `p_scope='mine'` y `p_view='upcoming'` (filtro remoto de solicitudes vigentes/confirmadas); enseña hasta tres próximas citas sin inventar un total y enlaza la agenda completa. `AppointmentCard` comparte mascota/estado/sede/hora, detalle y Chat entre resumen/listas/agendas. Con servicio en URL, el resumen inicia plegado y consulta solo al abrir. No hay consulta privada para visitantes; offline/error no se presentan como ausencia de citas ni se muestran como datos actuales. Menú y listado propios usan **Mis citas y solicitudes**.
 
 Un responsable registra una solicitud; administración aprueba su publicación. Después configura servicios, profesionales y recursos, crea asignaciones y jornadas, y registra cierres. Un visitante consulta fichas y servicios de sedes publicadas desde el mapa o el listado. Un colaborador acepta su invitación en **Cuenta → Servicios y disponibilidad**.
 
 En Explorar se conservan `q`, `categoria`, `vista`, `orden`, `seleccion`, `servicio`, `especie`, `modalidad`, `urgencias`, `domicilio`, `abierto` y `24h` en la URL. Los filtros booleanos activos usan `1`. La ficha identifica la sede mediante `sede` y conserva la vuelta al directorio con `volver`; `tab` alterna información/servicios. Cómo llegar recibe la sede y un retorno público validado. No usar parámetros de URL para almacenar notas privadas/origen GPS ni aceptar retornos externos.
 
 - Nuevas rutas privadas: `/citas/agenda`, `/oferentes/agenda`, `/oferentes/:id/agenda`, `/mensajes`, `/mensajes/nuevo`, `/mensajes/:id` y `/oferentes/mensajes`. El detalle de cita permite copia offline con sesión comprobada. El historial de chat es remoto/memoria, sin IndexedDB.
+- Solicitudes, agenda y detalle de cita incluyen **Chat**, mediante `messaging/AppointmentChatButton.tsx`, si la RPC devuelve `can_chat=true`. `open_appointment_chat` recibe solo ID de cita: el servidor deriva cliente/establecimiento/sede y exige ser cliente o tener lectura de esa cita y permiso `messages` en ese establecimiento. Responsable conserva ambos; `schedule`/`read` sin `messages`, o `messages` sin lectura de cita, no abren este acceso. Reutiliza la conversación por cliente/sede y permite seguimiento del contexto histórico de la cita tras despublicar; la apertura pública sin cita sigue exigiendo sede publicada. No se crea conversación al listar ni se marcan mensajes leídos al abrir.
 
 ## 5. Backend, datos y reglas que deben conservarse
 
 Proyecto de desarrollo registrado y verificado el 2026-11-16: **`veterinary-services-dev`**, referencia **`osoljaiqizmcxxlirrwo`**. Es un identificador público, no una credencial. Antes de una futura operación remota, comprobar que sigue siendo el proyecto previsto; el registro histórico no demuestra el estado actual de otra base.
 
-Hay diecisiete migraciones aplicadas y alineadas con el historial remoto en esa fecha:
+Hay dieciocho migraciones aplicadas y alineadas con el historial remoto, comprobado el 2026-11-17:
 
 1. `20261114000000_enable_extensions.sql`: PostGIS y btree_gist.
 2. `20261114010000_identity_and_access.sql`: perfiles, consentimiento, roles y acceso.
@@ -137,6 +139,7 @@ Hay diecisiete migraciones aplicadas y alineadas con el historial remoto en esa 
 15. `20261116151747_allow_public_appointment_policy_reads.sql`: auxiliar protegido para lectura pública de reglas sin conceder permisos de gestión al visitante.
 16. `20261116165558_private_chat_media_and_call_authorization.sql`: bucket privado, metadatos/subida/publicación de medios, cuentas profesionales, autorización de sala e invalidación/cierre.
 17. `20261116184257_account_types_and_role_separation.sql`: tipo/elección en tabla privada, clasificación de cuentas previas, RPC de contexto/elección y guardas de área sin borrar datos.
+18. `20261117210111_appointment_chat_entry.sql`: apertura de chat desde cita, destinatario derivado, capacidad `can_chat` y reutilización de la conversación cliente/sede.
 
 Crear migraciones nuevas para cambios posteriores y preservar las ya aplicadas. No repetir estas migraciones sobre desarrollo ni reiniciar la base para añadir una funcionalidad.
 
@@ -194,7 +197,7 @@ Conservar RLS, privilegios mínimos y aislamiento entre cuentas/establecimientos
 ### Solicitudes y decisiones (HU19-HU21)
 
 - `request_appointment` exige correo confirmado y mascota propia compatible; deriva sede/modalidad/profesional/recurso/fin y snapshot del servidor. No admite solicitudes a domicilio. UUID estable permite reintentos tras respuesta perdida sin duplicar citas/eventos. Un UUID con otros datos falla.
-- Cuenta → Mis solicitudes y avisos / Solicitudes del establecimiento, o las rutas indicadas arriba. Las listas consultan páginas de treinta con cursor `(created_at,id)` y refrescan cada quince segundos online. Son listas de solicitudes; la agenda HU23 está en rutas separadas. No son la bandeja general HU32.
+- Cuenta → Mis citas y solicitudes / Solicitudes del establecimiento, o las rutas indicadas arriba. Las listas consultan páginas de treinta con cursor `(created_at,id)` y refrescan cada quince segundos online. Son listas de solicitudes; la agenda HU23 está en rutas separadas. No son la bandeja general HU32.
 - `appointment_detail`, `appointment_requests` y `decide_appointment` tienen fachadas invoker y auxiliares privados. RLS protege citas y `appointment_events`; no hay escrituras directas del cliente. Responsable y `schedule` deciden; `read` solo consulta; `services` solo no concede acceso a pacientes. Permisos se revalidan tras el bloqueo de establecimiento.
 - Solo una solicitud `requested`, futura y con revisión esperada puede decidirse. Confirmar revalida modalidad/asignación y disponibilidad; rechazar requiere motivo de 5–500 caracteres, libera agenda y conserva historia. Una decisión persistida genera el evento de aviso privado, sin afirmar entrega de correo o push.
 - Vencimiento aplicado: al llegar el inicio sin confirmación. La disponibilidad la ignora desde entonces sin cron; lista/detalle persisten el estado/evento de vencimiento. Normalizar cada página adquiere bloqueos de establecimiento en orden estable. No ampliar el plazo de forma silenciosa.
@@ -215,6 +218,7 @@ Conservar RLS, privilegios mínimos y aislamiento entre cuentas/establecimientos
 - `open_chat`, `chat_inbox`, `chat_history`, `send_chat_message` y `read_chat`: fachadas invoker, auxiliares privados y RLS, sin escrituras directas. Texto con contenido de 1–4000 caracteres; persistir antes de Enviado. Reintento mismo UUID/cuerpo no duplica. Bloqueo establecimiento → conversación serializa mensajes y revocaciones.
 - Lectura explícita por botón, cursor monotónico por cliente/equipo; lectura del establecimiento compartida. Recibir/descargar no marca leído. Publicación `supabase_realtime` añade solo las dos tablas; no tocar esquemas internos Realtime. Eventos invalidan consultas autorizadas. Recuperar al suscribir, foco/visibilidad/reconectar; respaldo HTTP cada cinco segundos en pantalla activa y reintento manual.
 - Chat carga cincuenta mensajes iniciales/anteriores y deltas de cien hasta alcanzar cursor. Unión por ID y comparación BigInt de cadenas, nunca Number. Historial en memoria por cuenta y texto mientras vive la pantalla; sin autosend offline ni promesa de sobrevivir cierre de pestaña. Limpiar consultas al cambiar/salir de cuenta. `message_drafts` sigue sin integrar; HU25-HU26 usan `pending_attachments` para blobs duraderos y envío explícito. HU27 sigue pendiente de aceptación con proveedor; no afirmar llamadas operativas ni push.
+- Presentación del chat: burbujas recibidas a la izquierda y del mismo lado de la conversación a la derecha (incluye al equipo compartido), orden ascendente por secuencia, separadores de fecha y hora/recibo al pie. Historial con desplazamiento propio: baja al recibir si se está al final o al enviar; conserva la lectura y el anclaje al cargar anteriores. `MediaComposer` integra el campo de texto y envío mediante un formulario asociado con ID único y controles de cámara, fotografía y micrófono con iconos/etiquetas accesibles. A 320–440 px los controles pueden ocupar dos filas. Mantener Poppins y tokens de marca, vista previa, compresión, pendientes explícitos y lectura manual; no copiar colores de la referencia ni marcar leído al desplazar/abrir.
 
 ### Multimedia y sala preparada (HU25-HU27)
 
@@ -313,6 +317,12 @@ Corrección posterior de CI: el test de chat entre dos cuentas usa la fixture `b
 Verificación HU25-HU27 (2026-11-16): migración 16 aplicada/alineada y SQL de integración correcto con rollback. Tres Edge Functions desplegadas en desarrollo. Prueba real con tres sesiones técnicas: JPEG/WebM/Opus/Ogg/Opus/MP4/AAC persistidos, reintentos idempotentes y descargas comparadas por hash, tercero y URL pública denegados, MIME falso rechazado y permiso messages revocado denegado. Sala/participantes/ventana/cancelación verificados; proveedor sin configurar responde 503. Se retiraron objetos mediante Storage, datos y credenciales técnicas; cero residuos comprobados. No se concedieron permisos a cuentas reales ni se enviaron correos/push. Recuentos finales y pruebas de navegador en `docs/verificacion.md`. HU27 CA3 y dispositivos físicos siguen pendientes.
 
 Validación conjunta previa a los commits de roles/mapa/accesos/solicitudes (2026-11-16): **206 pruebas en 24 archivos y 94 E2E completos con `CI=true` aprobados**, lint/tipos/build correctos. La primera ejecución detectó una espera prematura en el E2E de reintento de voz; se corrigió para esperar confirmación de envío, pasó tres repeticiones y después la suite completa sin fallos ni reintentos. Sin cambios al producto de audio. Build final con entorno real y preview restaurado en 4173; secretos locales excluidos. Detalle en `docs/verificacion.md`.
+
+Verificación de Chat desde cita (2026-11-17): **217 pruebas en 24 archivos y 30 E2E de citas/mensajería correctos**, tipos/lint/build correctos. Tres E2E nuevos (suite disponible: 97, no repetida completa) cubren apertura de centro/cliente y texto/foto/voz, permisos, error/reintento y offline; captura a 320 px revisada. Migración 18 aplicada/alineada y `supabase/tests/appointment_chat.sql` remoto con rollback correcto. Conteos remotos sin cambios: cinco usuarios, dos citas, cero conversaciones/mensajes. Asesores sin avisos nuevos; no se activó LiveKit ni se enviaron mensajes reales. Detalle en `docs/verificacion.md`.
+
+Verificación de entrada de citas del dueño (2026-11-17): cuarenta E2E de roles/citas/chat correctos; tres nuevos cubren próximas citas pendientes/confirmadas, Chat, estados vacío/error/offline y resumen plegado en reserva contextual. Tras ajustar los accesos superiores se repitieron esos tres. Suite disponible: 100 E2E, no repetida completa en esta actualización; capturas a 320/1280 px revisadas y lint/tipos/build correctos. No hubo nuevas migraciones ni cambios remotos respecto a la migración 18. Ver `docs/verificacion.md`.
+
+Verificación conjunta previa a los commits de chat/citas propias/presentación (2026-11-17): **217 pruebas en 24 archivos y los 101 E2E completos con `CI=true` correctos**, sin fallos ni reintentos. Lint/tipos/build correctos, entorno local excluido y sin credenciales privadas en los veintidós archivos cambiados. Build real y preview 4173 restaurados tras Playwright. Los registros parciales anteriores de 30/40/19 E2E quedan complementados por esta ejecución completa. Ver `docs/verificacion.md`.
 
 ## 8. Convenciones para continuar
 

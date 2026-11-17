@@ -19,8 +19,11 @@ Aplicar las migraciones en orden al proyecto Supabase de desarrollo.
 15. `20261116151747_allow_public_appointment_policy_reads.sql` permite consulta pública de reglas mediante un auxiliar protegido, sin conceder gestión a visitantes.
 16. `20261116165558_private_chat_media_and_call_authorization.sql` añade archivos privados y publicación de backend, asignación de cuenta profesional, autorización de salas e invalidación/cierre.
 17. `20261116184257_account_types_and_role_separation.sql` separa tipo de cuenta de privilegios, clasifica cuentas anteriores, añade elección pendiente/contexto protegido y guardas de área sin borrar datos.
+18. `20261117210111_appointment_chat_entry.sql` permite abrir desde una cita el chat del cliente, valida ambos permisos del equipo y deriva el destinatario; añade `can_chat` y reutiliza la conversación única por cliente/sede.
 
-Las diecisiete migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-16. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las 12–17 el 2026-11-16. No volver a ejecutarlas manualmente sobre este proyecto.
+Las dieciocho migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-17. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las 12–17 el 2026-11-16 y la 18 el 2026-11-17. No volver a ejecutarlas manualmente sobre este proyecto.
+
+`supabase/tests/appointment_chat.sql` verifica apertura desde cita por responsable/cliente, conversación compartida con la ficha, permisos combinados, revocación y seguimiento tras despublicar. Pasó en PostgreSQL embebido y desarrollo con rollback, sin conservar cuentas/citas/mensajes temporales.
 
 La segunda migración exige `privacy_accepted: true` y `privacy_policy_version: '2026-11-14'` al registrar una cuenta. Asigna el rol `user` y preserva los consentimientos existentes. Las cuentas previas obtienen un perfil y rol básico mediante backfill, sin fabricar aceptación del aviso.
 
