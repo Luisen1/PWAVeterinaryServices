@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Icon } from '@/components/ui/Icon';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { z } from 'zod';
@@ -202,7 +203,7 @@ export function ConversationPage() {
   return (
     <Workspace
       title="Conversación"
-      description="Texto privado con el equipo de la sede."
+      description="Mensajes, fotos y notas de voz en una conversación privada."
     >
       <Link
         className={secondaryClass}
@@ -231,6 +232,32 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
   const [olderAvailable, setOlderAvailable] = useState(true);
   const operation = useRef<{ body: string; id: string } | null>(null);
   const result = query.isError ? undefined : query.data;
+  const formId = useId();
+  const viewport = useRef<HTMLDivElement>(null);
+  const nearBottom = useRef(true);
+  const lastMessage = useRef<string | undefined>(undefined);
+  const olderAnchor = useRef<{ height: number; top: number } | null>(null);
+  useEffect(() => {
+    const element = viewport.current;
+    if (!element || !result) return;
+    const latest = result.messages.at(-1);
+    if (olderAnchor.current) {
+      element.scrollTop =
+        olderAnchor.current.top +
+        element.scrollHeight -
+        olderAnchor.current.height;
+      olderAnchor.current = null;
+    } else if (
+      latest?.id !== lastMessage.current &&
+      (nearBottom.current ||
+        !lastMessage.current ||
+        latest?.author_id === owner)
+    ) {
+      element.scrollTop = element.scrollHeight;
+    }
+    lastMessage.current = latest?.id;
+  }, [result, owner]);
+
   const send = useMutation({
     mutationFn: async () => {
       const body = text.trim();
@@ -260,6 +287,11 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
       }),
     onSuccess: (raw) => {
       const page = historySchema.parse(raw);
+      if (viewport.current)
+        olderAnchor.current = {
+          height: viewport.current.scrollHeight,
+          top: viewport.current.scrollTop,
+        };
       setOlderAvailable(page.messages.length === 50);
       cache.setQueryData(
         key,
@@ -284,122 +316,183 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
     };
   }, [text]);
   return (
-    <div className="space-y-4">
-      <Notice>{query.connection}</Notice>
-      {query.isPending && online && <Notice>Cargando historial…</Notice>}
-      {query.isError && <Notice error>{chatError(query.error)}</Notice>}
-      <button
-        className={secondaryClass}
-        disabled={!online || query.isFetching}
-        onClick={() => void query.refetch()}
-      >
-        Recuperar mensajes
-      </button>
-      {result && (
-        <>
-          <h2 className="font-semibold">
-            {result.conversation.establishment_name} ·{' '}
-            {result.conversation.site_name}
-          </h2>
-          <p className="text-xs">
-            {result.conversation.side === 'team'
-              ? 'Respondes como equipo del establecimiento.'
-              : 'Conversas como cliente.'}{' '}
-            «Enviado» significa guardado en el servidor. «Leído» requiere que la
-            otra parte marque los mensajes como leídos.
-          </p>
-          {olderAvailable && result.messages.length >= 50 && (
-            <button
-              className={secondaryClass}
-              disabled={!online || older.isPending}
-              onClick={() => older.mutate()}
-            >
-              Cargar mensajes anteriores
-            </button>
-          )}
-          <ol
-            className="space-y-3"
-            aria-label="Mensajes de la conversación"
-            aria-live="polite"
-            aria-relevant="additions text"
-          >
-            {result.messages.map((m) => (
-              <li
-                className={`sv-card space-y-2 ${m.author_side === result.conversation.side ? 'bg-brand-50' : ''}`}
-                key={m.id}
-              >
-                <p className="text-xs font-semibold">
-                  {m.author_id === owner
-                    ? 'Tú'
-                    : m.author_side === 'team'
-                      ? 'Equipo del establecimiento'
-                      : 'Cliente'}{' '}
-                  ·{' '}
-                  <time dateTime={m.created_at}>
-                    {new Date(m.created_at).toLocaleString('es-CO', {
-                      timeZone: 'America/Bogota',
-                    })}{' '}
-                    · America/Bogota
-                  </time>
-                </p>
-                {m.media ? (
-                  <MediaMessage owner={owner} message={m} />
-                ) : (
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                )}
-                {m.author_side === result.conversation.side && (
-                  <p className="text-xs">
-                    {isRead(m, result.conversation)
-                      ? m.author_side === 'customer'
-                        ? 'Leído por el establecimiento'
-                        : 'Leído por el cliente'
-                      : 'Enviado'}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ol>
-          {result.messages.length === 0 && (
-            <Notice>Aún no hay mensajes en esta conversación.</Notice>
-          )}
+    <section className="chat-window" aria-label="Chat privado">
+      <header className="chat-header">
+        <div className="chat-heading">
+          <span className="chat-avatar">
+            <Icon name="chat" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-semibold">
+              {result
+                ? result.conversation.establishment_name +
+                  ' · ' +
+                  result.conversation.site_name
+                : 'Conversación privada'}
+            </h2>
+            <p className="chat-connection" role="status">
+              {query.connection}
+            </p>
+          </div>
           <button
-            className={secondaryClass}
-            disabled={!online || read.isPending || !result.messages.length}
+            type="button"
+            className="chat-icon-button"
+            aria-label="Recuperar mensajes"
+            title="Recuperar mensajes"
+            disabled={!online || query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            <Icon name="refresh" />
+          </button>
+        </div>
+        <div className="chat-read-tools">
+          <details className="chat-help">
+            <summary>Estado y lectura</summary>
+            <p>
+              {result?.conversation.side === 'team'
+                ? 'Respondes como equipo del establecimiento.'
+                : 'Conversas como cliente.'}{' '}
+              «Enviado» significa guardado en el servidor. «Leído» requiere que
+              la otra parte marque los mensajes como leídos. Las horas
+              corresponden a America/Bogota.
+            </p>
+          </details>
+          <button
+            type="button"
+            className="chat-read-button"
+            disabled={!online || read.isPending || !result?.messages.length}
             onClick={() => read.mutate()}
           >
             Marcar mensajes mostrados como leídos
           </button>
-          <form
-            className="sv-card space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!send.isPending && online && text.trim()) send.mutate();
-            }}
-          >
-            <label className="block">
-              Mensaje de texto
-              <textarea
-                className="sv-input"
-                rows={4}
-                maxLength={4000}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                disabled={send.isPending}
-              />
-            </label>
-            <p className="text-xs">
-              {text.length}/4000. El texto no se envía al reconectar
-              automáticamente.
-            </p>
-            <button
-              className="button button-primary"
-              disabled={!online || send.isPending || !text.trim()}
+        </div>
+      </header>
+      <div
+        ref={viewport}
+        className="chat-message-viewport"
+        role="region"
+        aria-label="Historial del chat"
+        tabIndex={0}
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          nearBottom.current =
+            element.scrollHeight - element.scrollTop - element.clientHeight <
+            80;
+        }}
+      >
+        {query.isPending && online && <Notice>Cargando historial…</Notice>}
+        {query.isError && <Notice error>{chatError(query.error)}</Notice>}
+        {result && (
+          <>
+            {olderAvailable && result.messages.length >= 50 && (
+              <button
+                type="button"
+                className={secondaryClass}
+                disabled={!online || older.isPending}
+                onClick={() => older.mutate()}
+              >
+                Cargar mensajes anteriores
+              </button>
+            )}
+            <ol
+              className="chat-messages"
+              aria-label="Mensajes de la conversación"
+              aria-live="polite"
+              aria-relevant="additions text"
             >
-              {send.isPending ? 'Enviando…' : 'Enviar mensaje'}
-            </button>
-          </form>
-        </>
-      )}
+              {result.messages.map((m, index) => {
+                const sent = m.author_side === result.conversation.side;
+                const date = new Date(m.created_at).toLocaleDateString(
+                  'es-CO',
+                  {
+                    timeZone: 'America/Bogota',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  },
+                );
+                const previous = result.messages[index - 1];
+                const previousDate = previous
+                  ? new Date(previous.created_at).toLocaleDateString('es-CO', {
+                      timeZone: 'America/Bogota',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })
+                  : null;
+                return (
+                  <li
+                    className={
+                      sent
+                        ? 'chat-message-row chat-message-row--sent'
+                        : 'chat-message-row'
+                    }
+                    key={m.id}
+                    data-side={sent ? 'sent' : 'received'}
+                  >
+                    {date !== previousDate && (
+                      <div className="chat-date">
+                        <span>{date}</span>
+                      </div>
+                    )}
+                    <article
+                      className={
+                        sent ? 'chat-bubble chat-bubble--sent' : 'chat-bubble'
+                      }
+                    >
+                      <p className="chat-message-author">
+                        {m.author_id === owner
+                          ? 'Tú'
+                          : m.author_side === 'team'
+                            ? 'Equipo del establecimiento'
+                            : 'Cliente'}
+                      </p>
+                      {m.media ? (
+                        <MediaMessage owner={owner} message={m} />
+                      ) : (
+                        <p className="chat-message-text">{m.body}</p>
+                      )}
+                      <div className="chat-message-meta">
+                        <time
+                          dateTime={m.created_at}
+                          title={
+                            new Date(m.created_at).toLocaleString('es-CO', {
+                              timeZone: 'America/Bogota',
+                            }) + ' · America/Bogota'
+                          }
+                        >
+                          {new Date(m.created_at).toLocaleTimeString('es-CO', {
+                            timeZone: 'America/Bogota',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </time>
+                        {sent && (
+                          <span className="chat-message-receipt">
+                            <Icon name="check" />
+                            <span>
+                              {isRead(m, result.conversation)
+                                ? m.author_side === 'customer'
+                                  ? 'Leído por el establecimiento'
+                                  : 'Leído por el cliente'
+                                : 'Enviado'}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                    </article>
+                  </li>
+                );
+              })}
+            </ol>
+            {result.messages.length === 0 && (
+              <p className="chat-empty">
+                Aún no hay mensajes en esta conversación.
+              </p>
+            )}
+          </>
+        )}
+      </div>
       {(send.isError || read.isError || older.isError) && (
         <Notice error>
           {chatError(send.error ?? read.error ?? older.error)}
@@ -409,7 +502,55 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
         owner={owner}
         conversation={id}
         canCompose={!!result && !query.isError}
+        textInput={
+          result && (
+            <form
+              id={formId}
+              className="chat-text-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!send.isPending && online && text.trim()) send.mutate();
+              }}
+            >
+              <label>
+                <span className="sr-only">Mensaje de texto</span>
+                <textarea
+                  className="chat-text-input"
+                  rows={1}
+                  maxLength={4000}
+                  value={text}
+                  placeholder="Escribe un mensaje…"
+                  onChange={(event) => setText(event.target.value)}
+                  disabled={send.isPending}
+                />
+              </label>
+            </form>
+          )
+        }
+        sendButton={
+          result && (
+            <button
+              type="submit"
+              form={formId}
+              className="chat-icon-button chat-icon-button--primary"
+              aria-label="Enviar mensaje"
+              title="Enviar mensaje"
+              aria-busy={send.isPending}
+              disabled={!online || send.isPending || !text.trim()}
+            >
+              <Icon name={send.isPending ? 'refresh' : 'send'} />
+            </button>
+          )
+        }
+        textHint={
+          <>
+            {text.length}/4000
+            <span className="sr-only">
+              . El texto no se envía al reconectar automáticamente.
+            </span>
+          </>
+        }
       />
-    </div>
+    </section>
   );
 }

@@ -39,6 +39,13 @@ const paths = {
   info: 'M12 11v6m0-10h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',
   upload: 'M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5',
   photo: 'M3 3h18v18H3V3Zm0 14 6-6 4 4 3-3 5 5M15 7h.01',
+  camera:
+    'M8 5 10 3h4l2 2h4a1 1 0 0 1 1 1v13H3V6a1 1 0 0 1 1-1h4Zm8 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
+  microphone:
+    'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0V5Zm-4 6v1a7 7 0 0 0 14 0v-1M12 19v3m-4 0h8',
+  send: 'm3 3 19 9-19 9 4-9-4-9Zm4 9h15',
+  stop: 'M7 7h10v10H7V7Z',
+  close: 'm6 6 12 12M6 18 18 6',
   settings: 'M3 7h18M3 17h18M8 4v6m8 4v6',
   list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
 } satisfies Record<string, string>;

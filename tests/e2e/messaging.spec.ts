@@ -223,12 +223,17 @@ function server() {
             return;
           }
           cursors.push(body.p_after ?? null);
+          const filtered = messages.filter(
+            (m) =>
+              (!body.p_after || BigInt(m.seq) > BigInt(body.p_after)) &&
+              (!body.p_before || BigInt(m.seq) < BigInt(body.p_before)),
+          );
           await route.fulfill({
             json: {
               conversation: dto(),
-              messages: messages.filter(
-                (m) => !body.p_after || BigInt(m.seq) > BigInt(body.p_after),
-              ),
+              messages: body.p_after
+                ? filtered.slice(0, 100)
+                : filtered.slice(-50),
             },
           });
           return;
@@ -302,6 +307,106 @@ function server() {
     },
   };
 }
+test('el chat alinea burbujas, ordena el historial y mantiene la lectura al recibir o cargar mensajes', async ({
+  page,
+  context,
+}, info) => {
+  const api = server();
+  await api.setup(context);
+  for (let n = 1; n <= 70; n++)
+    api.messages.push({
+      id: crypto.randomUUID(),
+      seq: String(n),
+      conversation_id: conversation,
+      author_id: n % 2 === 0 ? TEST_USER_ID : team,
+      author_side: n % 2 === 0 ? 'customer' : 'team',
+      body: `Mensaje ${String(n).padStart(2, '0')}`,
+      created_at: new Date(Date.now() - 86400000 + n * 1000).toISOString(),
+    });
+  await login(page);
+  await page.goto(`/mensajes/${conversation}`);
+  const viewport = page.getByRole('region', {
+    name: 'Historial del chat',
+    exact: true,
+  });
+  const list = page.getByRole('list', {
+    name: 'Mensajes de la conversación',
+    exact: true,
+  });
+  await expect(list.getByRole('listitem')).toHaveCount(50);
+  await expect
+    .poll(() =>
+      viewport.evaluate(
+        (element) =>
+          element.scrollHeight - element.scrollTop - element.clientHeight,
+      ),
+    )
+    .toBeLessThan(80);
+  const received = await list
+    .getByText('Mensaje 21', { exact: true })
+    .locator('..')
+    .boundingBox();
+  const sent = await list
+    .getByText('Mensaje 22', { exact: true })
+    .locator('..')
+    .boundingBox();
+  expect(received!.x).toBeLessThan(sent!.x);
+  await expect(
+    page.getByRole('button', { name: 'Tomar fotografía', exact: true }),
+  ).toHaveAttribute('title', 'Tomar fotografía');
+  await expect(
+    page.getByRole('button', { name: 'Grabar nota de voz', exact: true }),
+  ).toHaveAttribute('title', 'Grabar nota de voz');
+  await viewport.evaluate((element) => {
+    element.scrollTop = 0;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  api.messages.push({
+    id: crypto.randomUUID(),
+    seq: '71',
+    conversation_id: conversation,
+    author_id: team,
+    author_side: 'team',
+    body: 'Mensaje 71',
+    created_at: new Date().toISOString(),
+  });
+  await page
+    .getByRole('button', { name: 'Recuperar mensajes', exact: true })
+    .click();
+  await expect(list.getByText('Mensaje 71', { exact: true })).toBeAttached();
+  expect(await viewport.evaluate((element) => element.scrollTop)).toBeLessThan(
+    80,
+  );
+  await page
+    .getByRole('button', { name: 'Cargar mensajes anteriores', exact: true })
+    .click();
+  await expect(list.getByRole('listitem')).toHaveCount(71);
+  expect(await list.locator('.chat-message-text').allTextContents()).toEqual(
+    Array.from(
+      { length: 71 },
+      (_, i) => `Mensaje ${String(i + 1).padStart(2, '0')}`,
+    ),
+  );
+  expect(
+    await viewport.evaluate((element) => element.scrollTop),
+  ).toBeGreaterThan(0);
+  await viewport.evaluate(
+    (element) => (element.scrollTop = element.scrollHeight),
+  );
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: info.outputPath(`chat-burbujas-${width}.png`),
+      fullPage: true,
+    });
+  }
+});
+
 test('el dueño ve citas pendientes y confirmadas en Citas y abre Chat con su veterinaria', async ({
   page,
   context,
