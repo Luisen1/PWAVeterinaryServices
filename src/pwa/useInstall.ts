@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { installGuidance } from './install-guidance';
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -17,9 +18,11 @@ export function useInstall() {
   const [prompt, setPrompt] = useState<InstallPromptEvent | null>(null);
   const [prompting, setPrompting] = useState(false);
   const [error, setError] = useState(false);
-  const ios =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const guidance = installGuidance(
+    navigator.userAgent,
+    navigator.platform,
+    navigator.maxTouchPoints,
+  );
 
   useEffect(() => {
     const media = window.matchMedia('(display-mode: standalone)');
@@ -57,5 +60,12 @@ export function useInstall() {
     }
   }
 
-  return { installed, canPrompt: !!prompt, prompting, install, ios, error };
+  return {
+    installed,
+    canPrompt: !!prompt,
+    prompting,
+    install,
+    guidance,
+    error,
+  };
 }
