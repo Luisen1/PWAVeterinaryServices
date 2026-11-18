@@ -8,7 +8,15 @@ import { acquireReloadBlock } from '@/pwa/reload-safety';
 import type { Pet } from '@/features/directory/model';
 import type { Availability, AvailableSlot } from './model';
 import { appointmentError } from './requests-model';
-import { requestAppointment, useRefreshAppointments } from './requests-api';
+import { useRefreshAppointments } from './requests-api';
+import { db } from '@/lib/db';
+import { assertLocalOwner } from '@/features/sync/local-owner';
+import {
+  readRequestDraft,
+  saveRequestDraft,
+  sendRequestDraft,
+  discardRequestDraft,
+} from './request-store';
 import { PolicyNotice } from './AppointmentPolicy';
 import { useAppointmentPolicy } from './policy-api';
 
@@ -28,15 +36,30 @@ export function RequestForm({
   const online = useOnline();
   const policy = useAppointmentPolicy(context.establishment_id);
   const refresh = useRefreshAppointments();
-  const [pet, setPet] = useState('');
+  const [editedPet, setPet] = useState<string | null>(null);
   const helpId = useId();
   const pending = useRef(false);
   const operation = useRef<{ key: string; id: string } | null>(null);
+  const saved = useQuery({
+    queryKey: ['request-draft', owner, context.service_id],
+    networkMode: 'always',
+    queryFn: () => readRequestDraft(owner, context.service_id),
+  });
+  const discard = useMutation({
+    networkMode: 'always',
+    mutationFn: () => discardRequestDraft(owner, context.service_id),
+    onSuccess: () => void saved.refetch(),
+  });
+  const pet = editedPet ?? saved.data?.args.p_pet ?? '';
   const key = `${context.service_id}:${slot?.assignment_id ?? ''}:${slot?.starts_at ?? ''}:${context.modality}:${pet}`;
   const pets = useQuery({
-    queryKey: ['pets', owner],
-    enabled: online,
+    queryKey: ['request-pets', owner, online],
+    networkMode: 'always',
     queryFn: async ({ signal }) => {
+      await assertLocalOwner(owner);
+      if (!online)
+        return ((await db.sync_meta.get(`request-pets:${owner}`))?.value ??
+          []) as unknown as Pet[];
       const { data, error } = await authClient()
         .from('pets')
         .select('*')
@@ -44,26 +67,51 @@ export function RequestForm({
         .order('created_at')
         .abortSignal(signal);
       if (error) throw error;
+      await db.sync_meta.put({
+        key: `request-pets:${owner}`,
+        owner_id: owner,
+        updated_at: new Date().toISOString(),
+        value: JSON.parse(JSON.stringify(data)),
+      });
       return data as Pet[];
     },
   });
   const request = useMutation({
+    networkMode: 'always',
     mutationFn: async (args: { id: string; key: string }) => {
       if (!slot) throw new Error('Selecciona un horario antes de solicitar.');
       if (context.modality === 'Domicilio')
         throw new Error('Modalidad no habilitada');
-      const value = await requestAppointment(owner, {
-        p_id: args.id,
-        p_service: context.service_id,
-        p_assignment: slot.assignment_id,
-        p_start: slot.starts_at,
-        p_pet: pet,
-        p_modality: context.modality,
-        p_hold: holdId,
-      });
+      await saveRequestDraft(
+        owner,
+        {
+          p_id: args.id,
+          p_service: context.service_id,
+          p_assignment: slot.assignment_id,
+          p_start: slot.starts_at,
+          p_pet: pet,
+          p_modality: context.modality,
+          p_hold: holdId,
+        },
+        {
+          service_name: context.service_name,
+          site_name: context.site_name,
+          establishment_id: context.establishment_id,
+          site_id: context.site_id,
+          date: context.date,
+          timezone: context.timezone,
+        },
+      );
+      const value = online
+        ? await sendRequestDraft(owner, context.service_id)
+        : null;
       return { value, key: args.key };
     },
-    onSuccess: () => void refresh(),
+    onSuccess: () => {
+      void refresh();
+      void saved.refetch();
+    },
+    onError: () => void saved.refetch(),
   });
   const result = request.data?.key === key ? request.data.value : null;
   const blockedReason = !online
@@ -160,9 +208,22 @@ export function RequestForm({
         type="button"
         className="button button-primary"
         aria-describedby={helpId}
-        disabled={!!blockedReason || request.isPending || !!result}
+        disabled={
+          (online
+            ? !!blockedReason
+            : !slot || !pet || pets.isPending || pets.isError) ||
+          request.isPending ||
+          !!result
+        }
         onClick={() => {
-          if (pending.current || blockedReason || result) return;
+          if (
+            pending.current ||
+            (online && blockedReason) ||
+            !slot ||
+            !pet ||
+            result
+          )
+            return;
           pending.current = true;
           if (operation.current?.key !== key)
             operation.current = { key, id: crypto.randomUUID() };
@@ -173,7 +234,11 @@ export function RequestForm({
           });
         }}
       >
-        {request.isPending ? 'Enviando solicitud…' : 'Enviar solicitud de cita'}
+        {request.isPending
+          ? 'Guardando y comprobando…'
+          : online
+            ? 'Enviar solicitud de cita'
+            : 'Guardar borrador de solicitud'}
       </button>
       <p id={helpId} className="text-sm">
         {result
@@ -185,6 +250,29 @@ export function RequestForm({
       </p>
       {request.isError && request.variables?.key === key && (
         <Notice error>{appointmentError(request.error)}</Notice>
+      )}
+      {saved.data && (
+        <Notice>
+          <p>
+            Borrador pendiente guardado: {saved.data.service_name} ·{' '}
+            {saved.data.site_name}. No acredita reserva, solicitud recibida ni
+            confirmación. El servidor debe comprobar el envío.
+          </p>
+          {saved.data.error && <p>{saved.data.error}</p>}
+          <Link className="underline" to="/cuenta/pendientes">
+            Revisar pendientes y reintentar con el mismo identificador
+          </Link>
+          <button
+            className={secondaryClass}
+            disabled={request.isPending || discard.isPending}
+            onClick={() => discard.mutate()}
+          >
+            Descartar copia local de la solicitud
+          </button>
+        </Notice>
+      )}
+      {discard.isError && (
+        <Notice error>No pudimos descartar la copia local.</Notice>
       )}
       {result && (
         <div className="space-y-2" role="status">

@@ -1,4 +1,4 @@
-// Conserva únicamente rutas públicas propias. Nunca acepta un destino externo.
+// Conserva rutas propias autorizadas; el centro de pendientes conserva sus guardas privadas.
 export function safeReturnTo(value: string | null) {
   if (!value || value.length > 2000 || /[\\\r\n]/.test(value)) return '/cuenta';
   try {
@@ -6,7 +6,7 @@ export function safeReturnTo(value: string | null) {
     if (
       !value.startsWith('/') ||
       url.origin !== 'https://pwa.invalid' ||
-      !/^\/(explorar|favoritos|citas|establecimientos\/[0-9a-f-]{36}(?:\/como-llegar)?)$/.test(
+      !/^\/(explorar|favoritos|citas|cuenta\/pendientes|establecimientos\/[0-9a-f-]{36}(?:\/como-llegar)?)$/.test(
         url.pathname,
       )
     )
@@ -27,7 +27,7 @@ export function authWithReturn(
 }
 
 const returnKey = 'veterinary.public-return';
-// Solo el destino público, nunca el origen del visitante. Mantiene la URL de
+// Solo el destino permitido, nunca datos privados ni el origen del visitante. Mantiene la URL de
 // confirmación autorizada y permite abrir el correo en otra pestaña del mismo origen.
 export function rememberAuthReturn(value: string | null) {
   try {

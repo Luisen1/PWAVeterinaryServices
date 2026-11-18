@@ -58,6 +58,12 @@ export function AccountMenu({ context }: { context: AccountContext }) {
       icon: 'bell',
     },
     {
+      to: '/cuenta/pendientes',
+      title: 'Pendientes y sincronización',
+      help: 'Borradores, mensajes, archivos y conflictos',
+      icon: 'refresh',
+    },
+    {
       to: '/cuenta/notificaciones',
       title: 'Notificaciones del dispositivo',
       help: 'Activa o desactiva avisos para esta cuenta',

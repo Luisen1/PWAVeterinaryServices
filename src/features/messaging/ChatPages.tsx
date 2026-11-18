@@ -19,7 +19,15 @@ import {
   isRead,
   mergeMessages,
 } from './model';
-import { sendMessage, useConversation } from './api';
+import { useConversation } from './api';
+import {
+  readTextDraft,
+  readConversationContext,
+  rememberConversation,
+  saveTextDraft,
+  sendTextDraft,
+  discardTextDraft,
+} from './text-store';
 import { MediaComposer } from './MediaComposer';
 import { MediaMessage } from './MediaMessage';
 
@@ -228,10 +236,35 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
   const cache = useQueryClient();
   const query = useConversation(owner, id);
   const key = ['chat-history', owner, id];
-  const [text, setText] = useState('');
+  const [editedText, setText] = useState<string | null>(null);
   const [olderAvailable, setOlderAvailable] = useState(true);
-  const operation = useRef<{ body: string; id: string } | null>(null);
   const result = query.isError ? undefined : query.data;
+  const local = useQuery({
+    queryKey: ['text-draft', owner, id],
+    networkMode: 'always',
+    queryFn: () => readTextDraft(owner, id),
+  });
+  const localContext = useQuery({
+    queryKey: ['chat-local-context', owner, id],
+    networkMode: 'always',
+    queryFn: () => readConversationContext(owner, id),
+  });
+  const text = editedText ?? local.data?.body ?? '';
+  const refetchLocalContext = localContext.refetch;
+  const canCompose = online
+    ? !!result && !query.isError
+    : !!result || !!localContext.data;
+  const save = useMutation({
+    networkMode: 'always',
+    mutationFn: (body: string) => saveTextDraft(owner, id, body),
+    onSuccess: (value) => cache.setQueryData(['text-draft', owner, id], value),
+  });
+  useEffect(() => {
+    if (result?.conversation)
+      void rememberConversation(owner, result.conversation)
+        .then(() => refetchLocalContext())
+        .catch(() => {});
+  }, [owner, result?.conversation, refetchLocalContext]);
   const formId = useId();
   const viewport = useRef<HTMLDivElement>(null);
   const nearBottom = useRef(true);
@@ -259,16 +292,26 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
   }, [result, owner]);
 
   const send = useMutation({
+    networkMode: 'always',
     mutationFn: async () => {
-      const body = text.trim();
-      if (operation.current?.body !== body)
-        operation.current = { body, id: crypto.randomUUID() };
-      return sendMessage(owner, operation.current.id, id, body);
+      await saveTextDraft(owner, id, text, true);
+      return online ? sendTextDraft(owner, id) : null;
     },
+    onSuccess: (message) => {
+      if (message) {
+        setText('');
+        void query.refetch();
+      }
+      void local.refetch();
+    },
+    onError: () => void local.refetch(),
+  });
+  const discardText = useMutation({
+    networkMode: 'always',
+    mutationFn: () => discardTextDraft(owner, id),
     onSuccess: () => {
       setText('');
-      operation.current = null;
-      void query.refetch();
+      void local.refetch();
     },
   });
   const read = useMutation({
@@ -496,18 +539,52 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
           {chatError(send.error ?? read.error ?? older.error)}
         </Notice>
       )}
+      {(save.isError || local.isError || discardText.isError) && (
+        <Notice error>
+          No pudimos guardar o leer el texto local. Conserva lo escrito y
+          revalida tu sesión antes de salir.
+        </Notice>
+      )}
+      {local.data && (
+        <div className="p-3 text-sm space-y-2" role="status">
+          <p>
+            {local.data.ready
+              ? 'Mensaje pendiente de confirmar en el servidor.'
+              : 'Borrador de texto guardado en este dispositivo.'}{' '}
+            No se envía automáticamente al reconectar.
+          </p>
+          {local.data.error && <p>{local.data.error}</p>}
+          {local.data.attempted && (
+            <p>
+              El envío pudo haberse guardado. Reintenta con el mismo
+              identificador para comprobarlo; descartar la copia local no retira
+              un mensaje ya enviado.
+            </p>
+          )}
+          <button
+            className={secondaryClass}
+            disabled={send.isPending || discardText.isPending}
+            onClick={() => discardText.mutate()}
+          >
+            Descartar copia local del texto
+          </button>
+          <Link className="ml-3 underline" to="/cuenta/pendientes">
+            Revisar mis pendientes
+          </Link>
+        </div>
+      )}
       <MediaComposer
         owner={owner}
         conversation={id}
-        canCompose={!!result && !query.isError}
+        canCompose={canCompose}
         textInput={
-          result && (
+          canCompose && (
             <form
               id={formId}
               className="chat-text-form"
               onSubmit={(event) => {
                 event.preventDefault();
-                if (!send.isPending && online && text.trim()) send.mutate();
+                if (!send.isPending && text.trim()) send.mutate();
               }}
             >
               <label>
@@ -518,23 +595,28 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
                   maxLength={4000}
                   value={text}
                   placeholder="Escribe un mensaje…"
-                  onChange={(event) => setText(event.target.value)}
-                  disabled={send.isPending}
+                  onChange={(event) => {
+                    setText(event.target.value);
+                    save.mutate(event.target.value);
+                  }}
+                  disabled={send.isPending || !!local.data?.attempted}
                 />
               </label>
             </form>
           )
         }
         sendButton={
-          result && (
+          canCompose && (
             <button
               type="submit"
               form={formId}
               className="chat-icon-button chat-icon-button--primary"
-              aria-label="Enviar mensaje"
-              title="Enviar mensaje"
+              aria-label={
+                online ? 'Enviar mensaje' : 'Guardar mensaje pendiente'
+              }
+              title={online ? 'Enviar mensaje' : 'Guardar mensaje pendiente'}
               aria-busy={send.isPending}
-              disabled={!online || send.isPending || !text.trim()}
+              disabled={send.isPending || !text.trim()}
             >
               <Icon name={send.isPending ? 'refresh' : 'send'} />
             </button>

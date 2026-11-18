@@ -6,6 +6,7 @@ import { InstallApp } from '@/pwa/InstallApp';
 import { UpdatePrompt } from '@/pwa/UpdatePrompt';
 import { Brand } from '@/components/ui/Brand';
 import { useAccountContext } from '@/features/auth/useAccountContext';
+import { PendingReminder } from '@/features/sync/PendingPage';
 
 const publicLinks: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Inicio', icon: 'home' },
@@ -101,6 +102,7 @@ export function Layout() {
         className="app-main focus:outline-none"
       >
         <Outlet />
+        {['/', '/cuenta'].includes(location.pathname) && <PendingReminder />}
         {!authLayout && <InstallApp />}
       </main>
       <footer className="app-footer">

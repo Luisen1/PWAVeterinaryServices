@@ -9,13 +9,14 @@ import {
   type Appointment,
   type AppointmentChange,
 } from './requests-model';
-import { changeAppointment, useRefreshAppointments } from './requests-api';
+import { useRefreshAppointments } from './requests-api';
 import { useAvailability } from './api';
 import { dayInZone, slotLabel } from './model';
 import {
   readChangeDraft,
   removeChangeDraft,
   saveChangeDraft,
+  sendChangeDraft,
 } from './change-store';
 
 export function AppointmentChanges({
@@ -82,8 +83,8 @@ export function AppointmentChanges({
     networkMode: 'always',
     mutationFn: async () => {
       const args = build();
+      await saveChangeDraft(owner, args);
       if (!online) {
-        await saveChangeDraft(owner, args);
         return false;
       }
       if (baseRevision !== a.revision) throw { code: '40001' };
@@ -95,8 +96,7 @@ export function AppointmentChanges({
           code: '23514',
           message: 'Elige un nuevo intervalo disponible.',
         };
-      await changeAppointment(owner, args);
-      await removeChangeDraft(owner, a.id);
+      await sendChangeDraft(owner, a.id);
       return true;
     },
     onSuccess: (sent) => {
