@@ -47,6 +47,7 @@ const paths = {
   stop: 'M7 7h10v10H7V7Z',
   play: 'm8 4 12 8-12 8V4Z',
   pause: 'M7 4v16M17 4v16',
+  bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',
   close: 'm6 6 12 12M6 18 18 6',
   settings: 'M3 7h18M3 17h18M8 4v6m8 4v6',
   list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',

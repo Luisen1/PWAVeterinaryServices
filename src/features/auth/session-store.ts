@@ -1,6 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/app/query-client';
+import { clearForeignPushBindings } from '@/features/notifications/api';
 import {
   offlineIdentity,
   rememberVerifiedSession,
@@ -43,8 +44,12 @@ async function clearQueryCache() {
 async function resolveSession(session: Session | null) {
   const currentRevision = ++revision;
   try {
+    await clearForeignPushBindings(session?.user.id ?? null);
+    if (currentRevision !== revision) return;
     if (!session) {
-      await clearQueryCache();
+      // Initial anonymous startup has no private owner. Preserve public queries already loading.
+      if (owner !== null || state.user !== null || state.offlineUser)
+        await clearQueryCache();
       owner = null;
       if (currentRevision === revision)
         publish({ status: 'anonymous', user: null, error: null });
