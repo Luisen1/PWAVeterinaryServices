@@ -66,8 +66,8 @@ export function CallPanel({
       <p className="text-sm">
         Requiere una cita confirmada y una cuenta asignada al profesional.
         Ventana: desde 10 minutos antes del inicio hasta 15 minutos después del
-        fin. Al entrar autorizas cámara y micrófono; no se graba
-        automáticamente.
+        fin. Puedes elegir solo audio o audio y video; se solicitan los permisos
+        correspondientes. No se graba automáticamente.
       </p>
       {query.data && query.data.professional_id === a.professional_id ? (
         <p className="text-sm">
