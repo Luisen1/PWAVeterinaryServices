@@ -319,11 +319,17 @@ test('un conflicto preserva la nota local y permite elegir la versión del servi
   await expect(page.getByLabel('Mi nota privada')).toHaveValue(
     'Mi borrador conservado',
   );
-  await page.getByRole('button', { name: 'Usar datos del servidor' }).click();
-  await expect(page.getByLabel('Mi nota privada')).toHaveValue(
-    'Nota de otro dispositivo',
-  );
+  await page.goto('/cuenta/pendientes');
+  await page.reload();
   await expect(
-    page.getByText('Conflicto resuelto.', { exact: true }),
+    page.getByText('Tu nota: Mi borrador conservado', { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByText('Nota del servidor (revisión', { exact: false }),
+  ).toContainText('Nota de otro dispositivo');
+  await page.getByRole('button', { name: 'Usar datos del servidor' }).click();
+  await expect(
+    page.getByText('No hay pendientes locales de esta cuenta.'),
+  ).toBeVisible();
+  expect(api.getRemote()?.note).toBe('Nota de otro dispositivo');
 });

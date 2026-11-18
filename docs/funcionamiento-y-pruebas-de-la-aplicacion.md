@@ -20,7 +20,9 @@ La aplicación permite registrar cuentas de dueño o veterinaria, publicar estab
 | Videollamada      | Autorización por cita, cuenta profesional, sala LiveKit, token limitado y cierre                                           | No se declara operativa hasta completar secretos remotos, mantenimiento y prueba de dos equipos                 |
 | PWA               | Instalación, shell offline y actualización confirmada                                                                      | Funcionar offline no permite confirmar citas ni iniciar llamadas sin servidor                                   |
 
-La sincronización general y las HU posteriores siguen pendientes. Los avisos persistidos de citas y mensajes alimentan `/notificaciones`; la entrega push se registra por dispositivo y se distingue de lectura o recepción física. No se envían correos por esta funcionalidad. Ver [HU31–HU33](hu31-hu33.md) para los criterios y las comprobaciones operativas.
+HU34-HU36 añaden descarga completa del directorio y el centro **Cuenta → Pendientes y sincronización** (`/cuenta/pendientes`). Texto y citas conservan datos/operación con ID estable tras recargar; los conflictos de horario/nota se revisan explícitamente. La sincronización funciona en primer plano con sesión revalidada y no envía borradores al reconectar. Ver [recorridos y límites HU34-HU36](hu34-hu36.md).
+
+Los avisos persistidos de citas y mensajes alimentan `/notificaciones`; la entrega push se registra por dispositivo y se distingue de lectura o recepción física. No se envían correos por esta funcionalidad. Ver [HU31–HU33](hu31-hu33.md) para los criterios y las comprobaciones operativas.
 
 ## 2. Arquitectura y conexiones
 
@@ -341,17 +343,20 @@ No es necesario crear agentes de IA ni un servidor propio de videoconferencia pa
 
 ## 7. Qué funciona sin conexión
 
-| Área            | Qué se puede conservar/preparar                                            | Qué exige conexión                                                             |
-| --------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Shell PWA       | Abrir rutas y recursos precargados tras una primera carga completa         | Primera carga y recursos externos no guardados                                 |
-| Perfil/mascotas | Cambios acotados con sesión local vigente y pendientes por cuenta          | Validación y sincronización remotas                                            |
-| Favoritos/notas | Lectura/edición guardada, pendientes y resolución explícita de conflictos  | Confirmar la versión en servidor                                               |
-| Disponibilidad  | Consultas guardadas marcadas como antiguas y borradores privados           | Apartar o enviar una nueva solicitud; la copia no garantiza cupo               |
-| Cambios de cita | Preparar un cambio desde un detalle guardado y guardar el pendiente        | Revalidar y enviar explícitamente; la cita remota sigue vigente mientras tanto |
-| Chat            | Historial que siga en memoria y adjuntos propios guardados como pendientes | Recuperar historial remoto, enviar, descargar o confirmar lectura              |
-| Videollamada    | Ninguna comunicación de medios offline                                     | Autorizar, entrar y mantener la comunicación                                   |
+| Área            | Qué se puede conservar/preparar                                                            | Qué exige conexión                                                             |
+| --------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Shell PWA       | Abrir rutas y recursos precargados tras una primera carga completa                         | Primera carga y recursos externos no guardados                                 |
+| Directorio      | Descarga completa explícita, búsqueda local y fichas/servicios con fecha de actualización  | Descargar/actualizar el conjunto, mapas y archivos externos                    |
+| Perfil/mascotas | Cambios acotados con sesión local vigente y pendientes por cuenta                          | Validación y sincronización remotas                                            |
+| Favoritos/notas | Lectura/edición guardada, pendientes y resolución explícita de conflictos                  | Confirmar la versión en servidor                                               |
+| Disponibilidad  | Consultas antiguas y borradores privados; solicitud con mascota guardada de forma duradera | Apartar o enviar/revalidar una solicitud; el borrador no reserva cupo          |
+| Cambios de cita | Preparar un cambio desde un detalle guardado y guardar el pendiente                        | Revalidar y enviar explícitamente; la cita remota sigue vigente mientras tanto |
+| Chat            | Historial que siga en memoria, texto duradero y adjuntos propios pendientes                | Recuperar historial remoto, enviar, descargar o confirmar lectura              |
+| Videollamada    | Ninguna comunicación de medios offline                                                     | Autorizar, entrar y mantener la comunicación                                   |
 
-IndexedDB no sustituye a Supabase ni contiene una copia completa de la aplicación. El esquema v5 conserva datos anteriores y añade marcadores push e incidencias pendientes. Los datos privados se separan por cuenta y se purgan al cerrar sesión según la decisión sobre pendientes. No se envían automáticamente citas, cambios ni adjuntos solo por recuperar la red. Los reportes operativos de incidencias sí tienen replay acotado al entrar/reconectar, con UUID estable. Activar/desactivar push y desvincularlo al salir requieren confirmación remota.
+IndexedDB no sustituye a Supabase ni contiene una copia completa de la aplicación. El esquema v6 conserva datos anteriores y añade `appointment_request_drafts`; texto, solicitudes y cambios guardan datos y operación en una misma transacción local. Los datos privados se separan por cuenta y se purgan al cerrar sesión según la decisión sobre pendientes. No se envían automáticamente textos, citas, cambios ni adjuntos solo por recuperar la red. Los reportes operativos de incidencias sí tienen replay acotado al entrar/reconectar, con UUID estable. Activar/desactivar push y desvincularlo al salir requieren confirmación remota.
+
+Para probar HU34–HU36, descargar el directorio desde Explorar, desconectar y buscar/abrir una ficha no visitada. Con una sesión comprobada, preparar texto o una solicitud, recargar y abrir **Cuenta → Pendientes y sincronización**. Reintentar conserva el ID; un horario ocupado o una nota modificada requieren revisión explícita. La sincronización funciona con la app abierta; si la sesión venció, acceder con la misma cuenta. Ver [recorrido detallado](hu34-hu36.md#comprobación-funcional).
 
 ## 8. Comprobar las conexiones y diagnosticar fallos
 
@@ -414,6 +419,8 @@ Evidencia registrada; los recuentos corresponden a ejecuciones concretas:
 
 Consultar [docs/verificacion.md](verificacion.md) para fechas, alcance real y limitaciones de cada comprobación.
 
+- Actualización HU34–HU36: **264 pruebas en 30 archivos y 123 E2E completos con `CI=true` aprobados**, sin fallos ni reintentos. Lint, tipos y build real correctos. IndexedDB v6, sin migración SQL nueva ni variables adicionales; contratos remotos de citas/chat comprobados con rollback. Ver [HU34–HU36](hu34-hu36.md).
+
 ### Registro sugerido para una demostración
 
 Anotar entorno/origen, fecha y zona, rol utilizado, recorrido A–H, resultado esperado/obtenido y evidencia sin secretos. Para la llamada, registrar dos equipos, recepción de ambos medios y cierre remoto. Usar datos de prueba y evitar capturas con pacientes o credenciales reales.
@@ -430,6 +437,7 @@ Anotar entorno/origen, fecha y zona, rol utilizado, recorrido A–H, resultado e
 | [HU19–HU21](hu19-hu21.md)                                       | Solicitudes, decisiones y eventos de cita                   |
 | [HU22–HU24](hu22-hu24.md)                                       | Cambios, agenda, permisos y chat                            |
 | [HU25–HU27](hu25-hu27.md)                                       | Archivos privados y activación pendiente de llamadas        |
+| [HU34–HU36](hu34-hu36.md)                                       | Directorio offline, datos duraderos y centro de pendientes  |
 | [.env.example](../.env.example)                                 | Nombres de variables sin valores privados                   |
 | [scripts/supabase-secrets.mjs](../scripts/supabase-secrets.mjs) | Validación y carga filtrada de configuración de backend     |
 

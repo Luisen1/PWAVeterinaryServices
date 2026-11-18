@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { authClient } from '@/features/auth/api';
 import { useOnline } from '@/pwa/useOnline';
@@ -14,6 +14,7 @@ export function MediaImage({
   alt: string;
 }) {
   const online = useOnline();
+  const [failed, setFailed] = useState<string | null>(null);
   const image = useQuery({
     queryKey: ['media', path],
     enabled: !!path && online,
@@ -30,13 +31,14 @@ export function MediaImage({
   });
   return (
     <div className="space-y-1">
-      {image.data ? (
+      {online && image.data && failed !== image.data ? (
         <img
           src={image.data}
           alt={alt}
           className="media-image"
           width={96}
           height={96}
+          onError={() => setFailed(image.data!)}
         />
       ) : (
         <div
@@ -47,7 +49,7 @@ export function MediaImage({
           <Icon name="store" />
         </div>
       )}
-      {image.isError && (
+      {(image.isError || !!failed || (!online && !!path)) && (
         <span className="text-xs text-amber-900">Imagen no disponible</span>
       )}
     </div>

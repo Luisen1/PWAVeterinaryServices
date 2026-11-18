@@ -780,7 +780,7 @@ test('HU24 conversa entre dos cuentas, confirma lectura y recupera mensajes al r
     ).toBeVisible();
     await customer.setOffline(true);
     await expect(
-      page.getByText('Sin conexión: mensajes guardados solo en memoria.', {
+      page.getByText('Sin conexión: el historial solo permanece en memoria.', {
         exact: false,
       }),
     ).toBeVisible();
@@ -856,6 +856,85 @@ test('HU24 rechaza un identificador ajeno sin mostrar historial ni formulario', 
   await page.goto('/mensajes/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
   await expect(page.getByRole('alert')).toContainText('No tienes acceso');
   await expect(page.getByLabel('Mensaje de texto')).toHaveCount(0);
+});
+
+test('HU35 conserva texto privado al reabrir offline y nunca lo envía por reconectar', async ({
+  page,
+  context,
+}) => {
+  await context.addInitScript(() => {
+    Object.defineProperty(window, 'SyncManager', { value: undefined });
+  });
+  const api = server();
+  await api.setup(context);
+  await login(page);
+  await page.goto(`/mensajes/${conversation}`);
+  await page.getByLabel('Mensaje de texto').fill('Borrador privado duradero');
+  await expect(
+    page.getByText('Borrador de texto guardado en este dispositivo.', {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByLabel('Mensaje de texto')).toHaveValue(
+    'Borrador privado duradero',
+  );
+  await page
+    .getByRole('button', { name: 'Guardar mensaje pendiente', exact: true })
+    .click();
+  await expect(
+    page.getByText('Mensaje pendiente de confirmar en el servidor.', {
+      exact: false,
+    }),
+  ).toBeVisible();
+  expect(api.sendIds).toHaveLength(0);
+  await context.setOffline(false);
+  await page.goto('/cuenta/pendientes');
+  await page.reload();
+  await expect(
+    page.getByText('Borrador privado duradero', { exact: true }),
+  ).toBeVisible();
+  expect(api.sendIds).toHaveLength(0);
+  await page
+    .getByRole('button', {
+      name: 'Sincronizar perfil, favoritos y mensajes autorizados',
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByText('No hay pendientes locales de esta cuenta.'),
+  ).toBeVisible();
+  expect(api.sendIds).toHaveLength(1);
+});
+test('HU36 reintenta texto desde pendientes tras perder respuesta y recargar sin duplicarlo', async ({
+  page,
+  context,
+}) => {
+  const api = server();
+  await api.setup(context);
+  await login(page);
+  await page.goto(`/mensajes/${conversation}`);
+  api.lose();
+  await page.getByLabel('Mensaje de texto').fill('Reintento duradero');
+  await page
+    .getByRole('button', { name: 'Enviar mensaje', exact: true })
+    .click();
+  await expect(page.getByRole('alert')).toContainText('Conservamos el texto');
+  await page.goto('/cuenta/pendientes');
+  await page.reload();
+  await expect(
+    page.getByText('Reintento duradero', { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Reintentar mensaje autorizado', exact: true })
+    .click();
+  await expect(
+    page.getByText('No hay pendientes locales de esta cuenta.'),
+  ).toBeVisible();
+  expect(api.sendIds).toHaveLength(2);
+  expect(new Set(api.sendIds).size).toBe(1);
+  expect(api.messages).toHaveLength(1);
 });
 test('HU24 inicia o recupera la conversación de la sede elegida', async ({
   page,

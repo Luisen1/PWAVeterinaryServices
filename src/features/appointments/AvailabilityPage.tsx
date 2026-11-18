@@ -273,7 +273,7 @@ function Slots({
   const [message, setMessage] = useState('');
   const requestPanel = useRef<HTMLDivElement>(null);
   const availability = query.data?.value;
-  const cached = query.data?.fromCache ?? !online;
+  const cached = !online || query.isPlaceholderData || !!query.data?.fromCache;
   useEffect(() => {
     if (selected) requestPanel.current?.scrollIntoView({ block: 'start' });
   }, [selected]);

@@ -2,7 +2,9 @@
 
 HU24 implementa chat privado de texto entre cuenta y equipo de una sede. `model.ts` valida conversaciones/mensajes y une por ID con cursores bigint como cadenas. `api.ts` integra Postgres Changes, recibos y recuperación HTTP; `ChatPages.tsx` ofrece inicio, bandejas y conversación.
 
-El responsable o permiso explícito `messages` da acceso al equipo; otros permisos no lo conceden. Persistir precede a «Enviado» y el botón de lectura confirma «Leído». El servidor deriva autor/lado/hora y valida cada acción; RLS también protege Realtime. Texto en memoria mientras se edita y guardado remoto al enviar, sin envío offline automático ni historial público/IndexedDB.
+El responsable o permiso explícito `messages` da acceso al equipo; otros permisos no lo conceden. Persistir precede a «Enviado» y el botón de lectura confirma «Leído». El servidor deriva autor/lado/hora y valida cada acción; RLS también protege Realtime. El historial recibido permanece en memoria. HU35 guarda texto pendiente y operación en una transacción local, con ID estable; un contexto mínimo de conversación permite recuperar su editor tras recargar offline, sin copiar el historial remoto a IndexedDB.
+
+`text-store.ts` distingue borrador editable e intención de envío autorizada. Escribir conserva el borrador; guardar pendiente/enviar autoriza su posterior reintento explícito. Un intento incierto mantiene cuerpo/ID y bloquea su sustitución hasta reintentar o descartar la copia local. No hay envío automático al reconectar. El centro de [pendientes HU35-HU36](../../../docs/hu34-hu36.md) permite recuperar, reintentar o descartar por cuenta con sesión local comprobada; enviar revalida permisos en servidor.
 
 Rutas: `/mensajes`, `/mensajes/nuevo`, `/mensajes/:id`, `/oferentes/mensajes`. Entrada desde ficha conserva la sede durante acceso/registro. Ver [HU22-HU24](../../../docs/hu22-hu24.md).
 

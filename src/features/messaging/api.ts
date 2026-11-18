@@ -97,7 +97,7 @@ export function useConversation(owner: string, id: string) {
     ...query,
     connection: online
       ? connection
-      : 'Sin conexión: mensajes guardados solo en memoria. No puedes enviar ni confirmar lecturas.',
+      : 'Sin conexión: el historial solo permanece en memoria. Puedes conservar texto pendiente en este dispositivo; enviar y confirmar lecturas requiere conexión.',
   };
 }
 export async function sendMessage(

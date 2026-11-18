@@ -704,11 +704,85 @@ test('sin conexión no envía solicitudes y un detalle ajeno explica el acceso d
   const api = await setup(context);
   await choose(page);
   await context.setOffline(true);
+  await expect(page.getByLabel('Mascota para la cita')).toHaveValue(pet);
   await expect(
-    page.getByRole('button', { name: 'Enviar solicitud de cita' }),
-  ).toBeDisabled();
+    page.getByRole('button', { name: 'Guardar borrador de solicitud' }),
+  ).toBeEnabled();
+  await page
+    .getByRole('button', { name: 'Guardar borrador de solicitud' })
+    .click();
+  await expect(
+    page.getByText('Borrador pendiente guardado:', { exact: false }),
+  ).toBeVisible();
   expect(api.requests).toHaveLength(0);
   await context.setOffline(false);
   await page.goto('/citas/solicitudes/dddddddd-dddd-4ddd-8ddd-dddddddddddd');
   await expect(page.getByRole('alert')).toContainText('No tienes acceso');
+});
+
+test('HU35-HU36 recupera una solicitud tras respuesta perdida y recarga sin duplicar el ID', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context, { lostResponse: true });
+  await choose(page);
+  await page
+    .getByRole('button', { name: 'Enviar solicitud de cita', exact: true })
+    .click();
+  await expect(
+    page.getByText('Borrador pendiente guardado:', { exact: false }),
+  ).toBeVisible();
+  await page.goto('/cuenta/pendientes');
+  await page.reload();
+  await expect(
+    page.getByRole('heading', {
+      name: 'Borrador pendiente de solicitud · Consulta general',
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Revalidar y enviar solicitud guardada' })
+    .click();
+  await expect(
+    page.getByText('No hay pendientes locales de esta cuenta.'),
+  ).toBeVisible();
+  expect(api.requests).toHaveLength(2);
+  expect(new Set(api.requests).size).toBe(1);
+});
+test('HU36 conserva la cita ocupada en pendientes y permite revisar y reintentar explícitamente', async ({
+  page,
+  context,
+}, info) => {
+  const api = await setup(context, { conflict: true });
+  await choose(page);
+  await page
+    .getByRole('button', { name: 'Enviar solicitud de cita', exact: true })
+    .click();
+  await expect(page.getByRole('alert')).toContainText('El horario se ocupó');
+  await page.goto('/cuenta/pendientes');
+  await page.reload();
+  await expect(
+    page.getByText(
+      'Conflicto: revisa el horario antes de intentar otro envío.',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 850 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: info.outputPath('pendientes-conflicto-320.png'),
+    fullPage: true,
+  });
+  api.unblock();
+  await page
+    .getByRole('button', { name: 'Revalidar y enviar solicitud guardada' })
+    .click();
+  await expect(
+    page.getByText('No hay pendientes locales de esta cuenta.'),
+  ).toBeVisible();
+  expect(new Set(api.requests).size).toBe(1);
 });

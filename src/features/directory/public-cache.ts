@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { directoryBundleValue } from './offline-directory';
 
 export interface PublicResult<T> {
   value: T;
@@ -22,9 +23,9 @@ export async function publicResult<T>(
       }
       return { value, fromCache: false, savedAt };
     } catch (error) {
-      const snapshot = await db.public_snapshots
-        .get(key)
-        .catch(() => undefined);
+      const snapshot =
+        (await directoryBundleValue(key).catch(() => undefined)) ??
+        (await db.public_snapshots.get(key).catch(() => undefined));
       if (!snapshot) throw error;
       return {
         value: snapshot.data as T,
@@ -33,7 +34,9 @@ export async function publicResult<T>(
       };
     }
   }
-  const snapshot = await db.public_snapshots.get(key).catch(() => undefined);
+  const snapshot =
+    (await directoryBundleValue(key).catch(() => undefined)) ??
+    (await db.public_snapshots.get(key).catch(() => undefined));
   return {
     value: snapshot ? (snapshot.data as T) : empty,
     fromCache: true,

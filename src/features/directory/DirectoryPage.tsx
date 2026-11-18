@@ -15,6 +15,7 @@ import { advancedKeys } from './discovery';
 import { OpeningBadge } from './OpeningBadge';
 import { useNow } from './useNow';
 import { FavoriteButton } from '@/features/preferences/PreferenceControls';
+import { OfflineDirectoryControls } from './OfflineDirectoryControls';
 
 export function DirectoryPage() {
   const online = useOnline();
@@ -261,6 +262,7 @@ export function DirectoryPage() {
           teléfono.
         </Notice>
       )}
+      <OfflineDirectoryControls />
       {openNow && !trustedHours && (
         <Notice>
           Abierto ahora necesita una consulta reciente con conexión. No podemos
