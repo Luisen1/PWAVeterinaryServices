@@ -1,4 +1,6 @@
 const messages: Record<string, string> = {
+  push_unlink_required:
+    'Recupera la conexión y revalida la sesión para desvincular las notificaciones antes de cerrar sesión. Tus datos se conservan.',
   invalid_credentials: 'El correo o la contraseña son incorrectos.',
   email_not_confirmed:
     'Confirma tu correo antes de iniciar sesión. Revisa tu bandeja de entrada.',

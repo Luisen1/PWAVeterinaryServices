@@ -12,6 +12,49 @@ afterEach(async () => {
 });
 
 describe('base local', () => {
+  it('actualiza v4 a v5 sin perder cambios de cita ni adjuntos', async () => {
+    const legacy = new Dexie(db.name);
+    legacy
+      .version(4)
+      .stores(
+        Object.fromEntries(
+          db.tables
+            .filter((t) => !['push_bindings', 'call_failures'].includes(t.name))
+            .map((t) => [
+              t.name,
+              [
+                t.schema.primKey.src,
+                ...t.schema.indexes.map((i) => i.src),
+              ].join(','),
+            ]),
+        ),
+      );
+    await legacy.open();
+    await legacy.table('appointment_change_drafts').put({
+      id: 'cambio-previo',
+      owner_id: 'owner-a',
+      updated_at: '2026-11-17',
+      data: { reason: 'Conservar' },
+    });
+    await legacy.table('pending_attachments').put({
+      id: 'foto-previa',
+      owner_id: 'owner-a',
+      entity_id: 'chat',
+      updated_at: '2026-11-17',
+      data: null,
+      file: new Blob(['image-fixture']),
+    });
+    legacy.close();
+    await db.open();
+    expect(
+      await db.appointment_change_drafts.get('cambio-previo'),
+    ).toMatchObject({ data: { reason: 'Conservar' } });
+    expect((await db.pending_attachments.get('foto-previa'))?.file.size).toBe(
+      13,
+    );
+    expect(await db.push_bindings.count()).toBe(0);
+    expect(await db.call_failures.count()).toBe(0);
+  });
   it('actualiza v3 poblada a v4 conservando borradores y operaciones', async () => {
     const legacy = new Dexie(db.name);
     legacy
@@ -19,7 +62,14 @@ describe('base local', () => {
       .stores(
         Object.fromEntries(
           db.tables
-            .filter((t) => t.name !== 'appointment_change_drafts')
+            .filter(
+              (t) =>
+                ![
+                  'appointment_change_drafts',
+                  'push_bindings',
+                  'call_failures',
+                ].includes(t.name),
+            )
             .map((t) => [
               t.name,
               [
@@ -60,6 +110,8 @@ describe('base local', () => {
       'public_snapshots',
       'availability_drafts',
       'appointment_change_drafts',
+      'push_bindings',
+      'call_failures',
     ];
     legacy
       .version(1)
@@ -107,8 +159,8 @@ describe('base local', () => {
     };
     await putLocalRecord(db.catalog, record);
     expect(await getLocalRecord(db.catalog, record.id)).toEqual(record);
-    expect(db.verno).toBe(4);
-    expect(db.tables).toHaveLength(15);
+    expect(db.verno).toBe(5);
+    expect(db.tables).toHaveLength(17);
   });
 
   it('purga una cuenta y conserva otra cuenta y los datos públicos', async () => {
@@ -147,6 +199,18 @@ describe('base local', () => {
       for (const record of records) await table.put(record);
     }
     for (const owner_id of ['owner-a', 'owner-b']) {
+      await db.push_bindings.put({
+        device_id: owner_id,
+        owner_id,
+        state: 'active',
+      });
+      await db.call_failures.put({
+        id: owner_id,
+        owner_id,
+        appointment_id: 'appointment',
+        kind: 'connection_failed',
+        created_at: updated_at,
+      });
       await db.outbox.put({
         operation_id: crypto.randomUUID(),
         owner_id,
@@ -168,12 +232,24 @@ describe('base local', () => {
       });
     }
     await purgePrivateLocalData('owner-a');
-    for (const table of [...privateTables, db.outbox, db.sync_meta]) {
+    for (const table of [
+      ...privateTables,
+      db.outbox,
+      db.sync_meta,
+      db.push_bindings,
+      db.call_failures,
+    ]) {
       expect(await table.where('owner_id').equals('owner-a').count()).toBe(0);
       expect(await table.where('owner_id').equals('owner-b').count()).toBe(1);
     }
     await purgePrivateLocalData();
-    for (const table of [...privateTables, db.outbox, db.sync_meta])
+    for (const table of [
+      ...privateTables,
+      db.outbox,
+      db.sync_meta,
+      db.push_bindings,
+      db.call_failures,
+    ])
       expect(await table.count()).toBe(0);
     expect(await db.catalog.count()).toBe(1);
   });

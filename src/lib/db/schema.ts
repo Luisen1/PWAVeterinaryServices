@@ -55,6 +55,23 @@ export interface SyncMetaRecord {
   value: JsonValue;
 }
 
+export interface PushBinding {
+  device_id: string;
+  owner_id: string;
+  state: 'pending' | 'active';
+}
+export interface CallFailureDraft {
+  id: string;
+  owner_id: string;
+  appointment_id: string;
+  kind:
+    | 'connection_failed'
+    | 'reconnection_timeout'
+    | 'authorization_lost'
+    | 'device_failed';
+  created_at: string;
+}
+
 export interface PreferenceRecord {
   id: string;
   owner_id: string;
