@@ -5,6 +5,7 @@ import { OFFERING_ESTABLISHMENT, OFFERING_SITE } from './offerings-fixture';
 import sharp from 'sharp';
 import { validateMedia } from '../../supabase/functions/_shared/media-validator';
 import { mockDirectoryApi } from './directory-fixture';
+import { readFile } from 'node:fs/promises';
 test.use({
   launchOptions: {
     args: [
@@ -282,6 +283,7 @@ function server() {
   return {
     setup,
     messages,
+    files,
     sendIds,
     cursors,
     uploadIds,
@@ -609,7 +611,7 @@ test('el centro abre Chat desde una cita y envía texto, fotografía y voz al cl
     .click();
   await expect(
     page.getByLabel('Escuchar nota de voz antes de enviar'),
-  ).toBeVisible();
+  ).toBeAttached();
   await page
     .getByRole('button', { name: 'Guardar archivo pendiente', exact: true })
     .click();
@@ -646,8 +648,10 @@ test('el centro abre Chat desde una cita y envía texto, fotografía y voz al cl
       .getByRole('button', { name: 'Cargar nota de voz', exact: true })
       .click();
     const audio = recipient.getByLabel('Reproducir nota de voz recibida');
-    await expect(audio).toBeVisible();
-    await audio.evaluate((element: HTMLAudioElement) => element.play());
+    await expect(audio).toBeAttached();
+    await recipient
+      .getByRole('button', { name: 'Reproducir nota de voz', exact: true })
+      .click();
     await expect
       .poll(() =>
         audio.evaluate((element: HTMLAudioElement) => element.currentTime),
@@ -1001,6 +1005,214 @@ test('HU25 captura con cámara y libera las pistas; ante denegación ofrece arch
   ).toBeEnabled();
   await expect(page.getByLabel('Mensaje de texto')).toBeEnabled();
 });
+test('las notas de voz tienen controles reales, onda, búsqueda y tamaño adaptable', async ({
+  page,
+  context,
+}, info) => {
+  const api = server();
+  for (const [index, extension] of ['webm', 'ogg', 'm4a'].entries()) {
+    const bytes = new Uint8Array(
+      await readFile(`tests/fixtures/note.${extension}`),
+    );
+    const media = await validateMedia(bytes, 'audio');
+    const id = crypto.randomUUID();
+    api.files.set(id, bytes);
+    api.messages.push({
+      id,
+      seq: String(index + 1),
+      conversation_id: conversation,
+      author_id: index === 1 ? TEST_USER_ID : team,
+      author_side: index === 1 ? 'customer' : 'team',
+      body: '',
+      created_at: new Date().toISOString(),
+      media: { ...media, id },
+    });
+  }
+  await api.setup(context);
+  await login(page);
+  await page.goto(`/mensajes/${conversation}`);
+  const bubbles = page.locator('.chat-bubble--voice');
+  await expect(bubbles).toHaveCount(3);
+  // Private files remain on demand, rather than downloaded with history.
+  await expect(page.locator('audio')).toHaveCount(0);
+  for (let index = 0; index < 3; index++) {
+    const bubble = bubbles.nth(index);
+    await bubble
+      .getByRole('button', { name: 'Cargar nota de voz', exact: true })
+      .click();
+    const audio = bubble.locator('audio');
+    await expect(audio).toBeAttached();
+    await expect(bubble.getByRole('slider')).toBeEnabled();
+    await bubble
+      .getByRole('button', { name: 'Reproducir nota de voz', exact: true })
+      .click();
+    await expect
+      .poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime))
+      .toBeGreaterThan(0);
+    await bubble
+      .getByRole('button', { name: 'Pausar nota de voz', exact: true })
+      .click();
+    expect(await audio.evaluate((el: HTMLAudioElement) => el.paused)).toBe(
+      true,
+    );
+    const seek = bubble.getByRole('slider', {
+      name: 'Posición de la nota de voz',
+    });
+    await seek.focus();
+    await seek.press('Home');
+    await seek.press('ArrowRight');
+    await expect
+      .poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime))
+      .toBeGreaterThan(0);
+    // Wave shape comes from the actual bytes, not a random animation.
+    await expect
+      .poll(() =>
+        bubble
+          .locator('.voice-note-wave rect')
+          .evaluateAll(
+            (bars) =>
+              new Set(bars.map((bar) => bar.getAttribute('height'))).size,
+          ),
+      )
+      .toBeGreaterThan(1);
+  }
+  const first = bubbles.nth(0),
+    second = bubbles.nth(1);
+  await first
+    .getByRole('button', { name: 'Reproducir nota de voz', exact: true })
+    .click();
+  await second
+    .getByRole('button', { name: 'Reproducir nota de voz', exact: true })
+    .click();
+  await expect(
+    first.getByRole('button', { name: 'Reproducir nota de voz', exact: true }),
+  ).toBeVisible();
+  expect(
+    await first.locator('audio').evaluate((el: HTMLAudioElement) => el.paused),
+  ).toBe(true);
+  await expect(
+    second.getByRole('button', { name: 'Reproducir nota de voz', exact: true }),
+  ).toBeVisible({ timeout: 10_000 });
+  // Ended playback can be started again from the beginning.
+  await second
+    .getByRole('button', { name: 'Reproducir nota de voz', exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      second
+        .locator('audio')
+        .evaluate((el: HTMLAudioElement) => !el.paused && !el.ended),
+    )
+    .toBe(true);
+  await second
+    .getByRole('button', { name: 'Pausar nota de voz', exact: true })
+    .click();
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await first.scrollIntoViewIfNeeded();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    for (const bubble of await bubbles.all()) {
+      const box = await bubble.boundingBox();
+      const track = await bubble.getByRole('slider').boundingBox();
+      expect(box!.width).toBeGreaterThan(180);
+      expect(track!.width).toBeGreaterThan(65);
+      expect(track!.x + track!.width).toBeLessThanOrEqual(box!.x + box!.width);
+    }
+    await page.screenshot({
+      path: info.outputPath(`notas-voz-${width}.png`),
+      fullPage: true,
+    });
+  }
+});
+
+test('la nota permite reintentar reproducción sin onda y libera el audio al salir', async ({
+  page,
+  context,
+}) => {
+  const api = server();
+  const bytes = new Uint8Array(await readFile('tests/fixtures/note.webm'));
+  const media = await validateMedia(bytes, 'audio');
+  const id = crypto.randomUUID();
+  api.files.set(id, bytes);
+  api.messages.push({
+    id,
+    seq: '1',
+    conversation_id: conversation,
+    author_id: team,
+    author_side: 'team',
+    body: '',
+    created_at: new Date().toISOString(),
+    media: { ...media, id },
+  });
+  await context.addInitScript(() => {
+    OfflineAudioContext.prototype.decodeAudioData = () =>
+      Promise.reject(new Error('Codec de análisis no disponible'));
+    const play = HTMLMediaElement.prototype.play;
+    let rejectOnce = true;
+    HTMLMediaElement.prototype.play = function () {
+      if (rejectOnce) {
+        rejectOnce = false;
+        return Promise.reject(
+          new DOMException('Permiso pendiente', 'NotAllowedError'),
+        );
+      }
+      return play.call(this);
+    };
+  });
+  await api.setup(context);
+  await login(page);
+  await page.goto(`/mensajes/${conversation}`);
+  await page
+    .getByRole('button', { name: 'Cargar nota de voz', exact: true })
+    .click();
+  const audio = page.locator('audio[data-voice-note]');
+  await expect(page.getByRole('slider')).toBeEnabled();
+  await page
+    .getByRole('button', { name: 'Reproducir nota de voz', exact: true })
+    .click();
+  await expect(page.getByRole('alert')).toContainText(
+    'No pudimos reproducir el audio',
+  );
+  await page
+    .getByRole('button', { name: 'Reproducir nota de voz', exact: true })
+    .click();
+  await expect
+    .poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime))
+    .toBeGreaterThan(0);
+  await expect(
+    page.getByText('No pudimos reproducir el audio', { exact: false }),
+  ).toHaveCount(0);
+  const handle = await audio.elementHandle();
+  const source = await audio.getAttribute('src');
+  await page
+    .getByRole('link', { name: 'Mis conversaciones', exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/mensajes$/);
+  await expect(audio).toHaveCount(0);
+  await expect
+    .poll(() =>
+      handle!.evaluate(
+        (el: HTMLAudioElement) => el.paused && !el.hasAttribute('src'),
+      ),
+    )
+    .toBe(true);
+  // The blob URL must no longer resolve after unmount.
+  expect(
+    await page.evaluate(async (url) => {
+      try {
+        await fetch(url!);
+        return false;
+      } catch {
+        return true;
+      }
+    }, source),
+  ).toBe(true);
+});
+
 test('HU26 graba audio real del navegador, permite escucharlo y reintenta tras corte sin duplicarlo', async ({
   page,
   context,
@@ -1017,7 +1229,7 @@ test('HU26 graba audio real del navegador, permite escucharlo y reintenta tras c
     .getByRole('button', { name: 'Detener grabación', exact: true })
     .click();
   const preview = page.getByLabel('Escuchar nota de voz antes de enviar');
-  await expect(preview).toBeVisible();
+  await expect(preview).toBeAttached();
   await expect
     .poll(() =>
       preview.evaluate(
@@ -1026,7 +1238,9 @@ test('HU26 graba audio real del navegador, permite escucharlo y reintenta tras c
       ),
     )
     .toBe(true);
-  await preview.evaluate((element: HTMLAudioElement) => element.play());
+  await page
+    .getByRole('button', { name: 'Reproducir nota de voz', exact: true })
+    .click();
   await expect
     .poll(() =>
       preview.evaluate((element: HTMLAudioElement) => element.currentTime),
@@ -1065,8 +1279,10 @@ test('HU26 graba audio real del navegador, permite escucharlo y reintenta tras c
     .getByRole('button', { name: 'Cargar nota de voz', exact: true })
     .click();
   const received = page.getByLabel('Reproducir nota de voz recibida');
-  await expect(received).toBeVisible();
-  await received.evaluate((element: HTMLAudioElement) => element.play());
+  await expect(received).toBeAttached();
+  await page
+    .getByRole('button', { name: 'Reproducir nota de voz', exact: true })
+    .click();
   await expect
     .poll(() =>
       received.evaluate((element: HTMLAudioElement) => element.currentTime),
@@ -1089,7 +1305,7 @@ test('HU26 detiene la grabación al límite y permite descartar sin enviar', asy
   await page.clock.fastForward(58000);
   await expect(
     page.getByLabel('Escuchar nota de voz antes de enviar'),
-  ).toBeVisible();
+  ).toBeAttached();
   await page
     .getByRole('button', { name: 'Descartar selección', exact: true })
     .click();

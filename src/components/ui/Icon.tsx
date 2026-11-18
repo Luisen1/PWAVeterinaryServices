@@ -45,6 +45,8 @@ const paths = {
     'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0V5Zm-4 6v1a7 7 0 0 0 14 0v-1M12 19v3m-4 0h8',
   send: 'm3 3 19 9-19 9 4-9-4-9Zm4 9h15',
   stop: 'M7 7h10v10H7V7Z',
+  play: 'm8 4 12 8-12 8V4Z',
+  pause: 'M7 4v16M17 4v16',
   close: 'm6 6 12 12M6 18 18 6',
   settings: 'M3 7h18M3 17h18M8 4v6m8 4v6',
   list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
