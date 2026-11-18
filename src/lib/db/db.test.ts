@@ -12,6 +12,44 @@ afterEach(async () => {
 });
 
 describe('base local', () => {
+  it('actualiza v5 a v6 conservando mensajes y datos públicos', async () => {
+    const legacy = new Dexie(db.name);
+    legacy
+      .version(5)
+      .stores(
+        Object.fromEntries(
+          db.tables
+            .filter((t) => t.name !== 'appointment_request_drafts')
+            .map((t) => [
+              t.name,
+              [
+                t.schema.primKey.src,
+                ...t.schema.indexes.map((i) => i.src),
+              ].join(','),
+            ]),
+        ),
+      );
+    await legacy.open();
+    await legacy.table('message_drafts').put({
+      id: 'mensaje-anterior',
+      owner_id: 'owner-a',
+      updated_at: '2026-11-18',
+      data: { body: 'Conservar texto' },
+    });
+    await legacy
+      .table('public_snapshots')
+      .put({ key: 'publications', saved_at: '2026-11-18', data: [] });
+    legacy.close();
+    await db.open();
+    expect((await db.message_drafts.get('mensaje-anterior'))?.data).toEqual({
+      body: 'Conservar texto',
+    });
+    expect(await db.public_snapshots.get('publications')).toMatchObject({
+      data: [],
+    });
+    expect(await db.appointment_request_drafts.count()).toBe(0);
+    expect(db.verno).toBe(6);
+  });
   it('actualiza v4 a v5 sin perder cambios de cita ni adjuntos', async () => {
     const legacy = new Dexie(db.name);
     legacy
@@ -159,8 +197,8 @@ describe('base local', () => {
     };
     await putLocalRecord(db.catalog, record);
     expect(await getLocalRecord(db.catalog, record.id)).toEqual(record);
-    expect(db.verno).toBe(5);
-    expect(db.tables).toHaveLength(17);
+    expect(db.verno).toBe(6);
+    expect(db.tables).toHaveLength(18);
   });
 
   it('purga una cuenta y conserva otra cuenta y los datos públicos', async () => {
@@ -174,6 +212,7 @@ describe('base local', () => {
       db.message_drafts,
       db.appointment_change_drafts,
       db.pending_attachments,
+      db.appointment_request_drafts,
     ];
     for (const table of privateTables) {
       const records = [

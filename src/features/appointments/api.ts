@@ -6,7 +6,10 @@ import { offlineIdentity } from '@/features/auth/offline-session';
 import { withAccountWriteLock } from '@/features/sync/account-write-lock';
 import { db } from '@/lib/db';
 import { useOnline } from '@/pwa/useOnline';
-import { publicResult } from '@/features/directory/public-cache';
+import {
+  publicResult,
+  type PublicResult,
+} from '@/features/directory/public-cache';
 import {
   availabilitySchema,
   daySchema,
@@ -22,8 +25,14 @@ export function useAvailability(
   professional: string,
 ) {
   const online = useOnline();
-  return useQuery({
+  return useQuery<PublicResult<Availability | null>>({
     queryKey: ['service-availability', service, date, professional, online],
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === service &&
+      previousQuery.queryKey[2] === date &&
+      previousQuery.queryKey[3] === professional
+        ? previous
+        : undefined,
     enabled: !!service && daySchema.safeParse(date).success,
     networkMode: 'always',
     retry: false,
@@ -155,28 +164,52 @@ export async function saveAvailabilityDraft(
     throw new Error('El intervalo no pertenece a esta consulta.');
   return withAccountWriteLock(owner, async () => {
     await assertDraftOwner(owner);
-    await db.availability_drafts.put({
-      id: `${owner}:${context.service_id}`,
-      owner_id: owner,
-      establishment_id: context.establishment_id,
-      service_id: context.service_id,
-      site_id: context.site_id,
-      service_name: context.service_name,
-      site_name: context.site_name,
-      date: context.date,
-      slot: selection,
-      calculated_at: context.calculated_at,
-      updated_at: new Date().toISOString(),
+    await db.transaction('rw', db.availability_drafts, db.outbox, async () => {
+      const id = `${owner}:${context.service_id}`;
+      const previous = await db.availability_drafts.get(id);
+      const operation_id = previous?.operation_id ?? crypto.randomUUID();
+      await db.availability_drafts.put({
+        operation_id,
+        id: `${owner}:${context.service_id}`,
+        owner_id: owner,
+        establishment_id: context.establishment_id,
+        service_id: context.service_id,
+        site_id: context.site_id,
+        service_name: context.service_name,
+        site_name: context.site_name,
+        date: context.date,
+        slot: selection,
+        calculated_at: context.calculated_at,
+        updated_at: new Date().toISOString(),
+      });
+      await db.outbox.put({
+        operation_id,
+        owner_id: owner,
+        entity_id: context.service_id,
+        action: 'availability.draft',
+        payload: { draft_id: id },
+        base_version: null,
+        created_at: new Date().toISOString(),
+        attempts: 0,
+        next_retry_at: null,
+        status: 'pending',
+        last_error: null,
+      });
     });
   });
 }
 export async function removeAvailabilityDraft(owner: string, id: string) {
   return withAccountWriteLock(owner, async () => {
     await assertDraftOwner(owner);
-    await db.availability_drafts
-      .where('owner_id')
-      .equals(owner)
-      .and((d) => d.id === id)
-      .delete();
+    await db.transaction('rw', db.availability_drafts, db.outbox, async () => {
+      const draft = await db.availability_drafts.get(id);
+      if (draft?.owner_id !== owner) return;
+      if (draft.operation_id) await db.outbox.delete(draft.operation_id);
+      await db.availability_drafts
+        .where('owner_id')
+        .equals(owner)
+        .and((d) => d.id === id)
+        .delete();
+    });
   });
 }

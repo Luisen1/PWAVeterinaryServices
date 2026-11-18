@@ -47,6 +47,7 @@ export interface SlotHold {
   server_now: string;
 }
 export interface AvailabilityDraft {
+  operation_id?: string;
   id: string;
   owner_id: string;
   establishment_id: string;

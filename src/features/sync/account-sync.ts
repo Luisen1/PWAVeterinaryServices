@@ -34,7 +34,10 @@ export async function enqueueAccountChange(
 }
 // Cola acotada a HU03; las operaciones de dominios futuros nunca se descartan ni
 // se marcan como completadas sin un manejador que las haya confirmado.
-export async function syncPendingAccountChanges(userId: string) {
+export async function syncPendingAccountChanges(
+  userId: string,
+  knownOnly = false,
+) {
   await syncPreferences(userId);
   return withAccountWriteLock(userId, () =>
     withAuthOperation(async () => {
@@ -45,6 +48,12 @@ export async function syncPendingAccountChanges(userId: string) {
         );
       const rows = (await db.outbox.where('owner_id').equals(userId).toArray())
         .filter((row) => row.status !== 'completed')
+        .filter(
+          (row) =>
+            !knownOnly ||
+            row.action === 'profile.update' ||
+            row.action === 'pet.save',
+        )
         .sort((a, b) => a.created_at.localeCompare(b.created_at));
       for (const row of rows) {
         try {

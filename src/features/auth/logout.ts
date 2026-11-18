@@ -25,7 +25,18 @@ export async function countPendingLocalData(ownerId?: string): Promise<number> {
     ? db.pending_attachments.where('owner_id').equals(ownerId)
     : db.pending_attachments.toCollection();
   const counts = await Promise.all([
-    outbox.filter((row) => row.status !== 'completed').count(),
+    outbox
+      .filter(
+        (row) =>
+          row.status !== 'completed' &&
+          ![
+            'availability.draft',
+            'appointment.change',
+            'appointment.request',
+            'chat.message',
+          ].includes(row.action),
+      )
+      .count(),
     drafts.count(),
     attachments.count(),
     ownerId
@@ -37,6 +48,9 @@ export async function countPendingLocalData(ownerId?: string): Promise<number> {
     ownerId
       ? db.call_failures.where('owner_id').equals(ownerId).count()
       : db.call_failures.count(),
+    ownerId
+      ? db.appointment_request_drafts.where('owner_id').equals(ownerId).count()
+      : db.appointment_request_drafts.count(),
   ]);
   return counts.reduce((total, count) => total + count, 0);
 }
