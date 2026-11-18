@@ -436,9 +436,7 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
                       </div>
                     )}
                     <article
-                      className={
-                        sent ? 'chat-bubble chat-bubble--sent' : 'chat-bubble'
-                      }
+                      className={`chat-bubble${sent ? ' chat-bubble--sent' : ''}${m.media?.kind === 'audio' ? ' chat-bubble--voice' : ''}`}
                     >
                       <p className="chat-message-author">
                         {m.author_id === owner
