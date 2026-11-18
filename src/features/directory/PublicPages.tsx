@@ -42,6 +42,16 @@ export function PublicEstablishmentPage() {
         Volver a Explorar
       </Link>
       {row.isPending && online && <Notice>Cargando ficha…</Notice>}
+      {row.data && row.fromCache && (
+        <Notice>
+          Información guardada
+          {row.savedAt
+            ? ` el ${new Date(row.savedAt).toLocaleString('es-CO', { timeZone: 'America/Bogota' })} · America/Bogota`
+            : ''}
+          . Los horarios y servicios pueden haber cambiado; confirma por
+          teléfono. Mapas e imágenes remotas pueden no estar disponibles.
+        </Notice>
+      )}
       {row.isError && (
         <div className={cardClass}>
           <Notice error>No pudimos consultar la ficha.</Notice>
