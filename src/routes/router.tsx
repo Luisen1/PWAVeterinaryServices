@@ -30,6 +30,7 @@ import { DirectionsPage } from '@/features/directory/DirectionsPage';
 import { FavoritesPage } from '@/features/preferences/FavoritesPage';
 import { VideoCallPage } from '@/features/calls/VideoCallPage';
 import { NotificationSettingsPage } from '@/features/notifications/NotificationSettingsPage';
+import { NotificationInboxPage } from '@/features/notifications/NotificationInboxPage';
 import {
   ChatInboxPage,
   ChatStartPage,
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
       },
       { path: '/citas/solicitudes/:id', element: <AppointmentDetailsPage /> },
       { path: '/cuenta/notificaciones', element: <NotificationSettingsPage /> },
+      { path: '/notificaciones', element: <NotificationInboxPage /> },
       {
         path: '/citas/solicitudes/:id/videollamada',
         element: <VideoCallPage />,

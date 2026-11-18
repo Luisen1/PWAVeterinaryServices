@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { Notice, Verified, Workspace } from '@/features/directory/Workspace';
 import { useOnline } from '@/pwa/useOnline';
 import { useAccountContext } from '@/features/auth/useAccountContext';
+import { NotificationPreferences } from './NotificationPreferences';
 import {
   activateDevicePush,
   deactivateDevicePush,
@@ -51,6 +52,10 @@ function Settings({ owner }: { owner: string }) {
   const admin = account.data?.role === 'admin';
   return (
     <>
+      <Link className="button button-secondary" to="/notificaciones">
+        Abrir mi bandeja de notificaciones
+      </Link>
+      <NotificationPreferences owner={owner} />
       <section className="sv-card space-y-4">
         <h2 className="font-semibold">
           Permiso del navegador y vínculo de la cuenta
@@ -144,10 +149,10 @@ function Settings({ owner }: { owner: string }) {
         </p>
       </section>
       <Notice>
-        Puedes gestionar el permiso y la suscripción de este dispositivo. El
-        envío de avisos y recordatorios todavía no está habilitado; consulta tus
-        citas y conversaciones dentro de la app. Activar no envía una
-        notificación de prueba ni confirma una entrega.
+        Los avisos se procesan mediante una tarea remota. La entrega al
+        dispositivo depende del permiso, la suscripción y el servicio del
+        navegador. La bandeja conserva los eventos aunque el push falle. Activar
+        no envía una notificación de prueba ni confirma una entrega.
       </Notice>
       <div className="flex flex-wrap gap-3">
         {!account.data || account.isError ? (

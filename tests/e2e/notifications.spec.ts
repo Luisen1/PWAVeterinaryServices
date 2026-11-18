@@ -63,7 +63,101 @@ type Probe = {
     unsubscriptions: number;
   };
 };
+test('HU31 el service worker conserva contenido mínimo y tag de reintento e ignora otra cuenta', async ({
+  page,
+  context,
+}) => {
+  await mockAuthApi(context);
+  await browserPush(context);
+  await pushApi(context);
+  await login(page);
+  await page.goto('/cuenta/notificaciones');
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => {}));
+  await page
+    .getByRole('button', { name: 'Activar notificaciones', exact: true })
+    .click();
+  await expect(
+    page.getByText('Suscripción guardada para esta cuenta y dispositivo.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  const worker = context.serviceWorkers()[0]!;
+  // Controlar únicamente la salida nativa: Chromium headless no demuestra entrega del SO.
+  await worker.evaluate(() => {
+    const scope = globalThis as unknown as {
+      registration: ServiceWorkerRegistration;
+      displays: { title: string; body?: string; tag?: string }[];
+    };
+    scope.displays = [];
+    scope.registration.showNotification = async (title, options) => {
+      scope.displays.push({ title, body: options?.body, tag: options?.tag });
+    };
+  });
+  const push = async (account: string) =>
+    worker.evaluate(async (account) => {
+      const event = new Event('push');
+      let done: Promise<unknown> = Promise.resolve();
+      Object.defineProperties(event, {
+        data: {
+          value: {
+            json: () => ({
+              account,
+              notice: 'ab310000-0000-4000-8000-000000000001',
+              body: 'No mostrar paciente ni texto privado',
+            }),
+          },
+        },
+        waitUntil: {
+          value: (promise: Promise<unknown>) => {
+            done = promise;
+          },
+        },
+      });
+      globalThis.dispatchEvent(event);
+      await done;
+      return (
+        globalThis as unknown as {
+          displays: { title: string; body?: string; tag?: string }[];
+        }
+      ).displays;
+    }, account);
+  expect(await push(TEST_USER_ID)).toEqual([
+    {
+      title: 'Servicios veterinarios',
+      body: 'Tienes novedades. Abre la aplicación para consultarlas.',
+      tag: 'veterinary-ab310000-0000-4000-8000-000000000001',
+    },
+  ]);
+  const repeated = await push(TEST_USER_ID);
+  expect(repeated).toHaveLength(2);
+  expect(repeated[0]!.tag).toBe(repeated[1]!.tag);
+  expect(await push('22222222-2222-4222-8222-222222222222')).toHaveLength(2);
+  await page
+    .getByRole('button', {
+      name: 'Desactivar en este dispositivo',
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByText('Este dispositivo quedó desvinculado de tu cuenta.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(await push(TEST_USER_ID)).toHaveLength(2);
+});
 async function pushApi(context: BrowserContext) {
+  await context.route(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/rpc/notification_settings`,
+    (route) =>
+      route.fulfill({
+        json: {
+          changes: true,
+          messages: true,
+          reminders: true,
+          reminder_minutes: 60,
+        },
+      }),
+  );
   const bindings = new Map<string, string>();
   const calls: { action: string; owner: string; device: string }[] = [];
   let failRevoke = false,

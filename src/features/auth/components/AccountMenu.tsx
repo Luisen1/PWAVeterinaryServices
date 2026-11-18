@@ -52,6 +52,12 @@ export function AccountMenu({ context }: { context: AccountContext }) {
         ]
       : []),
     {
+      to: '/notificaciones',
+      title: 'Mis notificaciones',
+      help: 'Cambios de citas, mensajes y recordatorios',
+      icon: 'bell',
+    },
+    {
       to: '/cuenta/notificaciones',
       title: 'Notificaciones del dispositivo',
       help: 'Activa o desactiva avisos para esta cuenta',
