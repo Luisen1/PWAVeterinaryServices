@@ -33,6 +33,9 @@ export async function countPendingLocalData(ownerId?: string): Promise<number> {
     ownerId
       ? db.availability_drafts.where('owner_id').equals(ownerId).count()
       : db.availability_drafts.count(),
+    ownerId
+      ? db.call_failures.where('owner_id').equals(ownerId).count()
+      : db.call_failures.count(),
   ]);
   return counts.reduce((total, count) => total + count, 0);
 }

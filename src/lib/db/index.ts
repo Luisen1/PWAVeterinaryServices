@@ -12,6 +12,8 @@ import type {
   PreferenceRecord,
   OfflineSessionRecord,
   PublicSnapshot,
+  PushBinding,
+  CallFailureDraft,
 } from '@/lib/db/schema';
 
 class VeterinaryDatabase extends Dexie {
@@ -30,6 +32,8 @@ class VeterinaryDatabase extends Dexie {
   public_snapshots!: Table<PublicSnapshot, string>;
   availability_drafts!: Table<AvailabilityDraft, string>;
   appointment_change_drafts!: Table<PrivateRecord, string>;
+  push_bindings!: Table<PushBinding, string>;
+  call_failures!: Table<CallFailureDraft, string>;
 
   constructor() {
     super('veterinary-services');
@@ -56,6 +60,10 @@ class VeterinaryDatabase extends Dexie {
     });
     this.version(4).stores({
       appointment_change_drafts: '&id,owner_id,updated_at',
+    });
+    this.version(5).stores({
+      push_bindings: '&device_id,owner_id',
+      call_failures: '&id,owner_id,appointment_id,created_at',
     });
   }
 }
@@ -94,6 +102,8 @@ export async function purgePrivateLocalData(
     db.offline_sessions,
     db.availability_drafts,
     db.appointment_change_drafts,
+    db.push_bindings,
+    db.call_failures,
   ];
   await db.transaction('rw', privateTables, async () => {
     // La comprobación y la purga comparten el bloqueo de la misma transacción.
