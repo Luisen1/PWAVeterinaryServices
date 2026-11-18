@@ -83,10 +83,497 @@ it('ejecuta el contrato SQL de recuperación y suscripciones por dispositivo', a
     .replace(/rollback;\s*$/, '');
   await db.exec(sql);
 });
+it('ejecuta el contrato reproducible de HU31-HU32 con rollback', async () => {
+  const sql = readFileSync('supabase/tests/hu31_hu32.sql', 'utf8')
+    .replace(/\nbegin;\r?\n/, '\n')
+    .replace(/rollback;\s*$/, '');
+  await db.exec(sql);
+});
 const user = '11111111-1111-4111-8111-111111111111';
 const stranger = '22222222-2222-4222-8222-222222222222';
 const pet = '33333333-3333-4333-8333-333333333333';
 const otherPet = '44444444-4444-4444-8444-444444444444';
+async function requestedNoticeAppointment() {
+  await asUser(user);
+  await db.query('select public.request_appointment($1,$2,$3,$4,$5,$6,null)', [
+    appointment,
+    service(),
+    assignment(),
+    start,
+    pet,
+    'Presencial',
+  ]);
+}
+async function noticeInbox() {
+  return (
+    await db.query<{
+      result: {
+        items: { id: string; kind: string; read_at: string | null }[];
+        unread: number;
+      };
+    }>('select public.notification_inbox() result')
+  ).rows[0]!.result;
+}
+it('HU32 separa destinatarios, ordena, marca lectura explícita y evita duplicar eventos', async () => {
+  await requestedNoticeAppointment();
+  expect((await noticeInbox()).items).toHaveLength(0); // El actor no recibe su propio cambio.
+  await asUser(owner);
+  expect((await noticeInbox()).items.map((n) => n.kind)).toEqual(['requested']);
+  await db.query("select public.decide_appointment($1,1,'confirmed','')", [
+    appointment,
+  ]);
+  await asUser(user);
+  const inbox = await noticeInbox(),
+    notice = inbox.items[0]!;
+  expect(inbox.unread).toBe(1);
+  expect(notice.kind).toBe('confirmed');
+  const opened = (
+    await db.query<{ result: { path: string } }>(
+      'select public.read_notification($1,true) result',
+      [notice.id],
+    )
+  ).rows[0]!.result;
+  expect(opened.path).toBe(`/citas/solicitudes/${appointment}`);
+  await db.query('select public.read_notification($1,false)', [notice.id]);
+  expect((await noticeInbox()).unread).toBe(0);
+  await asUser(stranger);
+  expect((await noticeInbox()).items).toHaveLength(0);
+  await expect(
+    db.query('select public.read_notification($1,true)', [notice.id]),
+  ).rejects.toMatchObject({ code: '42501' });
+});
+it('HU31-HU32 persiste mensajes una sola vez y mantiene la bandeja sin permiso push', async () => {
+  await asUser(user);
+  const chat = (
+    await db.query<{ result: { id: string } }>(
+      'select public.open_chat($1,$2) result',
+      [
+        'de171000-0000-4000-8000-000000000001',
+        'de172000-0000-4000-8000-000000000001',
+      ],
+    )
+  ).rows[0]!.result.id;
+  const id = crypto.randomUUID();
+  await db.query("select public.send_chat_message($1,$2,'Aviso persistido')", [
+    id,
+    chat,
+  ]);
+  await db.query("select public.send_chat_message($1,$2,'Aviso persistido')", [
+    id,
+    chat,
+  ]);
+  await asUser(owner);
+  expect((await noticeInbox()).items.map((n) => n.kind)).toEqual(['message']);
+  expect((await noticeInbox()).unread).toBe(1);
+  await asUser(null);
+  await expect(
+    db.query('select public.notification_inbox()'),
+  ).rejects.toMatchObject({ code: '42501' });
+});
+it('HU31 configura el plazo y anula recordatorios al cancelar sin borrar el historial', async () => {
+  await requestedNoticeAppointment();
+  await asUser(user);
+  await db.exec('select public.notification_settings(true,true,true,30)');
+  await asUser(owner);
+  await db.query("select public.decide_appointment($1,1,'confirmed','')", [
+    appointment,
+  ]);
+  await db.exec('reset role;');
+  const reminder = (
+    await db.query<{ minutes: number }>(
+      'select extract(epoch from (a.starts_at-r.due_at))/60 minutes from private.appointment_reminders r join public.offering_appointments a on a.id=r.appointment_id where r.owner_id=$1 and a.id=$2',
+      [user, appointment],
+    )
+  ).rows[0]!;
+  expect(Number(reminder.minutes)).toBe(30);
+  await asUser(user);
+  await db.exec('select public.notification_settings(true,true,true,15)');
+  await db.query(
+    "select public.change_appointment($1,$2,2,'cancelled','Cancelación de prueba',null,null)",
+    [crypto.randomUUID(), appointment],
+  );
+  await db.exec('reset role;');
+  expect(
+    (
+      await db.query(
+        'select * from private.appointment_reminders where appointment_id=$1',
+        [appointment],
+      )
+    ).rows,
+  ).toHaveLength(0);
+  await db.exec('set local role service_role;');
+  await db.exec('select public.claim_notification_deliveries()');
+  await asUser(user);
+  expect((await noticeInbox()).items.map((n) => n.kind)).toEqual(['confirmed']);
+});
+it('HU31 procesa recordatorio vencido una vez, registra reintento y retira endpoints 410', async () => {
+  await requestedNoticeAppointment();
+  await asUser(owner);
+  await db.query("select public.decide_appointment($1,1,'confirmed','')", [
+    appointment,
+  ]);
+  await db.exec('reset role;');
+  const device = crypto.randomUUID();
+  await db.query(
+    "insert into private.push_subscriptions(owner_id,device_id,endpoint,subscription,application_key) values($1,$2,'https://fcm.googleapis.com/fcm/send/sql-test',$3,$4)",
+    [
+      user,
+      device,
+      {
+        endpoint: 'https://fcm.googleapis.com/fcm/send/sql-test',
+        keys: { p256dh: 'B' + 'a'.repeat(86), auth: 'a'.repeat(22) },
+      },
+      'B' + 'a'.repeat(86),
+    ],
+  );
+  await db.query(
+    "update private.appointment_reminders set due_at=clock_timestamp()-interval '1 minute' where appointment_id=$1",
+    [appointment],
+  );
+  await db.exec('set local role service_role;');
+  const claim = async () =>
+    (
+      await db.query<{ result: { id: string; lease: string }[] }>(
+        'select public.claim_notification_deliveries() result',
+      )
+    ).rows[0]!.result;
+  const jobs = await claim();
+  expect(jobs).toHaveLength(1);
+  expect(await claim()).toHaveLength(0);
+  const job = jobs[0]!;
+  const prepared = (
+    await db.query<{ result: { account: string; notice: string } }>(
+      'select public.prepare_notification_delivery($1,$2) result',
+      [job.id, job.lease],
+    )
+  ).rows[0]!.result;
+  expect(prepared.account).toBe(user);
+  await db.query('select public.finish_notification_delivery($1,$2,503)', [
+    job.id,
+    job.lease,
+  ]);
+  expect(await claim()).toHaveLength(0);
+  await db.exec('reset role;');
+  await db.query(
+    "update private.push_deliveries set next_at=clock_timestamp()-interval '1 minute' where id=$1",
+    [job.id],
+  );
+  await db.exec('set local role service_role;');
+  const retry = (await claim())[0]!;
+  expect(retry.lease).not.toBe(job.lease);
+  await db.query('select public.finish_notification_delivery($1,$2,201)', [
+    job.id,
+    job.lease,
+  ]); // Respuesta vieja ignorada.
+  await db.query('select public.finish_notification_delivery($1,$2,410)', [
+    retry.id,
+    retry.lease,
+  ]);
+  await db.exec('reset role;');
+  expect(
+    (
+      await db.query(
+        'select * from private.push_subscriptions where owner_id=$1',
+        [user],
+      )
+    ).rows,
+  ).toHaveLength(0);
+  expect(
+    (
+      await db.query<{ state: string; attempts: number }>(
+        'select state,attempts from private.push_deliveries where id=$1',
+        [job.id],
+      )
+    ).rows[0],
+  ).toEqual({ state: 'failed', attempts: 2 });
+  expect(
+    (
+      await db.query<{ outcome: string }>(
+        'select outcome from private.push_attempts where delivery_id=$1 order by attempt',
+        [job.id],
+      )
+    ).rows.map((n) => n.outcome),
+  ).toEqual(['retry', 'failed']);
+  await asUser(user);
+  expect((await noticeInbox()).items.map((n) => n.kind)).toEqual([
+    'reminder',
+    'confirmed',
+  ]);
+});
+it('HU31 no entrega una suscripción retirada y no concede la API de worker al cliente', async () => {
+  await requestedNoticeAppointment();
+  await db.exec('reset role;');
+  const device = crypto.randomUUID();
+  await db.query(
+    "insert into private.push_subscriptions(owner_id,device_id,endpoint,subscription,application_key) values($1,$2,'https://fcm.googleapis.com/fcm/send/revoke','{}','test')",
+    [user, device],
+  );
+  await asUser(owner);
+  await db.query("select public.decide_appointment($1,1,'confirmed','')", [
+    appointment,
+  ]);
+  await db.exec('reset role; set local role service_role;');
+  const job = (
+    await db.query<{ result: { id: string; lease: string }[] }>(
+      'select public.claim_notification_deliveries() result',
+    )
+  ).rows[0]!.result[0]!;
+  await asUser(user);
+  await db.query('select public.revoke_device_push($1)', [device]);
+  await db.exec('reset role; set local role service_role;');
+  expect(
+    (
+      await db.query<{ result: unknown }>(
+        'select public.prepare_notification_delivery($1,$2) result',
+        [job.id, job.lease],
+      )
+    ).rows[0]!.result,
+  ).toBeNull();
+  await asUser(user);
+  await expect(
+    db.exec('select public.claim_notification_deliveries()'),
+  ).rejects.toMatchObject({ code: '42501' });
+});
+it('HU31 reprogramar invalida el aviso en cola de la revisión anterior y exige nueva confirmación', async () => {
+  await requestedNoticeAppointment();
+  await asUser(owner);
+  await db.query("select public.decide_appointment($1,1,'confirmed','')", [
+    appointment,
+  ]);
+  await db.exec('reset role;');
+  const device = crypto.randomUUID();
+  await db.query(
+    "insert into private.push_subscriptions(owner_id,device_id,endpoint,subscription,application_key) values($1,$2,'https://fcm.googleapis.com/fcm/send/reschedule','{}','test')",
+    [user, device],
+  );
+  await db.query(
+    "update private.appointment_reminders set due_at=clock_timestamp()-interval '1 minute' where appointment_id=$1",
+    [appointment],
+  );
+  await db.exec('set local role service_role;');
+  const jobs = (
+    await db.query<{ result: { id: string; lease: string }[] }>(
+      'select public.claim_notification_deliveries() result',
+    )
+  ).rows[0]!.result;
+  expect(jobs).toHaveLength(1);
+  await asUser(user);
+  const next = new Date(new Date(start).getTime() + 1800000).toISOString();
+  await db.query(
+    "select public.change_appointment($1,$2,2,'rescheduled','Cambio de horario', $3,$4)",
+    [crypto.randomUUID(), appointment, assignment(), next],
+  );
+  await db.exec('reset role; set local role service_role;');
+  expect(
+    (
+      await db.query<{ result: unknown }>(
+        'select public.prepare_notification_delivery($1,$2) result',
+        [jobs[0]!.id, jobs[0]!.lease],
+      )
+    ).rows[0]!.result,
+  ).toBeNull();
+  await db.exec('reset role;');
+  expect(
+    (
+      await db.query(
+        'select * from private.appointment_reminders where appointment_id=$1',
+        [appointment],
+      )
+    ).rows,
+  ).toHaveLength(0);
+  await asUser(owner);
+  await db.query("select public.decide_appointment($1,3,'confirmed','')", [
+    appointment,
+  ]);
+  await db.exec('reset role;');
+  expect(
+    (
+      await db.query<{ revision: number }>(
+        'select revision from private.appointment_reminders where appointment_id=$1 and owner_id=$2',
+        [appointment, user],
+      )
+    ).rows[0]!.revision,
+  ).toBe(4);
+});
+it('HU32 retira avisos y apertura de un colaborador al perder su permiso de mensajes', async () => {
+  await db.exec('reset role;');
+  const membership = crypto.randomUUID(),
+    device = crypto.randomUUID();
+  await db.query(
+    "insert into public.establishment_collaborators(id,establishment_id,email,permissions,status,user_id) values($1,$2,$3,array['messages'],'accepted',$4)",
+    [
+      membership,
+      'de171000-0000-4000-8000-000000000001',
+      `${stranger}@example.invalid`,
+      stranger,
+    ],
+  );
+  await db.query(
+    "insert into private.push_subscriptions(owner_id,device_id,endpoint,subscription,application_key) values($1,$2,'https://fcm.googleapis.com/fcm/send/member','{}','test')",
+    [stranger, device],
+  );
+  await asUser(user);
+  const chat = (
+    await db.query<{ result: { id: string } }>(
+      'select public.open_chat($1,$2) result',
+      [
+        'de171000-0000-4000-8000-000000000001',
+        'de172000-0000-4000-8000-000000000001',
+      ],
+    )
+  ).rows[0]!.result.id;
+  await db.query(
+    "select public.send_chat_message($1,$2,'Mensaje autorizado')",
+    [crypto.randomUUID(), chat],
+  );
+  await asUser(stranger);
+  const notice = (await noticeInbox()).items[0]!;
+  expect(notice.kind).toBe('message');
+  await db.exec('reset role;');
+  await db.query(
+    "update public.establishment_collaborators set status='revoked' where id=$1",
+    [membership],
+  );
+  await db.exec('set local role service_role;');
+  const job = (
+    await db.query<{ result: { id: string; lease: string }[] }>(
+      'select public.claim_notification_deliveries() result',
+    )
+  ).rows[0]!.result[0]!;
+  expect(
+    (
+      await db.query<{ result: unknown }>(
+        'select public.prepare_notification_delivery($1,$2) result',
+        [job.id, job.lease],
+      )
+    ).rows[0]!.result,
+  ).toBeNull();
+  await asUser(stranger);
+  expect((await noticeInbox()).items).toHaveLength(0);
+  await expect(
+    db.query('select public.read_notification($1,true)', [notice.id]),
+  ).rejects.toMatchObject({ code: '42501' });
+});
+it('HU31 respeta preferencias y deja el evento en bandeja sin generar push desactivado', async () => {
+  await requestedNoticeAppointment();
+  await asUser(user);
+  await db.exec('select public.notification_settings(false,false,false,120)');
+  await db.exec('reset role;');
+  await db.query(
+    "insert into private.push_subscriptions(owner_id,device_id,endpoint,subscription,application_key) values($1,$2,'https://fcm.googleapis.com/fcm/send/preferences','{}','test')",
+    [user, crypto.randomUUID()],
+  );
+  await asUser(owner);
+  await db.query("select public.decide_appointment($1,1,'confirmed','')", [
+    appointment,
+  ]);
+  await db.exec('reset role;');
+  await db.query(
+    "update private.appointment_reminders set due_at=clock_timestamp()-interval '1 minute' where appointment_id=$1",
+    [appointment],
+  );
+  await db.exec(
+    'set local role service_role; select public.claim_notification_deliveries(); reset role;',
+  );
+  expect(
+    (
+      await db.query(
+        'select d.* from private.push_deliveries d join private.notifications n on n.id=d.notification_id where n.owner_id=$1',
+        [user],
+      )
+    ).rows,
+  ).toHaveLength(0);
+  await asUser(user);
+  expect((await noticeInbox()).items.map((n) => n.kind)).toEqual(['confirmed']);
+});
+it('HU31 termina el tercer intento interrumpido sin tomarlo de nuevo', async () => {
+  await requestedNoticeAppointment();
+  await db.exec('reset role;');
+  await db.query(
+    "insert into private.push_subscriptions(owner_id,device_id,endpoint,subscription,application_key) values($1,$2,'https://fcm.googleapis.com/fcm/send/timeout','{}','test')",
+    [user, crypto.randomUUID()],
+  );
+  await asUser(owner);
+  await db.query("select public.decide_appointment($1,1,'confirmed','')", [
+    appointment,
+  ]);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await db.exec('reset role; set local role service_role;');
+    const jobs = (
+      await db.query<{ result: { id: string }[] }>(
+        'select public.claim_notification_deliveries() result',
+      )
+    ).rows[0]!.result;
+    expect(jobs).toHaveLength(1);
+    await db.exec('reset role;');
+    await db.query(
+      "update private.push_deliveries set lease_until=clock_timestamp()-interval '1 minute' where id=$1",
+      [jobs[0]!.id],
+    );
+  }
+  await db.exec('set local role service_role;');
+  expect(
+    (
+      await db.query<{ result: unknown[] }>(
+        'select public.claim_notification_deliveries() result',
+      )
+    ).rows[0]!.result,
+  ).toHaveLength(0);
+  await db.exec('reset role;');
+  expect(
+    (
+      await db.query<{ state: string }>(
+        'select state from private.push_deliveries',
+      )
+    ).rows[0]!.state,
+  ).toBe('failed');
+  expect(
+    (
+      await db.query<{ outcome: string }>(
+        'select outcome from private.push_attempts',
+      )
+    ).rows.every((row) => row.outcome === 'interrupted'),
+  ).toBe(true);
+});
+it('la configuración Vault exige service_role y el secreto vigente incluso en una llamada interna', async () => {
+  // Sustituto local de Vault; el esquema de Supabase no se cambia en pruebas remotas.
+  await db.exec(
+    'create schema vault; create table vault.decrypted_secrets(name text,decrypted_secret text);',
+  );
+  const secret = 's'.repeat(43);
+  for (const [name, value] of Object.entries({
+    notification_worker_secret: secret,
+    notification_push_public_key: 'public-test',
+    notification_push_private_key: 'private-test',
+    notification_push_subject: 'mailto:operator@example.test',
+  }))
+    await db.query('insert into vault.decrypted_secrets values($1,$2)', [
+      name,
+      value,
+    ]);
+  expect(
+    (
+      await db.query<{ allowed: boolean }>(
+        "select has_function_privilege('authenticated','public.notification_worker_configuration(text)','execute') allowed",
+      )
+    ).rows[0]!.allowed,
+  ).toBe(false);
+  await db.exec('set local role service_role;');
+  const configuration = (
+    await db.query<{
+      result: {
+        NOTIFICATION_WORKER_SECRET: string;
+        WEB_PUSH_PRIVATE_KEY: string;
+      };
+    }>('select public.notification_worker_configuration($1) result', [secret])
+  ).rows[0]!.result;
+  expect(configuration.WEB_PUSH_PRIVATE_KEY).toBe('private-test');
+  await expect(
+    db.query('select public.notification_worker_configuration($1)', [
+      'x'.repeat(43),
+    ]),
+  ).rejects.toMatchObject({ code: '42501' });
+});
 const appointment = '55555555-5555-4555-8555-555555555555';
 const holdId = '66666666-6666-4666-8666-666666666666';
 const service = (n = 1) =>

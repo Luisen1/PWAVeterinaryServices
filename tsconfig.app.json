@@ -23,7 +23,8 @@
   "include": [
     "src",
     "tests/setup.ts",
-    "supabase/functions/_shared/media-policy.ts"
+    "supabase/functions/_shared/media-policy.ts",
+    "supabase/functions/notification-push/handler.ts"
   ],
   "exclude": ["src/sw.ts"]
 }

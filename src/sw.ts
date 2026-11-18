@@ -91,8 +91,11 @@ self.addEventListener('push', (event: PushEvent) => {
   event.waitUntil(
     (async () => {
       let account: unknown;
+      let notice: unknown;
       try {
-        account = event.data?.json()?.account;
+        const payload = event.data?.json();
+        account = payload?.account;
+        notice = payload?.notice;
       } catch {
         return;
       }
@@ -100,7 +103,10 @@ self.addEventListener('push', (event: PushEvent) => {
       await self.registration.showNotification('Servicios veterinarios', {
         body: 'Tienes novedades. Abre la aplicación para consultarlas.',
         icon: '/icons/icon-192.png',
-        tag: 'veterinary-updates',
+        tag:
+          typeof notice === 'string' && /^[0-9a-f-]{36}$/.test(notice)
+            ? `veterinary-${notice}`
+            : 'veterinary-updates',
         data: { account },
       });
     })(),
@@ -120,8 +126,8 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
       );
       if (existing) {
         await existing.focus();
-        await existing.navigate('/cuenta');
-      } else await self.clients.openWindow('/cuenta');
+        await existing.navigate('/notificaciones');
+      } else await self.clients.openWindow('/notificaciones');
     })(),
   );
 });

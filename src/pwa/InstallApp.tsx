@@ -2,7 +2,8 @@ import { Icon } from '@/components/ui/Icon';
 import { useInstall } from '@/pwa/useInstall';
 
 export function InstallApp() {
-  const { installed, canPrompt, prompting, install, ios, error } = useInstall();
+  const { installed, canPrompt, prompting, install, guidance, error } =
+    useInstall();
   if (installed) return null;
 
   return (
@@ -31,34 +32,22 @@ export function InstallApp() {
           ) : (
             <details className="mt-3 text-sm text-brand-700">
               <summary className="w-fit rounded py-1 font-semibold">
-                Cómo añadirla a mi celular
+                {guidance.title}
               </summary>
               <ol className="mt-3 list-decimal space-y-2 pl-5 leading-6 text-stone-700">
-                {ios ? (
-                  <>
-                    <li>Abre esta dirección en Safari.</li>
-                    <li>
-                      Toca Compartir y selecciona Añadir a pantalla de inicio.
-                    </li>
-                    <li>Confirma el nombre y toca Añadir.</li>
-                  </>
-                ) : (
-                  <>
-                    <li>Abre el menú del navegador.</li>
-                    <li>
-                      Busca Instalar aplicación o Añadir a pantalla de inicio y
-                      confirma.
-                    </li>
-                    <li>
-                      En iPhone, abre Safari y utiliza Compartir &gt; Añadir a
-                      pantalla de inicio.
-                    </li>
-                  </>
-                )}
+                {guidance.steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
               </ol>
               <p className="mt-3 text-xs leading-5 text-stone-600">
                 Las opciones dependen del navegador y del dispositivo.
               </p>
+              {!window.isSecureContext && (
+                <p className="mt-2 text-sm">
+                  Para instalar, abre la aplicación mediante HTTPS. En este
+                  equipo también funciona localhost.
+                </p>
+              )}
             </details>
           )}
           {error && (

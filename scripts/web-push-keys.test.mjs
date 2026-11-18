@@ -34,6 +34,10 @@ it('crea un par VAPID válido, conserva el entorno y no muestra secretos ni rota
       env = parseEnv(content);
     expect(env.EXISTING).toBe('conservar');
     expect(env.VITE_WEB_PUSH_PUBLIC_KEY).toHaveLength(87);
+    expect(env.NOTIFICATION_WORKER_SECRET).toHaveLength(43);
+    expect(first.stdout + first.stderr).not.toContain(
+      env.NOTIFICATION_WORKER_SECRET,
+    );
     expect(
       Buffer.from(env.WEB_PUSH_PRIVATE_KEY, 'base64url').length,
     ).toBeLessThanOrEqual(32);

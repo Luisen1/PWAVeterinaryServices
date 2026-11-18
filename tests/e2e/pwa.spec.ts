@@ -204,22 +204,25 @@ test('el botón de instalación depende del evento y se oculta al instalar', asy
 
 test('muestra instrucciones de iPhone y oculta la guía en modo standalone', async ({
   browser,
+  baseURL,
 }) => {
   const context = await browser.newContext({
     ...devices['iPhone 13'],
-    baseURL: 'http://localhost:4173',
+    baseURL,
   });
   const page = await context.newPage();
   await page.goto('/');
-  await page.getByText('Cómo añadirla a mi celular', { exact: true }).click();
-  await expect(page.getByText('Abre esta dirección en Safari.')).toBeVisible();
+  await page.getByText('Instalar en iPhone o iPad', { exact: true }).click();
   await expect(
-    page.getByText('Toca Compartir y selecciona Añadir a pantalla de inicio.'),
+    page.getByText('En Safari, abre el menú Compartir de esta página.'),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Selecciona Añadir a pantalla de inicio.', { exact: false }),
   ).toBeVisible();
   await context.close();
 
   const standalone = await browser.newContext({
-    baseURL: 'http://localhost:4173',
+    baseURL,
   });
   await standalone.addInitScript(() => {
     const originalMatchMedia = window.matchMedia.bind(window);

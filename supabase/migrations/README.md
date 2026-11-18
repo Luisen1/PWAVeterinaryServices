@@ -23,8 +23,11 @@ HU28-HU30 incorporan la migración 19 de incidencias y suscripciones privadas. [
 17. `20261116184257_account_types_and_role_separation.sql` separa tipo de cuenta de privilegios, clasifica cuentas anteriores, añade elección pendiente/contexto protegido y guardas de área sin borrar datos.
 18. `20261117210111_appointment_chat_entry.sql` permite abrir desde una cita el chat del cliente, valida ambos permisos del equipo y deriva el destinatario; añade `can_chat` y reutiliza la conversación única por cliente/sede.
 19. `20261118013727_call_recovery_and_device_push.sql` crea incidencias privadas idempotentes y suscripciones push por cuenta/dispositivo con alta/baja protegidas.
+20. `20261118134520_notification_delivery_and_inbox.sql` añade eventos únicos por cuenta, preferencias, recordatorios por revisión, cola/leases/intentos, RPC de bandeja y worker y extensiones Cron/pg_net.
+21. `20261118134855_notification_worker_vault_configuration.sql` permite recuperar configuración de Vault solo a `service_role` con secreto vigente del worker; no admite cuentas de navegador.
+22. `20261118140015_finish_cancelled_push_attempts.sql` completa la auditoría al cancelar una entrega ya reclamada; sus respuestas tardías no modifican el resultado cancelado.
 
-Las diecinueve migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-17. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las 12–17 el 2026-11-16 y las 18-19 el 2026-11-17 (la 19 tiene fecha UTC 2026-11-18). No volver a ejecutarlas manualmente sobre este proyecto.
+Las veintidós migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-18. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las 12–17 el 2026-11-16, las 18-19 el 2026-11-17 (la 19 tiene fecha UTC 2026-11-18) y las 20-22 el 2026-11-18. No volver a ejecutarlas manualmente sobre este proyecto.
 
 `supabase/tests/appointment_chat.sql` verifica apertura desde cita por responsable/cliente, conversación compartida con la ficha, permisos combinados, revocación y seguimiento tras despublicar. Pasó en PostgreSQL embebido y desarrollo con rollback, sin conservar cuentas/citas/mensajes temporales.
 
@@ -47,3 +50,5 @@ HU22-HU24 se verifican con `supabase/tests/hu22_hu24.sql`, ejecutado contra desa
 HU25-HU27 se verifican con `supabase/tests/hu25_hu27.sql`, con rollback, y HTTP real de archivos contra Edge/Storage con fixtures retirados. LiveKit Cloud y Cron/pg_net de cierre no se han activado: ver [guía](../../docs/hu25-hu27.md). `supabase/operations/enable_call_maintenance.sql` es una operación manual posterior, no una migración aplicada.
 
 Los tipos de cuenta se verifican con `supabase/tests/account_types.sql`, ejecutado local y remotamente con rollback. Se conserva la identidad y el contenido de las cuentas previas; las nuevas guardas no deben sustituirse por botones ocultos. Ver [clasificación, elección pendiente y límites](../../docs/tipos-de-cuenta.md).
+
+`supabase/tests/hu31_hu32.sql` pasó localmente y en desarrollo con rollback. `notification-push` está desplegada y el job `veterinary-notification-push` activo cada minuto, con HTTP 200 comprobado y cola vacía. La configuración de desarrollo está en Vault; el operador ejecutó `supabase/operations/enable_notification_push.sql`, que no es una migración. No se activó el mantenimiento LiveKit. Ver [HU31-HU33](../../docs/hu31-hu33.md) para configuración, privacidad, reintentos y recepción física pendiente.
