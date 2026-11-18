@@ -1,6 +1,20 @@
 # Verificación de la base técnica
 
-La verificación más reciente de descubrimiento en Tunja está en [hu10-hu12.md](hu10-hu12.md): 76 pruebas de lógica/base de datos, 38 E2E y consultas públicas reales paginadas. No se añadieron migraciones ni se modificaron datos remotos para esta entrega.
+## HU31–HU33 · 2026-11-18
+
+Implementación y operación documentadas en [HU31–HU33](hu31-hu33.md). Pasaron **250 pruebas de lógica/PostgreSQL en 29 archivos y los 117 E2E**. Tras reforzar las escrituras por cuenta, se repitieron los cuatro E2E de bandeja/preferencias; después del cierre de auditoría de intentos cancelados pasó nuevamente el archivo de base de datos con 66 pruebas. Lint, tipos, comprobación Deno de cuatro funciones y build del entorno real correctos. Vista de bandeja revisada a 320 px, sin desbordamiento horizontal.
+
+Las migraciones 20–22 están aplicadas/alineadas en `veterinary-services-dev`. El contrato SQL de HU31-HU32 pasó en desarrollo con rollback, incluida la cancelación de un intento ya reclamado. El endpoint sintético vive solo en la transacción revertida y ningún worker externo puede verlo. Se conservaron los conteos de cinco cuentas, dos citas y cuatro mensajes, sin fixtures persistidos.
+
+`notification-push` v1 está desplegada. El job `veterinary-notification-push` se ejecuta cada minuto con URL/secreto de Vault. Se comprobó ejecución `succeeded` y HTTP 200 sin timeout, con cola vacía; una llamada sin secreto devolvió 403. La CLI local no tiene sesión para cargar Edge Secrets; se provisionó Vault desde el archivo raíz mediante la conexión de Supabase. La RPC de configuración exige `service_role` y token vigente, con denegación al navegador. No se activó LiveKit/mantenimiento.
+
+No aparecen avisos nuevos de seguridad o rendimiento respecto del registro de HU28–HU30: dos informativos privados sin políticas, aviso de contraseñas filtradas desactivado, catorce informativos de índices sin uso y la política permisiva histórica de oferta. Salud sin incidencias. Se mantienen los avisos conocidos de tamaño de chunks y deprecación de Workbox. La nueva dependencia `web-push` no apareció como vulnerable en la auditoría; la base conserva los veinte avisos de dependencias de desarrollo.
+
+**Pendiente de aceptación:** entrega real push con una suscripción física y recordatorio que venza durante la prueba, instalación/apertura nativa en Android/iPhone y escritorio, y llamadas entre dos equipos. La salida nativa y los servicios de los E2E son controlados; un 200 del worker vacío no demuestra recepción.
+
+Comprobación final: 101 enlaces locales correctos y 44 archivos cambiados revisados, además de `dist/`, sin coincidencias con las credenciales privadas locales. `.env.local` sigue ignorado; el validador selecciona nueve variables backend sin mostrar valores. Build real con 17 entradas de precache (~1831 KiB); preview disponible en `http://localhost:4173`.
+
+El registro histórico de descubrimiento en Tunja está en [hu10-hu12.md](hu10-hu12.md): 76 pruebas de lógica/base de datos, 38 E2E y consultas públicas reales paginadas. En aquella entrega no se añadieron migraciones ni se modificaron datos remotos.
 
 La verificación de HU07-HU09, ejecutada el 2026-11-15, está en [hu07-hu09.md](hu07-hu09.md): 66 pruebas de lógica/base de datos, 26 E2E e integración real en Supabase con datos revertidos. Las secciones siguientes conservan el registro histórico de las fases anteriores.
 

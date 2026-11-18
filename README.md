@@ -18,7 +18,9 @@ Las [HU22-HU24](docs/hu22-hu24.md) incorporan cancelación/reprogramación atóm
 
 Las [HU25-HU27](docs/hu25-hu27.md) añaden fotos privadas de hasta 5 MB, notas de voz de hasta 60 segundos, previsualización/escucha y pendientes duraderos con reintentos sin duplicados. La integración LiveKit Cloud está preparada con cuenta profesional, autorización, sala privada y tokens cortos; **su activación remota, mantenimiento y aceptación con dos equipos siguen pendientes**. No se simula una conexión ni se declara HU27 aceptada.
 
-Las [HU28-HU30](docs/hu28-hu30.md) añaden elección de dispositivos, silencio, solo audio, reconexión acotada con reautorización e incidencias privadas, además del permiso/suscripción push por cuenta y dispositivo. La baja al cerrar sesión evita heredar avisos a otra cuenta. **Cuenta → Notificaciones del dispositivo** permite gestionarla; el envío remoto HU31 y la bandeja HU32 siguen pendientes.
+Las [HU28-HU30](docs/hu28-hu30.md) añaden elección de dispositivos, silencio, solo audio, reconexión acotada con reautorización e incidencias privadas, además del permiso/suscripción push por cuenta y dispositivo. La baja al cerrar sesión evita heredar avisos a otra cuenta.
+
+Las [HU31-HU33](docs/hu31-hu33.md) incorporan **Cuenta → Mis notificaciones**, lectura explícita, acceso reautorizado a cita/chat y preferencias de avisos/plazo en **Notificaciones del dispositivo**. El worker y Cron están activos en desarrollo; se comprobó HTTP 200 con cola vacía. La entrega push física sigue pendiente. La instalación voluntaria conserva manifest/standalone y ofrece ayuda según Android, iPhone/iPad o computador.
 
 PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local, cuentas, perfil y mascotas, oferentes, revisión administrativa, fichas, servicios, profesionales, disponibilidad, colaboradores y mapa con agrupación. Consulta [HU07-HU09](docs/hu07-hu09.md) para configurar la oferta. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
 
@@ -60,7 +62,7 @@ En el mismo archivo, `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `AP
 ```sh
 # Validar sin enviar ni mostrar valores:
 npm run deploy:secrets -- --check
-# Cargar solo las cinco variables de backend en el proyecto de VITE_SUPABASE_URL:
+# Cargar variables filtradas de backend en el proyecto de VITE_SUPABASE_URL:
 npm run deploy:secrets
 ```
 
@@ -68,9 +70,9 @@ El comando usa CLI 3.1.0, excluye variables públicas y credenciales ajenas, y e
 
 El cliente admite una clave pública publishable (`sb_publishable_`) en `VITE_SUPABASE_ANON_KEY`, además de la clave anon legacy. La sesión persiste y se refresca mediante el SDK. Los enlaces de correo usan PKCE y se procesan en `/auth/confirmar`.
 
-Para habilitar un proyecto nuevo, aplicar las diecinueve migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` ya están aplicadas/alineadas: identidad, establecimientos, oferta, preferencias, apartados, citas, agenda, chat, medios, salas, tipos de cuenta, incidencias y suscripciones push privadas. Las tablas de chat se añaden a `supabase_realtime` cuando la publicación existe. Las tres Edge Functions están desplegadas en desarrollo; activar LiveKit y el trabajo de cierre requiere `docs/hu25-hu27.md`.
+Para habilitar un proyecto nuevo, aplicar las veintidós migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` están aplicadas/alineadas, incluidas notificaciones, recordatorios, cola y configuración protegida de worker. Las tablas de chat se añaden a `supabase_realtime` cuando la publicación existe. Las cuatro Edge Functions están desplegadas; activar LiveKit y su trabajo de cierre sigue requiriendo `docs/hu25-hu27.md`.
 
-Para HU30, `npm run push:keys` crea/valida en `.env.local` el par VAPID sin mostrarlo ni rotarlo al repetir. `VITE_WEB_PUSH_PUBLIC_KEY` va al navegador; `WEB_PUSH_PRIVATE_KEY` queda reservada al emisor futuro HU31 y no se carga aún a Edge Secrets. Regenerar el build después de configurar la clave pública. Ver [permisos y suscripciones](docs/hu28-hu30.md).
+Para Web Push, `npm run push:keys` crea/valida el par VAPID y genera el secreto de worker que falte en `.env.local`, sin mostrarlos ni rotarlos. Completar `WEB_PUSH_SUBJECT` con `mailto:` y el contacto del operador. `VITE_WEB_PUSH_PUBLIC_KEY` va al navegador; el emisor usa la privada, el contacto y `NOTIFICATION_WORKER_SECRET`. `deploy:secrets` valida y selecciona estas cuatro variables además de LiveKit/CORS; requiere CLI autenticada. En desarrollo el emisor usa Vault provisionado desde el archivo raíz. La tarea remota, su parada y el diagnóstico están en [HU31-HU33](docs/hu31-hu33.md). Regenerar el build al cambiar la clave pública.
 
 Los mapas requieren `VITE_GOOGLE_MAPS_API_KEY`: clave pública de navegador restringida por dominios y a Maps JavaScript API/Routes API. `VITE_GOOGLE_MAPS_MAP_ID` permite usar un ID de mapa JavaScript propio; en desarrollo se utiliza `DEMO_MAP_ID` si no se configura. El SDK se carga al mostrar el mapa y las rutas solo se consultan bajo acción explícita. Sin clave quedan disponibles el listado, las fichas, la disponibilidad y la navegación externa. Las variables antiguas `VITE_MAP_TILE_URL`/`VITE_MAP_ATTRIBUTION` ya no se usan. La [guía HU17-HU18](docs/hu17-hu18.md) detalla configuración, cuotas y límites.
 
@@ -251,5 +253,5 @@ Pendiente para las siguientes fases
 - Nuevos dominios mediante nuevas migraciones, preservando las diecinueve aplicadas.
 - Activación y aceptación real de LiveKit Cloud/mantenimiento y HU27-HU29 entre dos equipos. Controles/reconexión ya implementados.
 - Protocolo de sincronización, outbox, reintentos y conflictos.
-- Envío push/recordatorios HU31 y bandeja HU32; HU30 ya gestiona permiso, suscripciones y desvinculación por dispositivo. Observabilidad y políticas operativas de privacidad siguen en desarrollo.
+- Aceptación de entrega push e instalación física HU31-HU33. El emisor remoto, bandeja y ayuda por navegador ya están implementados. Observabilidad y políticas operativas de privacidad siguen en desarrollo.
 - Validación piloto con cuentas reales y dispositivos Android/iPhone físicos.

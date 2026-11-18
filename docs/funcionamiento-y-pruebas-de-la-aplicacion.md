@@ -1,12 +1,12 @@
 # Funcionamiento de la aplicación y guía de comprobación
 
-Actualizado: **2026-11-17**, zona de referencia **America/Bogota**.
+Actualizado: **2026-11-18**, zona de referencia **America/Bogota**.
 
 Esta guía explica cómo se conectan los componentes de PWAVeterinaryServices y cómo comprobar el recorrido completo disponible. Está contrastada con el código, las migraciones y las verificaciones registradas en el repositorio. No contiene credenciales ni implica que se haya activado o desplegado un servicio al redactarla.
 
 ## 1. Hasta dónde está implementada
 
-La aplicación permite registrar cuentas de dueño o veterinaria, publicar establecimientos tras revisión, configurar servicios y horarios, buscar sedes en Tunja, solicitar/gestionar citas y conversar mediante texto, fotos y voz. **HU01–HU26 tienen implementación. HU27–HU29 incorporan integración de llamada, controles y recuperación; su activación remota y aceptación con dos equipos reales siguen pendientes. HU30 permite gestionar permiso y suscripción push por dispositivo, sin incluir todavía envío remoto ni recordatorios.**
+La aplicación permite registrar cuentas de dueño o veterinaria, publicar establecimientos tras revisión, configurar servicios y horarios, buscar sedes en Tunja, solicitar/gestionar citas y conversar mediante texto, fotos y voz. **HU01–HU26 tienen implementación. HU27–HU29 incorporan integración de llamada, controles y recuperación; su activación remota y aceptación con dos equipos reales siguen pendientes. HU30–HU33 incorporan permiso/suscripción, avisos y recordatorios remotos, bandeja privada e instalación con ayuda por equipo. El emisor de notificaciones está activo; recepción push e instalación físicas siguen pendientes.**
 
 | Área              | Comportamiento disponible                                                                                                  | Límite actual                                                                                                   |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -20,7 +20,7 @@ La aplicación permite registrar cuentas de dueño o veterinaria, publicar estab
 | Videollamada      | Autorización por cita, cuenta profesional, sala LiveKit, token limitado y cierre                                           | No se declara operativa hasta completar secretos remotos, mantenimiento y prueba de dos equipos                 |
 | PWA               | Instalación, shell offline y actualización confirmada                                                                      | Funcionar offline no permite confirmar citas ni iniciar llamadas sin servidor                                   |
 
-El envío push/recordatorios HU31, la bandeja general HU32, sincronización general y las HU posteriores no se consideran terminados. Los avisos de cita existentes son eventos privados dentro de la aplicación; no equivalen a entrega por correo o notificación push.
+La sincronización general y las HU posteriores siguen pendientes. Los avisos persistidos de citas y mensajes alimentan `/notificaciones`; la entrega push se registra por dispositivo y se distingue de lectura o recepción física. No se envían correos por esta funcionalidad. Ver [HU31–HU33](hu31-hu33.md) para los criterios y las comprobaciones operativas.
 
 ## 2. Arquitectura y conexiones
 
@@ -42,6 +42,11 @@ flowchart LR
   CRON --> DB
   PWA --> MAPS["Google Maps: mapas y rutas"]
   PWA --> LOCAL["IndexedDB: datos locales y pendientes acotados"]
+  DB --> INBOX["Bandeja privada y recordatorios por revisión"]
+  PUSHCRON["Cron de notificaciones activo cada minuto"] --> PUSH["Edge notification-push"]
+  PUSH --> DB
+  PUSH --> PROVIDER["Servicio push del navegador"]
+  PROVIDER --> SW["Service worker: aviso mínimo"]
 ```
 
 ### 2.1. Conexión con Supabase
@@ -121,7 +126,13 @@ Tunja es la ciudad inicial de búsqueda, no la ubicación de la vivienda. El usu
 
 **Cuenta → Notificaciones del dispositivo** (`/cuenta/notificaciones`) distingue permiso del navegador y suscripción de la cuenta. Solo **Activar notificaciones** solicita permiso. Tras aceptar se registra mediante RPC en `private.push_subscriptions`, con UUID de dispositivo y propietario derivado de Auth. No se exponen endpoints ni claves privadas a otros usuarios.
 
-Desactivar o cerrar sesión confirma primero la desvinculación remota; luego intenta cancelar el endpoint nativo y retira elegibilidad local. Si no se puede confirmar la baja de un vínculo activo/incierto, mantiene la sesión para reintentar con conexión. Los cambios externos de cuenta retiran los marcadores de la cuenta anterior. El SW solo admite contenido genérico para una cuenta localmente activa; no hay emisor ni recordatorios HU31 implementados.
+Desactivar o cerrar sesión confirma primero la desvinculación remota; luego intenta cancelar el endpoint nativo y retira elegibilidad local. Si no se puede confirmar la baja de un vínculo activo/incierto, mantiene la sesión para reintentar con conexión. Los cambios externos de cuenta retiran los marcadores de la cuenta anterior. El SW solo muestra contenido fijo genérico para una cuenta localmente activa y abre `/notificaciones`.
+
+Los eventos de cita/mensaje crean avisos privados únicos y entregas por suscripción en su transacción. Una cita confirmada programa recordatorios según preferencias (15/30/60/120/1440 minutos); cancelar/reprogramar invalida los anteriores. Cron y `notification-push` procesan tareas sin depender de una pestaña abierta, revalidan permisos y registran hasta tres intentos. 404/410 retiran el endpoint vencido; un fallo conserva la bandeja. HTTP 2xx acredita aceptación del servicio, sin garantizar recepción.
+
+**Cuenta → Mis notificaciones** muestra páginas de treinta, fecha, leído/no leído y lectura explícita. Abrir **Ver cita** o **Abrir conversación** vuelve a autorizar y deriva la ruta en servidor. No marca los mensajes del chat. Offline/error no se muestran como ausencia de eventos. La bandeja no tiene copia IndexedDB.
+
+En desarrollo están aplicadas 22 migraciones, `notification-push` desplegada y el job activo cada minuto. Se comprobó Cron exitoso y HTTP 200 con cola vacía, además de 403 sin secreto. Cero dispositivos estaban suscritos, por lo que la entrega física sigue pendiente. Ver [operación y aceptación HU31–HU33](hu31-hu33.md).
 
 ## 3. Configuración y ejecución local
 
@@ -143,7 +154,7 @@ Usar **`.env.local` en la raíz**, basado en [.env.example](../.env.example). Si
 
 Las variables `VITE_` se incorporan al frontend al compilar. Nunca poner en ellas secretos, contraseñas o `service_role`. Cambiarlas requiere reiniciar desarrollo o regenerar el build. El runtime remoto de Supabase proporciona sus variables propias de servidor; no copiarlas al cliente.
 
-Las variables privadas del archivo raíz **no se envían automáticamente a Supabase por ejecutar Vite o compilar**. La diferencia entre configuración local y remota está explicada en la [documentación de secretos de Edge Functions](https://supabase.com/docs/guides/functions/secrets). El script del proyecto valida y carga únicamente las cinco variables de backend de la tabla:
+Las variables privadas del archivo raíz **no se envían automáticamente a Supabase por ejecutar Vite o compilar**. La diferencia entre configuración local y remota está explicada en la [documentación de secretos de Edge Functions](https://supabase.com/docs/guides/functions/secrets). El script valida y selecciona las cinco variables LiveKit/CORS y las cuatro de servidor Web Push cuando se configura su par:
 
 ```sh
 # Comprobación local de formato. No envía valores ni autentica contra LiveKit.
@@ -152,7 +163,9 @@ npm run deploy:secrets -- --check
 
 Al redactar esta guía, esa comprobación pasó para el proyecto de desarrollo. Se comprobó presencia de configuración local de Supabase, Google y LiveKit, y que **`LIVEKIT_MAINTENANCE_READY=false` localmente**, sin mostrar valores privados. Esto no verifica los secretos ni el estado actuales de las funciones remotas.
 
-Para HU30 se añaden `VITE_WEB_PUSH_PUBLIC_KEY` (pública del frontend) y `WEB_PUSH_PRIVATE_KEY` (reservada al futuro emisor HU31). `npm run push:keys` crea o valida el par VAPID en el mismo `.env.local` sin mostrarlo, enviarlo ni rotarlo al repetir. El par local ya se generó. Recompilar después de configurar la parte pública; la privada todavía no se carga a Edge Secrets ni es seleccionada por `deploy:secrets`.
+Para Web Push se usan `VITE_WEB_PUSH_PUBLIC_KEY` (pública del frontend), `WEB_PUSH_PRIVATE_KEY`, `WEB_PUSH_SUBJECT` (contacto `mailto:`) y `NOTIFICATION_WORKER_SECRET`. `npm run push:keys` crea/valida el par y genera el secreto de worker que falte sin mostrarlo ni rotarlo. `deploy:secrets` deriva `WEB_PUSH_PUBLIC_KEY` y selecciona las otras tres de servidor, además de LiveKit/CORS. Recompilar al cambiar la pública.
+
+En desarrollo la CLI no tenía sesión para cargar Edge Secrets. Se provisionó Vault desde el mismo archivo raíz mediante la conexión Supabase disponible. El worker recupera configuración con RPC exclusiva de `service_role` y secreto vigente solo cuando no hay variables Edge del emisor; una configuración parcial falla, sin mezclar claves. El job lee su URL y secreto de Vault. No se activó LiveKit ni su mantenimiento. Los nombres, pasos para otro entorno y diagnóstico están en [HU31–HU33](hu31-hu33.md#configuración-un-único-envlocal).
 
 ### 3.2. Arranque
 
@@ -295,17 +308,21 @@ Si falta proveedor o mantenimiento, la respuesta prevista es **servicio no habil
 
 En una sala autorizada, actualizar dispositivos, cambiar micrófono/cámara, silenciar, apagar cámara o entrar solo por audio; comprobar que la salida detiene también capturas tardías. Interrumpir/restaurar la red y revisar reconexión con nueva autorización en la misma sala, o alternativas/incidencia si vence el intento. Estos pasos de medios reales requieren completar la activación de LiveKit siguiente.
 
-En `/cuenta/notificaciones`, comprobar que abrir la pantalla no pide permiso. Activar explícitamente, revisar el vínculo, desactivarlo y verificar la baja. Volver a activar y cerrar sesión: otra cuenta debe requerir su propia activación. Con permiso denegado/API ausente deben seguir accesibles las citas y conversaciones. No esperar recordatorios, porque HU31/HU32 siguen pendientes. Ver [HU28–HU30](hu28-hu30.md) para el recorrido detallado.
+En `/cuenta/notificaciones`, comprobar que abrir la pantalla no pide permiso. Elegir plazo/preferencias, activar explícitamente, revisar vínculo y desactivarlo. Volver a activar y cerrar sesión: otra cuenta requiere su propia activación. Con permiso denegado/API ausente siguen accesibles citas, conversaciones y bandeja.
+
+En `/notificaciones`, comprobar el aviso de solicitud para el establecimiento y el de confirmación para el dueño. Enviar texto/foto/voz y revisar el aviso de la contraparte. Marcar leído, recargar y abrir el recurso autorizado. Cancelar/reprogramar antes del plazo anula el recordatorio anterior. Para entrega física se necesita suscripción real, una cita confirmada futura cuyo recordatorio venza durante la prueba y revisar tanto el resultado del worker como el dispositivo. Ver [recorrido detallado](hu31-hu33.md#comprobación-funcional-con-dos-cuentas).
+
+Para HU33, usar build/preview o HTTPS, instalar mediante acción voluntaria y abrir el icono en Android/computador o Safari de iPhone/iPad. Verificar Inicio, icono y standalone cuando se admita; abrir el shell offline no autoriza operaciones remotas.
 
 ## 6. Pasos pendientes para activar LiveKit
 
-El repositorio registra las tres Edge Functions desplegadas en desarrollo y una comprobación anterior, de solo lectura, del par local de LiveKit. Eso no demuestra su configuración remota actual. Al redactar este documento solo se validó el formato local; no se cargaron secretos, crearon salas ni activaron trabajos.
+Las tres funciones de medios/llamadas están desplegadas y existe una comprobación histórica de solo lectura del par local LiveKit. Su activación, mantenimiento y aceptación siguen pendientes. La cuarta función, `notification-push`, y su job sí están activos; su configuración Vault y comprobación HTTP no habilitan LiveKit ni crean salas.
 
 El operador del proyecto debe completar este orden:
 
 1. Comprobar que la URL Supabase identifica el proyecto de destino y que las tres funciones y migraciones necesarias están presentes.
 2. Completar `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` y los orígenes reales en el `.env.local` raíz. Mantener `LIVEKIT_MAINTENANCE_READY=false`.
-3. Con Supabase CLI autenticada y permisos sobre ese proyecto, validar y cargar las cinco variables privadas:
+3. Con Supabase CLI autenticada y permisos sobre ese proyecto, validar y cargar las variables filtradas de backend (LiveKit/CORS y Web Push si está configurado):
 
    ```sh
    npm run deploy:secrets -- --check
@@ -392,6 +409,8 @@ Evidencia registrada; los recuentos corresponden a ejecuciones concretas:
 - Pruebas SQL/remotas y HTTP de desarrollo documentadas con datos técnicos retirados y rollback según el caso; no equivalen a comprobar de nuevo el estado remoto hoy.
 - La creación inicial de esta guía solo validó la configuración local con `--check`, sin repetir la suite de producto ni activar servicios.
 - Actualización HU28–HU30: **224 pruebas en 25 archivos y 112 E2E completos con `CI=true` aprobados**, sin fallos ni reintentos en la ejecución final. Migración 19 aplicada y contrato SQL comprobado en desarrollo con rollback, sin alterar datos existentes ni activar LiveKit/envío push. Este registro amplía las ejecuciones históricas anteriores; la aceptación física sigue pendiente.
+
+- Actualización HU31–HU33: **250 pruebas en 29 archivos y 117 E2E completos aprobados**. Se repitieron los cuatro E2E de bandeja tras reforzar escrituras por cuenta y las 66 pruebas del archivo de citas después de cerrar intentos cancelados. Migraciones 20–22 aplicadas y contrato SQL remoto con rollback. Emisor/Cron activos con HTTP 200 en cola vacía y 403 sin token; recepción push e instalación físicas pendientes. Lint, tipos, Deno y build real correctos.
 
 Consultar [docs/verificacion.md](verificacion.md) para fechas, alcance real y limitaciones de cada comprobación.
 

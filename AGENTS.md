@@ -1,6 +1,8 @@
 # Contexto del proyecto para asistentes de IA
 
-Última actualización: 2026-11-17, zona de referencia `America/Bogota`.
+Última actualización: 2026-11-18, zona de referencia `America/Bogota`.
+
+Verificación HU31–HU33: 250 pruebas en 29 archivos y 117 E2E correctos; se repitieron los cuatro E2E de bandeja tras reforzar escrituras por cuenta y las 66 pruebas del archivo de citas tras cerrar intentos cancelados. Lint/tipos/Deno/build real correctos. Migraciones 20–22 aplicadas; contrato SQL remoto con rollback, Cron activo y HTTP 200 en cola vacía, 403 sin secreto. Recepción push e instalación física pendientes. Ver `docs/hu31-hu33.md` y `docs/verificacion.md`.
 
 Este archivo es el punto de entrada para continuar el proyecto. Describe el estado comprobado y las convenciones existentes; no autoriza por sí mismo a implementar nuevas historias, desplegar ni modificar servicios externos. La solicitud actual del usuario define el alcance. Si este contexto queda desactualizado, contrastarlo con el código, las migraciones y las pruebas, y actualizarlo al terminar.
 
@@ -42,10 +44,13 @@ La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_vet
 | HU27      | Integración LiveKit Cloud preparada; autorización/sala/token y cierre implementados, activación y dos equipos pendientes                          |
 | HU28      | Cámara/micrófono, silencio, solo audio y limpieza de capturas tardías; aceptación física pendiente                                                |
 | HU29      | Reconexión acotada, reautorización de la misma sala, contacto alternativo e incidencias privadas; aceptación física pendiente                     |
-| HU30      | Permiso voluntario y suscripción por cuenta/dispositivo, con desvinculación al salir; sin envío HU31 ni bandeja HU32                              |
+| HU30      | Permiso voluntario y suscripción por cuenta/dispositivo, con desvinculación al salir                                                              |
+| HU31      | Eventos, preferencias, recordatorios por revisión, cola de intentos y worker/Cron remoto activos; recepción física pendiente                      |
+| HU32      | Bandeja privada paginada, lectura explícita, identificador lógico único y apertura reautorizada de cita/chat                                      |
+| HU33      | Instalación voluntaria, ayuda por navegador/equipo y manifest/standalone; aceptación física pendiente                                             |
 | Base PWA  | Instalación, shell offline, actualización confirmada, precache y persistencia IndexedDB                                                           |
 
-**No confundir apartado con cita solicitada o confirmada.** `/citas` consulta disponibilidad, prepara borradores/apartados de cinco minutos y permite enviar solicitudes presenciales/virtuales con mascota. Una solicitud `requested` ocupa el intervalo y espera decisión del establecimiento; no es todavía una confirmación. HU22-HU23 completan cambios de cita y agenda filtrada; HU24 añade chat autorizado con Realtime y recuperación HTTP. HU25-HU26 añaden fotos y voz privadas con pendientes duraderos. HU27-HU29 tienen integración LiveKit, controles y recuperación implementados, pendientes de activación remota/mantenimiento y aceptación real entre dos equipos. HU30 gestiona suscripciones; el envío push HU31, bandeja HU32 y sincronización general siguen pendientes. HU17 tiene clave local y prueba real de ruta en Tunja; esto no demuestra navegación física, tráfico real ni operación a escala.
+**No confundir apartado con cita solicitada o confirmada.** `/citas` consulta disponibilidad, prepara borradores/apartados de cinco minutos y permite enviar solicitudes presenciales/virtuales con mascota. Una solicitud `requested` ocupa el intervalo y espera decisión del establecimiento; no es todavía una confirmación. HU22-HU23 completan cambios de cita y agenda filtrada; HU24 añade chat autorizado con Realtime y recuperación HTTP. HU25-HU26 añaden fotos y voz privadas con pendientes duraderos. HU27-HU29 tienen integración LiveKit, controles y recuperación implementados, pendientes de activación remota/mantenimiento y aceptación real entre dos equipos. HU30-HU32 gestionan suscripciones, envío remoto/recordatorios y bandeja; el worker de notificaciones está activo, con HTTP 200 comprobado en cola vacía, pendiente de aceptación de entrega física. HU33 completa ayuda/instalación. La sincronización general sigue pendiente. HU17 tiene clave local y prueba real de ruta en Tunja; esto no demuestra navegación física, tráfico real ni operación a escala.
 
 ## 2. Lecturas recomendadas
 
@@ -66,6 +71,7 @@ La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_vet
 15. [docs/tipos-de-cuenta.md](docs/tipos-de-cuenta.md): registro por tipo, menús/rutas separados, clasificación de cuentas anteriores, elección pendiente y guardas de servidor.
 16. [docs/funcionamiento-y-pruebas-de-la-aplicacion.md](docs/funcionamiento-y-pruebas-de-la-aplicacion.md): arquitectura y conexiones con Supabase/Google/LiveKit, variables, recorridos por rol, activación pendiente de llamadas, offline y diagnóstico. Es la guía integrada para demostraciones y comprobación de extremo a extremo.
 17. [docs/hu28-hu30.md](docs/hu28-hu30.md): dispositivos/solo audio, reconexión reautorizada, incidencias privadas y permiso/suscripción push por dispositivo. Distingue implementación y aceptación física pendiente.
+18. [docs/hu31-hu33.md](docs/hu31-hu33.md): eventos/bandeja, preferencias, anulación por revisión, transporte con leases/reintentos, Vault/Cron activos y comprobación de instalación. Distingue HTTP 200 de entrega al dispositivo.
 
 Algunos README de dominios y pasajes históricos describen una fase anterior. Por ejemplo, la disponibilidad ya existe en `offerings`, aunque el README de `appointments` la enumere como futura; hay sincronización acotada de cuentas aunque el README inicial de IndexedDB describa solo un esqueleto. La fuente visual actual es **Poppins**, no la DM Sans mencionada en decisiones iniciales.
 
@@ -121,13 +127,13 @@ En Explorar se conservan `q`, `categoria`, `vista`, `orden`, `seleccion`, `servi
 - Nuevas rutas privadas: `/citas/agenda`, `/oferentes/agenda`, `/oferentes/:id/agenda`, `/mensajes`, `/mensajes/nuevo`, `/mensajes/:id` y `/oferentes/mensajes`. El detalle de cita permite copia offline con sesión comprobada. El historial de chat es remoto/memoria, sin IndexedDB.
 - Solicitudes, agenda y detalle de cita incluyen **Chat**, mediante `messaging/AppointmentChatButton.tsx`, si la RPC devuelve `can_chat=true`. `open_appointment_chat` recibe solo ID de cita: el servidor deriva cliente/establecimiento/sede y exige ser cliente o tener lectura de esa cita y permiso `messages` en ese establecimiento. Responsable conserva ambos; `schedule`/`read` sin `messages`, o `messages` sin lectura de cita, no abren este acceso. Reutiliza la conversación por cliente/sede y permite seguimiento del contexto histórico de la cita tras despublicar; la apertura pública sin cita sigue exigiendo sede publicada. No se crea conversación al listar ni se marcan mensajes leídos al abrir.
 
-- `/cuenta/notificaciones`: configuración compartida de permiso y suscripción push por dispositivo. Requiere cuenta confirmada; no es la bandeja general HU32 ni envía recordatorios.
+- `/cuenta/notificaciones`: permiso/suscripción por dispositivo y preferencias de cuenta de cambios, mensajes y recordatorios (15/30/60/120/1440 minutos; inicial 60). `/notificaciones`: bandeja general con 30 entradas por página, lectura explícita y apertura reautorizada. Ambas requieren cuenta confirmada; la bandeja consulta solo online y no tiene copia IndexedDB.
 
 ## 5. Backend, datos y reglas que deben conservarse
 
 Proyecto de desarrollo registrado y verificado el 2026-11-16: **`veterinary-services-dev`**, referencia **`osoljaiqizmcxxlirrwo`**. Es un identificador público, no una credencial. Antes de una futura operación remota, comprobar que sigue siendo el proyecto previsto; el registro histórico no demuestra el estado actual de otra base.
 
-Hay diecinueve migraciones aplicadas y alineadas con el historial remoto, comprobado el 2026-11-17:
+Hay veintidós migraciones aplicadas y alineadas con el historial remoto, comprobado el 2026-11-18:
 
 1. `20261114000000_enable_extensions.sql`: PostGIS y btree_gist.
 2. `20261114010000_identity_and_access.sql`: perfiles, consentimiento, roles y acceso.
@@ -148,6 +154,9 @@ Hay diecinueve migraciones aplicadas y alineadas con el historial remoto, compro
 17. `20261116184257_account_types_and_role_separation.sql`: tipo/elección en tabla privada, clasificación de cuentas previas, RPC de contexto/elección y guardas de área sin borrar datos.
 18. `20261117210111_appointment_chat_entry.sql`: apertura de chat desde cita, destinatario derivado, capacidad `can_chat` y reutilización de la conversación cliente/sede.
 19. `20261118013727_call_recovery_and_device_push.sql`: incidencias privadas/idempotentes y alta/baja protegidas de suscripciones por cuenta/dispositivo. Versión UTC 2026-11-18, aplicada el 2026-11-17 en Colombia.
+20. `20261118134520_notification_delivery_and_inbox.sql`: eventos únicos privados, preferencias, recordatorios por revisión, cola/leases/intentos, RPC autorizadas y extensiones operativas pg_cron/pg_net.
+21. `20261118134855_notification_worker_vault_configuration.sql`: configuración Vault recuperable solo por `service_role` y secreto vigente del worker; sin acceso de cuentas autenticadas.
+22. `20261118140015_finish_cancelled_push_attempts.sql`: termina el registro del intento cuando cancelar/reprogramar invalida una entrega ya reclamada; preserva auditoría e ignora respuestas tardías.
 
 Crear migraciones nuevas para cambios posteriores y preservar las ya aplicadas. No repetir estas migraciones sobre desarrollo ni reiniciar la base para añadir una funcionalidad.
 
@@ -251,8 +260,11 @@ Verificación de la entrega inicial: **189 pruebas en 23 archivos y 79 E2E compl
 
 - HU29 registra reportes de cliente en `private.call_failures` mediante `record_call_failure`: actor derivado, sala previamente autorizada, tipo acotado, UUID estable y veinte/hora. Sin medios/texto libre/lectura directa. `calls/failures.ts` conserva hasta veinte pendientes por cuenta con comprobante local y bloqueo de escritura; replay al entrar/reconectar/reintentar. Se cuentan y purgan al salir.
 - HU30: `/cuenta/notificaciones`, en Cuenta. `notifications/api.ts` separa permiso global y vínculo remoto, pide permiso solo por clic y usa `private.push_subscriptions` mediante RPC invoker/auxiliar protegido. Endpoint único, máximo diez dispositivos/cuenta, claves/destinos HTTPS validados; no devolver endpoints al cliente. Guardar intención local antes del alta y estado activo solo tras confirmación.
-- Desactivar/salir desvincula remotamente antes de purgar; luego intenta cancelar endpoint y cerrar notificaciones locales. Si no se confirma la baja de un vínculo activo/incierto, conservar sesión/datos y explicar reintento. `session-store` retira elegibilidad ajena ante cambio externo/expiración; no heredar preferencias. El SW muestra solo contenido genérico para un marcador `active` de la cuenta opaca del payload y abre `/cuenta`. HU31/HU32 siguen pendientes.
-- `npm run push:keys` crea/valida VAPID en el único `.env.local` sin rotar ni imprimir secretos. `VITE_WEB_PUSH_PUBLIC_KEY` es pública; `WEB_PUSH_PRIVATE_KEY` se reserva a HU31 y no se carga aún a Edge Secrets. `deploy:secrets` sigue filtrando solo cinco variables LiveKit/CORS. No poner VITE_ al secreto ni generar claves en cada build.
+- Desactivar/salir desvincula remotamente antes de purgar; luego intenta cancelar endpoint y cerrar notificaciones locales. Si no se confirma la baja de un vínculo activo/incierto, conservar sesión/datos y explicar reintento. `session-store` retira elegibilidad ajena ante cambio externo/expiración; no heredar preferencias. El SW muestra contenido fijo genérico solo para un marcador `active` de la cuenta opaca del payload, usa un tag por aviso y abre `/notificaciones`. No incluir paciente, hora, mensaje ni URL externa en push.
+- `npm run push:keys` crea/valida VAPID y genera `NOTIFICATION_WORKER_SECRET` si falta en el único `.env.local`, sin rotar ni imprimir secretos. `VITE_WEB_PUSH_PUBLIC_KEY` es pública. El emisor usa `WEB_PUSH_PRIVATE_KEY`, `WEB_PUSH_SUBJECT` (`mailto:`) y el secreto de worker. `deploy:secrets` selecciona cinco variables LiveKit/CORS y, si se configura Web Push, cuatro de emisor, derivando `WEB_PUSH_PUBLIC_KEY` desde la pública. Rechaza pares/variables parciales y secretos VITE_. No generar claves en cada build.
+- HU31-HU32: triggers de `appointment_events`/`chat_messages` generan `private.notifications` en la misma transacción, únicos por cuenta/clave lógica; el actor no recibe su propio cambio. Recordatorios solo para confirmadas futuras; cualquier nueva revisión anula los anteriores. `notification_allowed` deriva permisos actuales de destinatarios; revocar acceso también oculta avisos y deniega apertura.
+- `notification-push` v1 está desplegada y el job `veterinary-notification-push` activo cada minuto. Reclama hasta diez entregas con lease de dos minutos y hasta tres intentos; revalida suscripción, preferencia, recurso/revisión y hora antes de HTTPS. 2xx es aceptación del servicio, no recepción/lectura; 404/410 retiran esa generación. Un timeout o respuesta perdida puede reintentar; tag estable evita una nueva tarjeta nativa por el mismo aviso. No prometer entrega externa exactamente una vez ni retractar peticiones que ya salieron.
+- Desarrollo usa Vault (`notification_push_url`, `notification_worker_secret`, `notification_push_public_key`, `notification_push_private_key`, `notification_push_subject`) porque la CLI no tiene sesión. El runtime obtiene configuración mediante RPC solo de `service_role` y token vigente si las cuatro variables Edge del emisor están ausentes; si están presentes exige configuración completa. El archivo raíz sigue siendo el origen de configuración. Operación repetible `supabase/operations/enable_notification_push.sql`; no activar LiveKit ni su job al modificar notificaciones. Se comprobó Cron y HTTP 200 con cola vacía, 403 sin token y SQL con rollback; entrega física pendiente.
 
 - El SW está desactivado en `npm run dev`. Probar instalación, offline y actualización con build/preview o HTTPS.
 - `src/sw.ts` precachea recursos propios y mantiene navegación SPA offline. No cachea automáticamente datos de API, imágenes remotas ni teselas.
@@ -381,7 +393,7 @@ Verificación del seeder: 137 pruebas en 19 archivos, lint y tipos correctos; oc
 - Preparar operación de Google en producción: ID de mapa propio, restricciones del dominio final, cuotas y aceptación en dispositivos físicos. Clave/APIs y una ruta real sin tráfico en Tunja ya se comprobaron localmente. No se importan automáticamente establecimientos de Google.
 - HU11 CA3 tiene chat de texto integrado desde la ficha, con conservación de sede durante acceso/registro; citas siguen integradas.
 - HU22-HU24 implementadas: conservar las transacciones de cambios, filtros en servidor, auditoría y separación de permisos de agenda/chat al ampliar el dominio.
-- Fotos y voz implementadas. HU28-HU29 incorporan controles y recuperación; activar LiveKit/mantenimiento y comprobar dos equipos reales antes de aceptar HU27-HU29. HU30 gestiona suscripciones; envío remoto/recordatorios HU31 y bandeja HU32 siguen pendientes.
+- Fotos y voz implementadas. HU28-HU29 incorporan controles y recuperación; activar LiveKit/mantenimiento y comprobar dos equipos reales antes de aceptar HU27-HU29. HU30-HU33 tienen suscripciones, emisor remoto, bandeja e instalación implementados; comprobar entrega push e instalación física en Android/iPhone y escritorio. No confundir Cron exitoso con recepción del aviso.
 - Sincronización general, reintentos, conflictos y adjuntos; la cola actual de cuentas no cubre estos dominios.
 - Aceptación con correos reales de confirmación/recuperación, validación piloto y Android/iPhone físicos. El aviso de privacidad de desarrollo necesita datos operativos definitivos antes de publicación general.
 - Despliegue HTTPS final y comprobación de cabeceras. Cloudflare Pages está preparado con `public/_redirects`, `public/_headers`, build `npm run build` y salida `dist/`; no asumir que ya hay un despliegue público.
