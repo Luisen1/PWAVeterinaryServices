@@ -1,5 +1,17 @@
 # Verificación de la base técnica
 
+## HU34–HU36 · 2026-11-18
+
+Pasaron **264 pruebas de lógica/PostgreSQL en 30 archivos** y **123 E2E completos con `CI=true`, sin fallos ni reintentos**. Incluyen descarga completa, fallback/listado, búsqueda local y ficha no visitada previamente, atomicidad ante error de cuota/página fallida, IndexedDB v5-v6, recarga offline de texto y solicitud, respuestas perdidas, IDs estables, cita ocupada, comparación/resolución de nota y envío en primer plano sin `SyncManager`. Las pruebas de lógica comprueban aislamiento y sesión expirada conservando datos. Ver [HU34-HU36](hu34-hu36.md).
+
+Durante la verificación se corrigieron dos fallos de producto: el cambio de conexión desmontaba el formulario de cita y perdía su mascota seleccionada; se conserva ahora la consulta previa solo para el mismo servicio/fecha/profesional, marcada como referencia. El observador de pendientes también perdía reactividad al atravesar Auth/webCrypto; ahora observa solo Dexie y ejecuta por separado la lectura autorizada. Se añadió antigüedad explícita a la ficha offline. Las aserciones históricas de texto/formulario se adaptaron al guardado local nuevo y los recorridos de conflicto esperan el resultado antes de navegar.
+
+No hay nueva migración SQL ni variables de entorno. Se reutilizan las 22 migraciones y las RPC idempotentes. `supabase/tests/hu19_hu21.sql` y `supabase/tests/hu22_hu24.sql` pasaron de nuevo en desarrollo con rollback. Conteos antes/después: cinco cuentas, dos citas, cuatro mensajes y cero notificaciones/suscripciones. Los cambios de estos recorridos fueron sintéticos y no quedaron datos de prueba persistidos.
+
+La persistencia local depende de que el navegador conserve almacenamiento. Las pruebas automatizadas de recuperación no sustituyen la aceptación en teléfonos físicos, el vencimiento real de sesiones durante periodos prolongados ni la aceptación de push/LiveKit que sigue pendiente en sus guías.
+
+Comprobación final: lint y tipos correctos, build regenerado con el entorno real tras E2E (17 entradas de precache, ~1859 KiB), capturas del directorio offline y pendientes a 320 px revisadas. Se comprobaron 106 enlaces locales y 42 archivos cambiados, además de `dist/`, sin coincidencias con las cuatro variables privadas locales. `.env.local` sigue ignorado. Permanecen los avisos conocidos de tamaño de chunks y deprecación de Workbox.
+
 ## HU31–HU33 · 2026-11-18
 
 Implementación y operación documentadas en [HU31–HU33](hu31-hu33.md). Pasaron **250 pruebas de lógica/PostgreSQL en 29 archivos y los 117 E2E**. Tras reforzar las escrituras por cuenta, se repitieron los cuatro E2E de bandeja/preferencias; después del cierre de auditoría de intentos cancelados pasó nuevamente el archivo de base de datos con 66 pruebas. Lint, tipos, comprobación Deno de cuatro funciones y build del entorno real correctos. Vista de bandeja revisada a 320 px, sin desbordamiento horizontal.

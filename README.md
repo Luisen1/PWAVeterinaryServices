@@ -24,6 +24,8 @@ Las [HU31-HU33](docs/hu31-hu33.md) incorporan **Cuenta → Mis notificaciones**,
 
 PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local, cuentas, perfil y mascotas, oferentes, revisión administrativa, fichas, servicios, profesionales, disponibilidad, colaboradores y mapa con agrupación. Consulta [HU07-HU09](docs/hu07-hu09.md) para configurar la oferta. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
 
+Las [HU34-HU36](docs/hu34-hu36.md) permiten descargar el directorio completo desde Explorar y consultar fichas/buscar sin conexión. **Cuenta → Pendientes y sincronización** reúne favoritos, notas, horarios, solicitudes/cambios de cita, texto y archivos. Los borradores persisten con identificadores estables, los conflictos se conservan para decidir y los envíos se revalidan en primer plano. IndexedDB v6 migra sin borrar datos; se reutilizan las 22 migraciones SQL existentes.
+
 La interfaz utiliza los prototipos y la guía visual del proyecto: Poppins, azul marino, turquesa y verde, junto al emblema SVG original. El inicio contiene accesos funcionales y el registro de establecimientos se organiza en cuatro pasos. Consulta [diseño visual](docs/diseno-visual.md) para conocer los componentes, adaptaciones y validaciones.
 
 ## Requisitos e instalación
@@ -250,8 +252,8 @@ GitHub Actions ejecuta instalación reproducible, lint, TypeScript, Vitest, buil
 Pendiente para las siguientes fases
 
 - Configuración operativa de correo, restricciones/cuotas Google y despliegue HTTPS definitivo.
-- Nuevos dominios mediante nuevas migraciones, preservando las diecinueve aplicadas.
+- Nuevos dominios mediante nuevas migraciones, preservando las veintidós aplicadas.
 - Activación y aceptación real de LiveKit Cloud/mantenimiento y HU27-HU29 entre dos equipos. Controles/reconexión ya implementados.
-- Protocolo de sincronización, outbox, reintentos y conflictos.
+- Automatización de nuevos dominios y aceptación física de almacenamiento/offline en dispositivos. HU34-HU36 ya incluyen descarga completa, pendientes duraderos, reintentos y conflictos visibles en primer plano.
 - Aceptación de entrega push e instalación física HU31-HU33. El emisor remoto, bandeja y ayuda por navegador ya están implementados. Observabilidad y políticas operativas de privacidad siguen en desarrollo.
 - Validación piloto con cuentas reales y dispositivos Android/iPhone físicos.
