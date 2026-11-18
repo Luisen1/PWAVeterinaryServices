@@ -2,6 +2,8 @@
 
 Aplicar las migraciones en orden al proyecto Supabase de desarrollo.
 
+HU28-HU30 incorporan la migración 19 de incidencias y suscripciones privadas. [hu28_hu30.sql](../tests/hu28_hu30.sql) pasó localmente y en desarrollo con rollback; no abre llamadas ni envía push. Ver [contratos y límites](../../docs/hu28-hu30.md).
+
 1. `20261114000000_enable_extensions.sql` habilita PostGIS y btree_gist.
 2. `20261114010000_identity_and_access.sql` crea perfiles, consentimientos, roles, trigger de registro y RLS de HU01/HU02.
 3. `20261114192538_profiles_providers_and_review.sql` añade teléfono, mascotas, solicitudes, publicaciones, revisión administrativa, invitación de administrador y Storage privado para HU03/HU06.
@@ -20,8 +22,9 @@ Aplicar las migraciones en orden al proyecto Supabase de desarrollo.
 16. `20261116165558_private_chat_media_and_call_authorization.sql` añade archivos privados y publicación de backend, asignación de cuenta profesional, autorización de salas e invalidación/cierre.
 17. `20261116184257_account_types_and_role_separation.sql` separa tipo de cuenta de privilegios, clasifica cuentas anteriores, añade elección pendiente/contexto protegido y guardas de área sin borrar datos.
 18. `20261117210111_appointment_chat_entry.sql` permite abrir desde una cita el chat del cliente, valida ambos permisos del equipo y deriva el destinatario; añade `can_chat` y reutiliza la conversación única por cliente/sede.
+19. `20261118013727_call_recovery_and_device_push.sql` crea incidencias privadas idempotentes y suscripciones push por cuenta/dispositivo con alta/baja protegidas.
 
-Las dieciocho migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-17. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las 12–17 el 2026-11-16 y la 18 el 2026-11-17. No volver a ejecutarlas manualmente sobre este proyecto.
+Las diecinueve migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-17. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las 12–17 el 2026-11-16 y las 18-19 el 2026-11-17 (la 19 tiene fecha UTC 2026-11-18). No volver a ejecutarlas manualmente sobre este proyecto.
 
 `supabase/tests/appointment_chat.sql` verifica apertura desde cita por responsable/cliente, conversación compartida con la ficha, permisos combinados, revocación y seguimiento tras despublicar. Pasó en PostgreSQL embebido y desarrollo con rollback, sin conservar cuentas/citas/mensajes temporales.
 

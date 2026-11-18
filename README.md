@@ -2,6 +2,8 @@
 
 Para continuar el desarrollo con un asistente de IA, consultar primero [AGENTS.md](AGENTS.md): contexto, estado de las HU, arquitectura, reglas del dominio y verificación.
 
+Para entender las conexiones con Supabase, Google y LiveKit y comprobar el recorrido de administración, veterinaria y dueño, consultar la [guía de funcionamiento y pruebas](docs/funcionamiento-y-pruebas-de-la-aplicacion.md). Distingue las funciones disponibles de la activación y aceptación pendientes de videollamadas.
+
 El registro y las opciones de cuenta se separan entre **Dueño de mascota** y **Veterinaria**. Las cuentas previas sin actividad suficiente eligen su recorrido al entrar; administración mantiene un panel propio. Elegir Veterinaria no concede aprobación ni permisos de equipo. Ver [tipos de cuenta y migración](docs/tipos-de-cuenta.md).
 
 El descubrimiento inicia en **Tunja, Boyacá**: permite usar ubicación o marcar un origen, buscar servicios y alternar mapa/lista conservando la selección. Las fichas muestran la sede elegida, solicitudes de cita, chat de texto y **Cómo llegar** desde el punto de salida. Consulta [HU10-HU12 y navegación](docs/hu10-hu12.md).
@@ -14,7 +16,9 @@ Las [HU19-HU21](docs/hu19-hu21.md) permiten solicitar atención presencial o vir
 
 Las [HU22-HU24](docs/hu22-hu24.md) incorporan cancelación/reprogramación atómicas bajo reglas publicadas, cambios pendientes offline, agenda filtrada y estados finales auditados. El chat conecta a la cuenta con el equipo autorizado de una sede, con persistencia, recibos de lectura y Realtime respaldado por recuperación por cursor. Accesos desde Cuenta y ficha.
 
-Las [HU25-HU27](docs/hu25-hu27.md) añaden fotos privadas de hasta 5 MB, notas de voz de hasta 60 segundos, previsualización/escucha y pendientes duraderos con reintentos sin duplicados. La integración de videollamada LiveKit Cloud está preparada con cuenta profesional, autorización, sala privada y tokens cortos, pero **todavía requiere cuenta/secretos, mantenimiento y prueba real entre dos equipos**. No se muestra una conexión simulada ni se declara HU27 aceptada. Correo/push siguen pendientes.
+Las [HU25-HU27](docs/hu25-hu27.md) añaden fotos privadas de hasta 5 MB, notas de voz de hasta 60 segundos, previsualización/escucha y pendientes duraderos con reintentos sin duplicados. La integración LiveKit Cloud está preparada con cuenta profesional, autorización, sala privada y tokens cortos; **su activación remota, mantenimiento y aceptación con dos equipos siguen pendientes**. No se simula una conexión ni se declara HU27 aceptada.
+
+Las [HU28-HU30](docs/hu28-hu30.md) añaden elección de dispositivos, silencio, solo audio, reconexión acotada con reautorización e incidencias privadas, además del permiso/suscripción push por cuenta y dispositivo. La baja al cerrar sesión evita heredar avisos a otra cuenta. **Cuenta → Notificaciones del dispositivo** permite gestionarla; el envío remoto HU31 y la bandeja HU32 siguen pendientes.
 
 PWA con React, TypeScript estricto y Vite. Incluye instalación, shell offline, actualización confirmada, persistencia local, cuentas, perfil y mascotas, oferentes, revisión administrativa, fichas, servicios, profesionales, disponibilidad, colaboradores y mapa con agrupación. Consulta [HU07-HU09](docs/hu07-hu09.md) para configurar la oferta. La aceptación con correos reales sigue pendiente; consulta `docs/hu01-hu06.md`.
 
@@ -64,7 +68,9 @@ El comando usa CLI 3.1.0, excluye variables públicas y credenciales ajenas, y e
 
 El cliente admite una clave pública publishable (`sb_publishable_`) en `VITE_SUPABASE_ANON_KEY`, además de la clave anon legacy. La sesión persiste y se refresca mediante el SDK. Los enlaces de correo usan PKCE y se procesan en `/auth/confirmar`.
 
-Para habilitar un proyecto nuevo, aplicar las dieciocho migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` ya están aplicadas/alineadas: identidad, establecimientos, oferta, preferencias, apartados, solicitudes/decisiones, cambios atómicos, agenda, chat, medios privados, autorización de salas y tipos de cuenta. Las dos tablas de chat se añaden a `supabase_realtime` cuando la publicación existe. Las tres Edge Functions de medios/llamadas están desplegadas en desarrollo; activar LiveKit y el trabajo de cierre requiere los pasos de `docs/hu25-hu27.md`.
+Para habilitar un proyecto nuevo, aplicar las diecinueve migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` ya están aplicadas/alineadas: identidad, establecimientos, oferta, preferencias, apartados, citas, agenda, chat, medios, salas, tipos de cuenta, incidencias y suscripciones push privadas. Las tablas de chat se añaden a `supabase_realtime` cuando la publicación existe. Las tres Edge Functions están desplegadas en desarrollo; activar LiveKit y el trabajo de cierre requiere `docs/hu25-hu27.md`.
+
+Para HU30, `npm run push:keys` crea/valida en `.env.local` el par VAPID sin mostrarlo ni rotarlo al repetir. `VITE_WEB_PUSH_PUBLIC_KEY` va al navegador; `WEB_PUSH_PRIVATE_KEY` queda reservada al emisor futuro HU31 y no se carga aún a Edge Secrets. Regenerar el build después de configurar la clave pública. Ver [permisos y suscripciones](docs/hu28-hu30.md).
 
 Los mapas requieren `VITE_GOOGLE_MAPS_API_KEY`: clave pública de navegador restringida por dominios y a Maps JavaScript API/Routes API. `VITE_GOOGLE_MAPS_MAP_ID` permite usar un ID de mapa JavaScript propio; en desarrollo se utiliza `DEMO_MAP_ID` si no se configura. El SDK se carga al mostrar el mapa y las rutas solo se consultan bajo acción explícita. Sin clave quedan disponibles el listado, las fichas, la disponibilidad y la navegación externa. Las variables antiguas `VITE_MAP_TILE_URL`/`VITE_MAP_ATTRIBUTION` ya no se usan. La [guía HU17-HU18](docs/hu17-hu18.md) detalla configuración, cuotas y límites.
 
@@ -242,9 +248,8 @@ GitHub Actions ejecuta instalación reproducible, lint, TypeScript, Vitest, buil
 Pendiente para las siguientes fases
 
 - Configuración operativa de correo, restricciones/cuotas Google y despliegue HTTPS definitivo.
-- Tablas, restricciones, permisos y RLS de los siguientes dominios, preservando las dieciséis migraciones aplicadas.
-- Activación y aceptación real de LiveKit Cloud, controles/reconexión HU28-HU29 y notificaciones push. Texto/fotos/voz privados ya implementados.
-- Llamadas de audio/vídeo y autorización de salas.
+- Nuevos dominios mediante nuevas migraciones, preservando las diecinueve aplicadas.
+- Activación y aceptación real de LiveKit Cloud/mantenimiento y HU27-HU29 entre dos equipos. Controles/reconexión ya implementados.
 - Protocolo de sincronización, outbox, reintentos y conflictos.
-- Push, recordatorios, observabilidad y políticas de privacidad.
+- Envío push/recordatorios HU31 y bandeja HU32; HU30 ya gestiona permiso, suscripciones y desvinculación por dispositivo. Observabilidad y políticas operativas de privacidad siguen en desarrollo.
 - Validación piloto con cuentas reales y dispositivos Android/iPhone físicos.
