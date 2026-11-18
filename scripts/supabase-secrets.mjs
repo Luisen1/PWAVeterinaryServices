@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
+import { pushServerConfiguration } from './push-configuration.mjs';
 
 const SERVER_NAMES = [
   'APP_ALLOWED_ORIGINS',
@@ -84,7 +85,10 @@ export function serverConfiguration(env) {
     throw new Error(
       'VITE_SUPABASE_URL debe identificar el proyecto Supabase de destino.',
     );
-  return { project: match[1], secrets };
+  return {
+    project: match[1],
+    secrets: { ...secrets, ...pushServerConfiguration(env) },
+  };
 }
 
 function main() {
@@ -96,7 +100,7 @@ function main() {
   );
   if (args.includes('--check')) {
     console.log(
-      `Configuración válida para ${project}; cinco variables de backend, sin enviar valores.`,
+      `Configuración válida para ${project}; ${Object.keys(secrets).length} variables de backend, sin enviar valores.`,
     );
     return;
   }

@@ -29,6 +29,7 @@
     "src/features/appointments/requests-model.ts",
     "supabase/functions/_shared",
     "supabase/functions/chat-media/handler.ts",
-    "supabase/functions/appointment-call/handler.ts"
+    "supabase/functions/appointment-call/handler.ts",
+    "supabase/functions/notification-push/handler.ts"
   ]
 }
