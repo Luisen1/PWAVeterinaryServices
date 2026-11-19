@@ -10,3 +10,6 @@ verify_jwt = true
 # Autenticación propia constante mediante NOTIFICATION_WORKER_SECRET; sin sesiones de usuario.
 [functions.notification-push]
 verify_jwt = false
+
+[functions.account-data]
+  verify_jwt = false
