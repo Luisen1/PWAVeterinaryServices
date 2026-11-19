@@ -28,7 +28,15 @@ HU28-HU30 incorporan la migración 19 de incidencias y suscripciones privadas. [
 22. `20261118140015_finish_cancelled_push_attempts.sql` completa la auditoría al cancelar una entrega ya reclamada; sus respuestas tardías no modifican el resultado cancelado.
 23. `20261118235131_account_privacy_and_deletion.sql` añade solicitudes privadas, exportación por propietario exclusiva de backend, bloqueo de cuentas en procesamiento, revocación de sesiones/suscripciones y retirada de datos por etapas.
 
-Las veintitrés migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-18. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las 12–17 el 2026-11-16, las 18-19 el 2026-11-17 (la 19 tiene fecha UTC 2026-11-18) y las 20-23 el 2026-11-18. No volver a ejecutarlas manualmente sobre este proyecto.
+24. `20261119173319_reports_moderation_and_operation_limits.sql` incorpora reportes de ficha y mensaje, evidencia restringida, decisiones auditadas y guardas de publicación/chat.
+25. `20261119173320_operational_monitoring_and_recovery.sql` incorpora límites, alertas agregadas, copias de operador e identidad de esquema.
+
+26. `20261119181143_audit_privacy_exports_and_backups.sql` excluye subidas pendientes de la exportación y hashes/metadatos de Auth de las copias operativas.
+27. `20261119181144_public_site_action_availability.sql` crea la vista pública de servicios publicados y aplica la opción de chat de ficha por sede.
+
+28. `20261119181904_livekit_runtime_vault.sql` permite recuperar configuración LiveKit y autenticar el worker exclusivamente desde backend.
+
+Las veintiocho migraciones están aplicadas y alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-19. Las 24 a 28 se aplicaron el 19 de noviembre en `America/Bogota`. El [contrato HU40–HU42](../tests/hu40_hu42.sql) se verificó con rollback. El monitor, la configuración de recuperación y el cierre de salas se habilitan mediante `supabase/operations` después de las migraciones. Ver la [auditoría de las historias](../../docs/auditoria-historias.md).
 
 HU37–HU39: `supabase/tests/hu37_hu39.sql` pasó local y remotamente con rollback. `account-data` v1 está activa; exportación, solicitud y procesamiento real de Auth se comprobaron con dos cuentas técnicas retiradas, manteniendo datos reales. Ver [política y operación](../../docs/hu37-hu39.md). Exportación/procesamiento solo admiten `service_role`; nunca exponer esas RPC al navegador ni editar la migración ya aplicada.
 
