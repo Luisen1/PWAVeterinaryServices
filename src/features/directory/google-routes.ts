@@ -1,6 +1,10 @@
 /// <reference types="google.maps" />
 import { isPoint, type Origin, type Point } from './discovery';
 import { loadGoogleMaps, RouteFailure } from './google-maps';
+import {
+  authorizeMapOperation,
+  MapOperationError,
+} from '@/features/operations/map-budget';
 
 export interface RouteEstimate {
   path: google.maps.LatLngLiteral[];
@@ -12,7 +16,8 @@ export interface RouteEstimate {
 }
 export { loadGoogleMaps, RouteFailure } from './google-maps';
 export function routeError(error: unknown): string {
-  if (error instanceof RouteFailure) return error.message;
+  if (error instanceof RouteFailure || error instanceof MapOperationError)
+    return error.message;
   const code =
     error && typeof error === 'object' && 'code' in error
       ? String(error.code)
@@ -46,6 +51,7 @@ export async function computeRoute(
       'network',
       'Necesitas conexión para calcular una ruta. Las indicaciones externas siguen disponibles cuando recuperes conexión.',
     );
+  await authorizeMapOperation('route');
   await loadGoogleMaps();
   const { Route } = (await google.maps.importLibrary(
     'routes',

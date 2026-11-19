@@ -1,4 +1,5 @@
 import type { BrowserContext } from '@playwright/test';
+import { E2E_ENVIRONMENT } from './environment';
 
 export async function mockGoogleMaps(
   context: BrowserContext,
@@ -9,6 +10,10 @@ export async function mockGoogleMaps(
     failLoad?: boolean;
   } = {},
 ) {
+  await context.route(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/rpc/claim_map_operation`,
+    (route) => route.fulfill({ json: { allowed: true } }),
+  );
   await context.route(
     'https://maps.googleapis.com/maps/api/js**',
     async (route) => {

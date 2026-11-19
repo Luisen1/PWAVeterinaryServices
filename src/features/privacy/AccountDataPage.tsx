@@ -65,6 +65,13 @@ export function RetentionPolicy() {
         conservan durante el proyecto, sujetos a la eliminación de datos
         personales.
       </p>
+      <p>
+        La supervisión registra únicamente códigos técnicos y contadores, sin
+        mensajes, archivos, contraseñas ni ubicaciones. Los fallos técnicos se
+        depuran a los siete días y los intentos de mapas a los treinta días. Las
+        copias de recuperación están cifradas y requieren una clave privada de
+        operador; antes de recuperar se reaplican las eliminaciones vigentes.
+      </p>
     </section>
   );
 }

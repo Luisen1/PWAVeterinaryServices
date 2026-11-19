@@ -1,2 +1,4 @@
+import { observedHandler } from '../_shared/observability.ts';
 import { createMediaHandler } from './handler.ts';
-Deno.serve(createMediaHandler((name) => Deno.env.get(name)));
+const env = (name: string) => Deno.env.get(name);
+Deno.serve(observedHandler(env, 'media', createMediaHandler(env)));

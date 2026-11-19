@@ -32,6 +32,7 @@ import { VideoCallPage } from '@/features/calls/VideoCallPage';
 import { NotificationSettingsPage } from '@/features/notifications/NotificationSettingsPage';
 import { NotificationInboxPage } from '@/features/notifications/NotificationInboxPage';
 import { PendingPage } from '@/features/sync/PendingPage';
+import { OperationsPage } from '@/features/operations/OperationsPage';
 import {
   ReportsPage,
   ReportDetailsPage,
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
       { path: '/cuenta/notificaciones', element: <NotificationSettingsPage /> },
       { path: '/notificaciones', element: <NotificationInboxPage /> },
       { path: '/cuenta/pendientes', element: <PendingPage /> },
+      { path: '/administracion/operacion', element: <OperationsPage /> },
       { path: '/reportes', element: <ReportsPage /> },
       { path: '/reportes/:id', element: <ReportDetailsPage /> },
       { path: '/administracion/reportes', element: <ReportsPage admin /> },

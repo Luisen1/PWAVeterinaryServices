@@ -12,6 +12,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { pushServerConfiguration } from './push-configuration.mjs';
+import { recoveryServerConfiguration } from './recovery-configuration.mjs';
 
 const SERVER_NAMES = [
   'APP_ALLOWED_ORIGINS',
@@ -87,7 +88,11 @@ export function serverConfiguration(env) {
     );
   return {
     project: match[1],
-    secrets: { ...secrets, ...pushServerConfiguration(env) },
+    secrets: {
+      ...secrets,
+      ...pushServerConfiguration(env),
+      ...recoveryServerConfiguration(env),
+    },
   };
 }
 

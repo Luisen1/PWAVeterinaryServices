@@ -1,6 +1,7 @@
 /// <reference types="google.maps" />
 import { useEffect, useId, useRef, useState } from 'react';
 import { useOnline } from '@/pwa/useOnline';
+import { authorizeMapOperation } from '@/features/operations/map-budget';
 import { Icon } from '@/components/ui/Icon';
 import { isPoint, TUNJA, type Point } from './discovery';
 import {
@@ -136,6 +137,8 @@ function SiteMap({
     const unsubscribe = onGoogleMapsFailure(fail);
     void (async () => {
       try {
+        await authorizeMapOperation('map');
+        if (disposed) return;
         await loadGoogleMaps();
         const [maps, markers] = await Promise.all([
           google.maps.importLibrary('maps') as Promise<google.maps.MapsLibrary>,

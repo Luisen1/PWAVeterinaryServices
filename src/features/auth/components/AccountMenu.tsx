@@ -170,6 +170,12 @@ export function AccountMenu({ context }: { context: AccountContext }) {
             icon: 'shield',
           },
           {
+            to: '/administracion/operacion',
+            title: 'Estado y límites de operación',
+            help: 'Alertas técnicas y consumo de la aplicación',
+            icon: 'shield',
+          },
+          {
             to: '/administracion/reportes',
             title: 'Reportes y moderación',
             help: 'Revisión de fichas y evidencia mínima autorizada',

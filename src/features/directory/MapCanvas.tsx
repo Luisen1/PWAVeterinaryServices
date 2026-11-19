@@ -60,6 +60,8 @@ export default function MapCanvas({
     const unsubscribe = onGoogleMapsFailure(fail);
     void (async () => {
       try {
+        await authorizeMapOperation('map');
+        if (disposed) return;
         await loadGoogleMaps();
         const [library] = await Promise.all([
           google.maps.importLibrary('maps') as Promise<google.maps.MapsLibrary>,
@@ -312,3 +314,4 @@ export default function MapCanvas({
     </div>
   );
 }
+import { authorizeMapOperation } from '@/features/operations/map-budget';
