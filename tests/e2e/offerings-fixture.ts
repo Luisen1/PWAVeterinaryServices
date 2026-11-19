@@ -140,7 +140,10 @@ export async function mockOfferings(
         });
         return;
       }
-      if (path.endsWith('/offering_items')) {
+      if (
+        path.endsWith('/offering_items') ||
+        path.endsWith('/published_service_items')
+      ) {
         let results = items;
         if (url.searchParams.has('establishment_id'))
           results = results.filter(

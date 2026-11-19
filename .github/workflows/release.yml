@@ -1,0 +1,119 @@
+name: Publicación controlada
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Ambiente configurado en GitHub Environments
+        type: choice
+        options: [staging, production]
+        required: true
+      action:
+        description: Publicar cambios o redeplegar un artefacto compatible anterior
+        type: choice
+        options: [deploy, rollback]
+        required: true
+      rollback_run_id:
+        description: ID de una ejecución anterior aprobada de este workflow
+        type: string
+        required: false
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: veterinary-release-${{ inputs.environment }}
+  cancel-in-progress: false
+jobs:
+  build:
+    if: inputs.action == 'deploy'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      VITE_GOOGLE_MAPS_API_KEY: ${{ vars.VITE_GOOGLE_MAPS_API_KEY }}
+      VITE_GOOGLE_MAPS_MAP_ID: ${{ vars.VITE_GOOGLE_MAPS_MAP_ID }}
+      VITE_WEB_PUSH_PUBLIC_KEY: ${{ vars.VITE_WEB_PUSH_PUBLIC_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run check:functions
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      # E2E deja un build con servicios simulados: recompilar siempre al final.
+      - run: npm run release:prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veterinary-release
+          path: |
+            dist/
+            release-manifest.json
+          retention-days: 30
+          if-no-files-found: error
+  publish:
+    needs: build
+    if: always() && (needs.build.result == 'success' || inputs.action == 'rollback')
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      DEPLOY_PUBLIC_URL: ${{ vars.DEPLOY_PUBLIC_URL }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      CF_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      ROLLBACK_RUN_ID: ${{ inputs.rollback_run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Comprobar destino y origen del artefacto
+        env:
+          RELEASE_ACTION: ${{ inputs.action }}
+        run: |
+          node --input-type=module -e "if(!/^[a-z0-9-]{3,63}$/.test(process.env.CF_PAGES_PROJECT??'')||!/^[a-z0-9]{20}$/.test(process.env.SUPABASE_PROJECT_REF??''))throw Error('Configura el destino exacto de despliegue.');if(new URL(process.env.VITE_SUPABASE_URL).hostname.split('.')[0]!==process.env.SUPABASE_PROJECT_REF)throw Error('La referencia backend no coincide con las variables del frontend.');if(process.env.RELEASE_ACTION==='rollback'&&!/^[0-9]+$/.test(process.env.ROLLBACK_RUN_ID??''))throw Error('Indica una ejecución anterior aprobada.');if(process.env.DEPLOY_ENVIRONMENT==='production'&&process.env.GITHUB_REF!=='refs/heads/main')throw Error('Producción requiere main.');"
+      - name: Confirmar la ejecución que generó el artefacto
+        id: rollback-origin
+        if: inputs.action == 'rollback'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release-origin.mjs
+      - uses: actions/download-artifact@v4
+        with:
+          name: veterinary-release
+          run-id: ${{ inputs.action == 'rollback' && inputs.rollback_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verificar artefacto antes de modificar el backend
+        env:
+          RELEASE_SOURCE_SHA: ${{ steps.rollback-origin.outputs.sha || github.sha }}
+        run: npm run release:preflight -- --artifact-only
+      - name: Aplicar solo migraciones nuevas y funciones del ambiente
+        if: inputs.action == 'deploy'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          node --input-type=module -e "if(!process.env.SUPABASE_ACCESS_TOKEN)throw Error('Falta credencial de despliegue backend.');"
+          npx --yes supabase@3.1.0 db push --remote="$SUPABASE_PROJECT_REF" --skip-vault --yes
+          npx --yes supabase@3.1.0 functions deploy chat-media appointment-call call-maintenance notification-push account-data operations --remote="$SUPABASE_PROJECT_REF" --use-api --import-map supabase/functions/deno.json --yes
+      - name: Comprobar integridad, esquema y CORS antes de publicar
+        env:
+          RELEASE_SOURCE_SHA: ${{ steps.rollback-origin.outputs.sha || github.sha }}
+        run: npm run release:preflight
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.160.1'
+          command: pages deploy dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }} --branch=main
+      - name: Comprobar HTTPS, rutas profundas y versión publicada
+        run: npm run release:verify -- "$DEPLOY_PUBLIC_URL" --artifact release-manifest.json

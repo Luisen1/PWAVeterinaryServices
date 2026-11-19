@@ -32,6 +32,15 @@ import { VideoCallPage } from '@/features/calls/VideoCallPage';
 import { NotificationSettingsPage } from '@/features/notifications/NotificationSettingsPage';
 import { NotificationInboxPage } from '@/features/notifications/NotificationInboxPage';
 import { PendingPage } from '@/features/sync/PendingPage';
+import { OperationsPage } from '@/features/operations/OperationsPage';
+import {
+  ReportsPage,
+  ReportDetailsPage,
+} from '@/features/moderation/ReportsPage';
+import {
+  AccountDataPage,
+  AccountDeletionAdminPage,
+} from '@/features/privacy/AccountDataPage';
 import {
   ChatInboxPage,
   ChatStartPage,
@@ -75,6 +84,19 @@ export const router = createBrowserRouter([
       { path: '/cuenta/notificaciones', element: <NotificationSettingsPage /> },
       { path: '/notificaciones', element: <NotificationInboxPage /> },
       { path: '/cuenta/pendientes', element: <PendingPage /> },
+      { path: '/administracion/operacion', element: <OperationsPage /> },
+      { path: '/reportes', element: <ReportsPage /> },
+      { path: '/reportes/:id', element: <ReportDetailsPage /> },
+      { path: '/administracion/reportes', element: <ReportsPage admin /> },
+      {
+        path: '/administracion/reportes/:id',
+        element: <ReportDetailsPage admin />,
+      },
+      { path: '/cuenta/datos', element: <AccountDataPage /> },
+      {
+        path: '/administracion/eliminaciones',
+        element: <AccountDeletionAdminPage />,
+      },
       {
         path: '/citas/solicitudes/:id/videollamada',
         element: <VideoCallPage />,

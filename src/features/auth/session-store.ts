@@ -1,7 +1,12 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/app/query-client';
-import { clearForeignPushBindings } from '@/features/notifications/api';
+import {
+  clearForeignPushBindings,
+  forgetRevokedDevicePush,
+} from '@/features/notifications/api';
+import { purgePrivateLocalData } from '@/lib/db';
+import { withAccountWriteLock } from '@/features/sync/account-write-lock';
 import {
   offlineIdentity,
   rememberVerifiedSession,
@@ -19,11 +24,38 @@ let state: AuthState = { status: 'loading', user: null, error: null };
 let revision = 0;
 let started = false;
 let owner: string | null = null;
+let validityDeadline: number | undefined;
+let expiryTimer: number | undefined;
 const listeners = new Set<() => void>();
+const expiredSession: AuthState = {
+  status: 'unavailable',
+  user: null,
+  error:
+    'La sesión local venció. Conéctate y valida tu acceso para consultar tus datos.',
+};
 
-function publish(next: AuthState) {
-  state = next;
+function publish(next: AuthState, validUntil?: number) {
+  window.clearTimeout(expiryTimer);
+  if (validUntil !== undefined && validUntil <= Date.now()) {
+    state = expiredSession;
+    validityDeadline = undefined;
+    void clearQueryCache();
+  } else {
+    state = next;
+    validityDeadline = validUntil;
+    if (validUntil !== undefined)
+      expiryTimer = window.setTimeout(
+        expireSessionIfNeeded,
+        validUntil - Date.now(),
+      );
+  }
   listeners.forEach((listener) => listener());
+}
+
+function expireSessionIfNeeded() {
+  if (validityDeadline === undefined || Date.now() < validityDeadline) return;
+  publish(expiredSession);
+  void clearQueryCache();
 }
 
 export function getAuthState() {
@@ -63,14 +95,43 @@ async function resolveSession(session: Session | null) {
     if (!navigator.onLine) {
       const offlineUser = await offlineIdentity(session);
       if (currentRevision === revision)
-        publish({
-          status: 'unavailable',
-          user: null,
-          offlineUser,
-          error: offlineUser
-            ? 'Sin conexión. Puedes consultar y editar tus favoritos y notas locales.'
-            : 'Necesitas validar la sesión con conexión antes de acceder a datos privados.',
-        });
+        publish(
+          {
+            status: 'unavailable',
+            user: null,
+            offlineUser,
+            error: offlineUser
+              ? 'Sin conexión. Puedes consultar y editar tus favoritos y notas locales.'
+              : 'Necesitas validar la sesión con conexión antes de acceder a datos privados.',
+          },
+          offlineUser?.validUntil,
+        );
+      return;
+    }
+    const access = await supabase.rpc('account_access_state');
+    if (currentRevision !== revision) return;
+    if (!access.error && ['processing', 'completed'].includes(access.data)) {
+      publish({
+        ...expiredSession,
+        error: 'Estamos retirando el acceso de esta cuenta.',
+      });
+      await withAccountWriteLock(session.user.id, async () => {
+        await clearQueryCache();
+        await forgetRevokedDevicePush();
+        await purgePrivateLocalData(session.user.id);
+        await supabase!.auth.signOut({ scope: 'local' });
+      });
+      owner = null;
+      publish({ status: 'anonymous', user: null, error: null });
+      return;
+    }
+    if (access.error || access.data !== 'active') {
+      publish({
+        status: 'unavailable',
+        user: null,
+        error:
+          'No pudimos comprobar el estado de tu cuenta. Vuelve a intentarlo.',
+      });
       return;
     }
     const { data, error } = await supabase.auth.getUser(session.access_token);
@@ -91,7 +152,10 @@ async function resolveSession(session: Session | null) {
       /* La sesión online no depende de IndexedDB. */
     }
     if (currentRevision !== revision) return;
-    publish({ status: 'authenticated', user: data.user, error: null });
+    publish(
+      { status: 'authenticated', user: data.user, error: null },
+      session.expires_at ? session.expires_at * 1000 : undefined,
+    );
   } catch {
     if (currentRevision === revision)
       publish({
@@ -136,4 +200,19 @@ export function startAuthSession() {
     }, 0);
   });
   void refreshAuthSession();
+  const revalidate = () => {
+    expireSessionIfNeeded();
+    if (
+      navigator.onLine &&
+      document.visibilityState === 'visible' &&
+      (state.user ||
+        state.offlineUser ||
+        owner ||
+        state.status === 'unavailable')
+    )
+      void refreshAuthSession();
+  };
+  window.addEventListener('online', revalidate);
+  document.addEventListener('visibilitychange', revalidate);
+  window.setInterval(revalidate, 60_000);
 }

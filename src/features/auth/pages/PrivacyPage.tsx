@@ -1,5 +1,7 @@
 import { PRIVACY_POLICY_VERSION } from '@/features/auth/schemas';
 import { AuthFrame } from '@/features/auth/components/AuthFrame';
+import { RetentionPolicy } from '@/features/privacy/AccountDataPage';
+import { Link } from 'react-router';
 
 export function PrivacyPage() {
   return (
@@ -62,7 +64,9 @@ export function PrivacyPage() {
             servicio, el horario y la modalidad, junto con los estados, motivos
             y fechas de sus cambios. Solo tu cuenta y el personal autorizado del
             establecimiento pueden consultarlas. Sus avisos se muestran dentro
-            de la aplicación; esta versión no envía correos ni push de citas.
+            de la aplicación. Los avisos push son voluntarios y dependen del
+            permiso, la suscripción y las preferencias de cada
+            dispositivo/cuenta.
           </p>
           <p>
             Para preparar una cancelación o reprogramación sin conexión se
@@ -78,13 +82,17 @@ export function PrivacyPage() {
             consultarlo. La lectura del establecimiento es compartida entre su
             equipo autorizado. El historial de chat se mantiene en memoria del
             navegador durante la sesión; no se guarda como catálogo público ni
-            se envía por correo o push.
+            se envía por correo ni se incluye su contenido en push.
           </p>
         </section>
+        <RetentionPolicy />
+        <Link className="underline" to="/cuenta/datos">
+          Exportar mis datos o solicitar eliminación
+        </Link>
         <p>
-          Este entorno se encuentra en desarrollo. La información del
-          responsable, el contacto para solicitudes y los plazos de conservación
-          se incorporarán al aviso antes de su publicación para uso general.
+          Entorno académico de desarrollo. El responsable y contacto operativo
+          definitivos deben publicarse antes de abrir el servicio al público
+          general.
         </p>
         <section className="space-y-3">
           <h2 className="font-semibold">

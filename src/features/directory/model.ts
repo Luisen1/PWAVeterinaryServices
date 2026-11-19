@@ -91,6 +91,7 @@ export const siteSchema = z.object({
     .boolean()
     .refine(Boolean, 'Verifica la ubicación en el mapa.'),
   phone,
+  chat_enabled: z.boolean().optional(),
   timezone: z.string().refine((v) => {
     try {
       new Intl.DateTimeFormat('es', { timeZone: v });
@@ -186,6 +187,7 @@ export function blankSite(): Site {
     coordinates_confirmed: false,
     phone: '',
     timezone: 'America/Bogota',
+    chat_enabled: true,
     hours: [],
     exceptions: [],
     payment_methods: ['Efectivo'],

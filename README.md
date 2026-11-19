@@ -1,5 +1,11 @@
 # PWA de servicios veterinarios
 
+Consulta la [auditoría de historias y privacidad](docs/auditoria-historias.md) para ver qué criterios se probaron, las correcciones de seguridad y las comprobaciones externas pendientes.
+
+Las [HU40–HU42](docs/hu40-hu42.md) incorporan reportes auditables, publicación de versiones y supervisión con copias cifradas. Moderación y monitor están activos en desarrollo. El despliegue HTTPS del frontend requiere configurar el destino Cloudflare Pages.
+
+Las [HU37–HU39](docs/hu37-hu39.md) refuerzan la actualización segura y recuperación local, el origen manual accesible y **Cuenta → Privacidad y datos**: exportación reautenticada y solicitud de eliminación procesada por administración. Integración activa en desarrollo con migración 23 y `account-data`; política académica y excepciones de conservación visibles en la aplicación.
+
 Para continuar el desarrollo con un asistente de IA, consultar primero [AGENTS.md](AGENTS.md): contexto, estado de las HU, arquitectura, reglas del dominio y verificación.
 
 Para entender las conexiones con Supabase, Google y LiveKit y comprobar el recorrido de administración, veterinaria y dueño, consultar la [guía de funcionamiento y pruebas](docs/funcionamiento-y-pruebas-de-la-aplicacion.md). Distingue las funciones disponibles de la activación y aceptación pendientes de videollamadas.
@@ -16,7 +22,7 @@ Las [HU19-HU21](docs/hu19-hu21.md) permiten solicitar atención presencial o vir
 
 Las [HU22-HU24](docs/hu22-hu24.md) incorporan cancelación/reprogramación atómicas bajo reglas publicadas, cambios pendientes offline, agenda filtrada y estados finales auditados. El chat conecta a la cuenta con el equipo autorizado de una sede, con persistencia, recibos de lectura y Realtime respaldado por recuperación por cursor. Accesos desde Cuenta y ficha.
 
-Las [HU25-HU27](docs/hu25-hu27.md) añaden fotos privadas de hasta 5 MB, notas de voz de hasta 60 segundos, previsualización/escucha y pendientes duraderos con reintentos sin duplicados. La integración LiveKit Cloud está preparada con cuenta profesional, autorización, sala privada y tokens cortos; **su activación remota, mantenimiento y aceptación con dos equipos siguen pendientes**. No se simula una conexión ni se declara HU27 aceptada.
+Las [HU25-HU27](docs/hu25-hu27.md) añaden fotos privadas, voz y salas LiveKit Cloud con tokens cortos por cuenta profesional o cliente. Las llamadas y el mantenimiento están activos en desarrollo. La prueba de integración usó dos sesiones Chromium con medios sintéticos. Queda la aceptación en dos equipos físicos.
 
 Las [HU28-HU30](docs/hu28-hu30.md) añaden elección de dispositivos, silencio, solo audio, reconexión acotada con reautorización e incidencias privadas, además del permiso/suscripción push por cuenta y dispositivo. La baja al cerrar sesión evita heredar avisos a otra cuenta.
 
@@ -72,7 +78,7 @@ El comando usa CLI 3.1.0, excluye variables públicas y credenciales ajenas, y e
 
 El cliente admite una clave pública publishable (`sb_publishable_`) en `VITE_SUPABASE_ANON_KEY`, además de la clave anon legacy. La sesión persiste y se refresca mediante el SDK. Los enlaces de correo usan PKCE y se procesan en `/auth/confirmar`.
 
-Para habilitar un proyecto nuevo, aplicar las veintidós migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` están aplicadas/alineadas, incluidas notificaciones, recordatorios, cola y configuración protegida de worker. Las tablas de chat se añaden a `supabase_realtime` cuando la publicación existe. Las cuatro Edge Functions están desplegadas; activar LiveKit y su trabajo de cierre sigue requiriendo `docs/hu25-hu27.md`.
+Para habilitar un proyecto nuevo, aplica las veintiocho migraciones y configura las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` están aplicadas y las seis Edge Functions están desplegadas. Las tablas de chat se añaden a `supabase_realtime` cuando la publicación existe. Para LiveKit y su trabajo de cierre consulta `docs/hu25-hu27.md`. Para configurar recuperación y monitor consulta `docs/hu40-hu42.md`.
 
 Para Web Push, `npm run push:keys` crea/valida el par VAPID y genera el secreto de worker que falte en `.env.local`, sin mostrarlos ni rotarlos. Completar `WEB_PUSH_SUBJECT` con `mailto:` y el contacto del operador. `VITE_WEB_PUSH_PUBLIC_KEY` va al navegador; el emisor usa la privada, el contacto y `NOTIFICATION_WORKER_SECRET`. `deploy:secrets` valida y selecciona estas cuatro variables además de LiveKit/CORS; requiere CLI autenticada. En desarrollo el emisor usa Vault provisionado desde el archivo raíz. La tarea remota, su parada y el diagnóstico están en [HU31-HU33](docs/hu31-hu33.md). Regenerar el build al cambiar la clave pública.
 
@@ -120,8 +126,7 @@ En Linux CI se usa `npx playwright install --with-deps chromium`. El puerto 4173
 ├── public/
 │   ├── icons/                 # PNG 192, 512, maskable y Apple 180
 │   ├── manifest.webmanifest
-│   ├── _headers
-│   └── _redirects
+│   └── _headers
 ├── scripts/generate-icons.mjs
 ├── src/
 │   ├── app/                   # Shell, proveedores y QueryClient
@@ -239,9 +244,9 @@ Las pruebas automatizadas de iPhone emulan dimensiones y agente de usuario en Ch
 
 ## Cloudflare Pages
 
-Conectar este repositorio a un proyecto Pages mediante Git, seleccionar Node 24.15 y establecer el comando `npm run build` y el directorio de salida `dist`. Configurar las dos variables públicas de Supabase solo cuando se necesiten. El despliegue de prueba proporciona una dirección HTTPS `*.pages.dev` para los dispositivos.
+Configura el proyecto Pages y los ambientes de GitHub Actions según la [guía de publicación](docs/hu40-hu42.md#publicar-una-versión). El workflow **Publicación controlada** valida el código, publica `dist` y verifica la dirección HTTPS. Conserva el artefacto para volver a una versión compatible si hace falta.
 
-`public/_redirects` conserva las rutas SPA al recargar. `public/_headers` fuerza revalidación del manifest y del HTML, evita cachear `sw.js` y permite caché larga solo en activos con hash. Los PNG sin hash usan el comportamiento normal del hosting y revisiones de precache. Verificar estas cabeceras en el despliegue, ya que Vite preview no interpreta los archivos de configuración de Pages.
+Cloudflare Pages resuelve las rutas SPA al recargar mediante su fallback nativo. `public/_headers` define la política de caché del manifest y del service worker, y permite caché larga para activos con hash. El verificador compara los archivos HTTPS con las huellas del artefacto. Vite preview no aplica las cabeceras de Pages.
 
 La primera migración SQL habilita `postgis` y `btree_gist` en `extensions`. La segunda crea la base de identidad y sus políticas. El frontend usa las migraciones aplicadas al proyecto seleccionado, con el procedimiento descrito en `docs/autenticacion.md`.
 
@@ -252,8 +257,8 @@ GitHub Actions ejecuta instalación reproducible, lint, TypeScript, Vitest, buil
 Pendiente para las siguientes fases
 
 - Configuración operativa de correo, restricciones/cuotas Google y despliegue HTTPS definitivo.
-- Nuevos dominios mediante nuevas migraciones, preservando las veintidós aplicadas.
-- Activación y aceptación real de LiveKit Cloud/mantenimiento y HU27-HU29 entre dos equipos. Controles/reconexión ya implementados.
+- Ensayo integral de recuperación en un Supabase separado y programación de copias.
+- Aceptación de llamadas y reconexión HU27–HU29 entre dos equipos físicos. La prueba con LiveKit Cloud y el mantenimiento ya funciona en desarrollo.
 - Automatización de nuevos dominios y aceptación física de almacenamiento/offline en dispositivos. HU34-HU36 ya incluyen descarga completa, pendientes duraderos, reintentos y conflictos visibles en primer plano.
-- Aceptación de entrega push e instalación física HU31-HU33. El emisor remoto, bandeja y ayuda por navegador ya están implementados. Observabilidad y políticas operativas de privacidad siguen en desarrollo.
+- Aceptación de entrega push e instalación física HU31-HU33. El emisor remoto, bandeja y ayuda por navegador ya están implementados.
 - Validación piloto con cuentas reales y dispositivos Android/iPhone físicos.

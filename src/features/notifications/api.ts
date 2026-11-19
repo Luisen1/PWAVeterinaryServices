@@ -88,12 +88,6 @@ export async function activateDevicePush(owner: string) {
         throw new Error(
           'Cierra la sesión anterior y desvincula este dispositivo antes de activar otra cuenta.',
         );
-      // Persist intention before a request that might commit but lose its response.
-      await db.push_bindings.put({
-        device_id: device,
-        owner_id: owner,
-        state: 'pending',
-      });
       let subscription = await registration.pushManager.getSubscription();
       if (
         subscription?.options.applicationServerKey &&
@@ -103,15 +97,30 @@ export async function activateDevicePush(owner: string) {
           Array.from(new Uint8Array(applicationServerKey)).join(',')
       ) {
         await appointmentRpc('revoke_device_push', { p_device: device });
+        await db.push_bindings.delete(device);
         if (!(await subscription.unsubscribe()))
           throw new Error(
             'No pudimos renovar la suscripción anterior. Reintenta.',
           );
         subscription = null;
       }
-      subscription ??= await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey,
+      if (!subscription) {
+        try {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
+        } catch {
+          throw new Error(
+            'El navegador no pudo crear la suscripción. Puedes reintentar o consultar tu bandeja dentro de la aplicación.',
+          );
+        }
+      }
+      // Persist intent before the remote request, which might commit even if the response is lost.
+      await db.push_bindings.put({
+        device_id: device,
+        owner_id: owner,
+        state: 'pending',
       });
       await appointmentRpc('save_push_subscription', {
         p_device: device,
@@ -128,6 +137,18 @@ export async function activateDevicePush(owner: string) {
 }
 
 // Also called inside logout's account lock, before purging the session or private data.
+export async function forgetRevokedDevicePush() {
+  const subscription = await nativeSubscription().catch(() => null);
+  if (subscription) await subscription.unsubscribe().catch(() => false);
+  const registration =
+    'serviceWorker' in navigator
+      ? await navigator.serviceWorker.getRegistration().catch(() => undefined)
+      : undefined;
+  if (registration?.getNotifications)
+    (await registration.getNotifications().catch(() => [])).forEach((n) =>
+      n.close(),
+    );
+}
 export async function detachDevicePush(owner: string, force = false) {
   const bindings = await db.push_bindings
     .where('owner_id')

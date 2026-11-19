@@ -60,12 +60,14 @@ export function PublicServices({
               ? 'Precio a consultar'
               : `${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(d.price)} · Precio informativo`}
           </p>
-          <Link
-            className={secondaryClass}
-            to={`/citas?${new URLSearchParams({ establecimiento: establishmentId, sede: d.site_id, servicio: id })}`}
-          >
-            Consultar horarios de {d.name}
-          </Link>
+          {(d.modality === 'Presencial' || d.modality === 'Virtual') && (
+            <Link
+              className={secondaryClass}
+              to={`/citas?${new URLSearchParams({ establecimiento: establishmentId, sede: d.site_id, servicio: id })}`}
+            >
+              Consultar horarios de {d.name}
+            </Link>
+          )}
         </article>
       ))}
     </section>

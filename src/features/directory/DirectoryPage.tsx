@@ -185,7 +185,11 @@ export function DirectoryPage() {
         </button>
       </div>
       <div className="discovery-category-bar">
-        <div className="category-chips" aria-label="Filtrar por categoría">
+        <div
+          className="category-chips"
+          role="group"
+          aria-label="Filtrar por categoría"
+        >
           <button
             className="category-chip"
             aria-pressed={!category}
@@ -409,7 +413,7 @@ export function DirectoryPage() {
                     <button
                       className={secondaryClass}
                       aria-pressed={selection === row.key}
-                      aria-label={`Seleccionar ${row.site.name} de ${row.establishment.document.name}`}
+                      aria-label={`Seleccionar sede · ${row.establishment.document.name} · ${row.site.name}`}
                       onClick={() => change({ seleccion: row.key })}
                     >
                       Seleccionar sede

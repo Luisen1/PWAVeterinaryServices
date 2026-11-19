@@ -20,6 +20,8 @@
   },
   "include": [
     "vite.config.ts",
+    "scripts/build-metadata.ts",
+    "scripts/public-environment.ts",
     "vitest.config.ts",
     "playwright.config.ts",
     "tests/e2e",
@@ -30,6 +32,8 @@
     "supabase/functions/_shared",
     "supabase/functions/chat-media/handler.ts",
     "supabase/functions/appointment-call/handler.ts",
-    "supabase/functions/notification-push/handler.ts"
+    "supabase/functions/notification-push/handler.ts",
+    "supabase/functions/account-data/handler.ts",
+    "supabase/functions/operations/handler.ts"
   ]
 }

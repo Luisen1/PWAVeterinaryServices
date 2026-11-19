@@ -381,6 +381,40 @@ test('HU30 no cierra con desvinculación fallida y otra cuenta requiere activaci
   expect([...api.bindings.values()]).toEqual([second]);
 });
 
+test('HU30 permite cerrar sin red cuando el navegador rechaza el alta antes de enviarla', async ({
+  page,
+  context,
+}) => {
+  await mockAuthApi(context);
+  await browserPush(context);
+  const api = await pushApi(context);
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => {}));
+  await login(page);
+  await page.goto('/cuenta/notificaciones');
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  await page.evaluate(() => {
+    PushManager.prototype.subscribe = async () => {
+      throw new DOMException('Push service unavailable', 'AbortError');
+    };
+  });
+  await page
+    .getByRole('button', { name: 'Activar notificaciones', exact: true })
+    .click();
+  await expect(page.getByRole('alert')).toContainText(
+    'El navegador no pudo crear la suscripción.',
+  );
+  await page.goto('/cuenta');
+  await context.setOffline(true);
+  await page.getByRole('button', { name: /Cerrar sesión/ }).click();
+  await expect(
+    page.getByRole('link', { name: 'Iniciar sesión', exact: true }),
+  ).toBeVisible();
+  expect(api.calls.map(({ action }) => action)).not.toContain(
+    'save_push_subscription',
+  );
+});
+
 test('HU30 recupera un alta incierta sin duplicar y exige conexión para cerrar con vínculo pendiente', async ({
   page,
   context,

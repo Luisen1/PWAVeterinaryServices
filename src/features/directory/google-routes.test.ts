@@ -1,4 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest';
+vi.mock('@/features/operations/map-budget', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('@/features/operations/map-budget')
+  >()),
+  authorizeMapOperation: vi.fn(async () => {}),
+}));
 import {
   computeRoute,
   routeError,

@@ -69,6 +69,15 @@ class VeterinaryDatabase extends Dexie {
     this.version(6).stores({
       appointment_request_drafts: '&id,owner_id,updated_at',
     });
+    this.version(7)
+      .stores({})
+      .upgrade((tx) =>
+        tx
+          .table('public_snapshots')
+          .where('key')
+          .startsWith('services:')
+          .delete(),
+      );
   }
 }
 

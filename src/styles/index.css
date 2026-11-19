@@ -632,7 +632,7 @@
   min-height: 44px;
 }
 .discovery-view-switch button[aria-pressed='true'] {
-  background: linear-gradient(100deg, #007e70, #008c41);
+  background: linear-gradient(100deg, #007e70, #12813e);
   color: white;
   box-shadow: 0 2px 7px #00746422;
 }
@@ -1764,17 +1764,18 @@
     border-radius: 16px;
     overflow: hidden;
   }
-  .account-menu a {
+  .account-menu__item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 14px;
     padding: 18px;
     background: white;
   }
-  .account-menu a + a {
+  .account-menu__item + .account-menu__item {
     border-top: 1px solid #e1ebee;
   }
-  .account-menu a:hover {
+  .account-menu__item:hover {
     background: var(--color-brand-50);
   }
   .account-menu__icon {
@@ -1787,10 +1788,22 @@
     min-width: 0;
     flex: 1;
   }
-  .account-menu strong {
+  .account-menu__text a {
     display: block;
     font-size: 13px;
     font-weight: 600;
+  }
+  .account-menu__text a::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+  }
+  .account-menu__text a:focus-visible {
+    outline: none;
+  }
+  .account-menu__text a:focus-visible::after {
+    outline: 2px solid var(--color-brand-700);
+    outline-offset: -2px;
   }
   .account-menu small {
     display: block;
@@ -1884,6 +1897,9 @@
 }
 
 @media (max-width: 767px) {
+  html:has(.mobile-nav) {
+    scroll-padding-bottom: calc(82px + env(safe-area-inset-bottom));
+  }
   .app-shell {
     padding-bottom: calc(90px + env(safe-area-inset-bottom));
   }
@@ -2128,7 +2144,7 @@
     width: 30px;
     height: 30px;
   }
-  .account-menu a {
+  .account-menu__item {
     padding: 16px;
   }
   .pet-card {
@@ -2153,4 +2169,11 @@
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.sv-report-dialog {
+  width: min(36rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  margin: auto;
 }

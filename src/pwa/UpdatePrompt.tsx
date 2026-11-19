@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Icon } from '@/components/ui/Icon';
 import { useCanReload } from '@/pwa/useCanReload';
+import { canReload as safeToReload } from '@/pwa/reload-safety';
 
 export function UpdatePrompt() {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration>();
@@ -48,7 +49,8 @@ export function UpdatePrompt() {
   }, []);
 
   useEffect(() => {
-    if (reloadRequested && reloadReady && canReload) window.location.reload();
+    if (reloadRequested && reloadReady && canReload && safeToReload())
+      window.location.reload();
   }, [reloadRequested, reloadReady, canReload]);
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export function UpdatePrompt() {
   }, [registration]);
 
   async function update() {
-    if (!canReload || updating) return;
+    if (!canReload || !safeToReload() || updating) return;
     setUpdating(true);
     setReloadRequested(true);
     setUpdateError(false);
@@ -105,8 +107,8 @@ export function UpdatePrompt() {
       </div>
       <p className="mt-2 text-sm text-stone-600">
         {canReload
-          ? 'Actualiza cuando estés listo para continuar.'
-          : 'La actualización espera a que terminen las operaciones pendientes.'}
+          ? 'Actualiza cuando estés listo. Los pendientes guardados en este dispositivo se conservan.'
+          : 'La actualización espera: guarda lo escrito o termina la captura, el envío o la llamada antes de continuar.'}
       </p>
       {updateError && (
         <p className="mt-2 text-sm text-amber-900">

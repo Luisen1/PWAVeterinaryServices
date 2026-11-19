@@ -1,5 +1,6 @@
 import { AccessToken, TrackSource } from 'livekit-server-sdk';
-import { HttpError, type Environment } from './http.ts';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { HttpError, rpcError, type Environment } from './http.ts';
 export interface CallGrant {
   appointment_id: string;
   participant: string;
@@ -19,8 +20,17 @@ export function callConfiguration(env: Environment) {
       'CALL_PROVIDER_NOT_CONFIGURED',
       'Las videollamadas aún no están activadas. Puedes coordinar la atención por chat.',
     );
-  const parsed = new URL(url);
-  if (parsed.protocol !== 'wss:' || !parsed.hostname.endsWith('.livekit.cloud'))
+  const parsed = URL.canParse(url) ? new URL(url) : null;
+  if (
+    !parsed ||
+    parsed.protocol !== 'wss:' ||
+    !parsed.hostname.endsWith('.livekit.cloud') ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== '/' ||
+    parsed.search ||
+    parsed.hash
+  )
     throw new HttpError(
       503,
       'CALL_PROVIDER_NOT_CONFIGURED',
@@ -31,6 +41,30 @@ export function callConfiguration(env: Environment) {
     apiUrl: parsed.origin.replace(/^wss:/, 'https:'),
     key,
     secret,
+  };
+}
+
+export async function resolveCallConfiguration(
+  admin: SupabaseClient,
+  env: Environment,
+  workerSecret?: string,
+) {
+  const names = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET'];
+  const hasEnvironment = names.some((name) => !!env(name));
+  let fallback: Record<string, string> | undefined;
+  if (workerSecret !== undefined || !hasEnvironment) {
+    const result = await admin.rpc('call_runtime_configuration', {
+      p_worker_secret: workerSecret ?? null,
+    });
+    rpcError(result.error);
+    fallback = result.data;
+  }
+  const get = hasEnvironment
+    ? env
+    : (name: string) => fallback?.[name.toLowerCase()];
+  return {
+    ...callConfiguration(get),
+    ready: get('LIVEKIT_MAINTENANCE_READY') === 'true',
   };
 }
 export async function createCallToken(

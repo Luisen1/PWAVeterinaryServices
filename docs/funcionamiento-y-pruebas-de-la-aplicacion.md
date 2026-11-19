@@ -6,7 +6,9 @@ Esta guía explica cómo se conectan los componentes de PWAVeterinaryServices y 
 
 ## 1. Hasta dónde está implementada
 
-La aplicación permite registrar cuentas de dueño o veterinaria, publicar establecimientos tras revisión, configurar servicios y horarios, buscar sedes en Tunja, solicitar/gestionar citas y conversar mediante texto, fotos y voz. **HU01–HU26 tienen implementación. HU27–HU29 incorporan integración de llamada, controles y recuperación; su activación remota y aceptación con dos equipos reales siguen pendientes. HU30–HU33 incorporan permiso/suscripción, avisos y recordatorios remotos, bandeja privada e instalación con ayuda por equipo. El emisor de notificaciones está activo; recepción push e instalación físicas siguen pendientes.**
+HU37–HU39 añaden actualización protegida por actividad/escrituras, recuperación local sin borrar pendientes y origen manual accesible tras negar GPS. En **Cuenta → Privacidad y datos** (`/cuenta/datos`) se exportan datos con reautenticación y se solicita eliminación. Administración procesa desde `/administracion/eliminaciones`; la política académica y las excepciones de conservación están visibles. Migración 23 y quinta función `account-data` activas. Ver [guía y recorrido HU37–HU39](hu37-hu39.md).
+
+La aplicación permite registrar cuentas de dueño o veterinaria, publicar establecimientos tras revisión, configurar servicios y horarios, buscar sedes en Tunja, solicitar y gestionar citas y conversar mediante texto, fotos y voz. LiveKit funciona en desarrollo y el ensayo de cita virtual verificó transporte y cierre. Quedan pruebas físicas de llamadas, reconexión, push e instalación. Consulta la [auditoría](auditoria-historias.md) para el estado de cada historia.
 
 | Área              | Comportamiento disponible                                                                                                  | Límite actual                                                                                                   |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -167,7 +169,7 @@ Al redactar esta guía, esa comprobación pasó para el proyecto de desarrollo. 
 
 Para Web Push se usan `VITE_WEB_PUSH_PUBLIC_KEY` (pública del frontend), `WEB_PUSH_PRIVATE_KEY`, `WEB_PUSH_SUBJECT` (contacto `mailto:`) y `NOTIFICATION_WORKER_SECRET`. `npm run push:keys` crea/valida el par y genera el secreto de worker que falte sin mostrarlo ni rotarlo. `deploy:secrets` deriva `WEB_PUSH_PUBLIC_KEY` y selecciona las otras tres de servidor, además de LiveKit/CORS. Recompilar al cambiar la pública.
 
-En desarrollo la CLI no tenía sesión para cargar Edge Secrets. Se provisionó Vault desde el mismo archivo raíz mediante la conexión Supabase disponible. El worker recupera configuración con RPC exclusiva de `service_role` y secreto vigente solo cuando no hay variables Edge del emisor; una configuración parcial falla, sin mezclar claves. El job lee su URL y secreto de Vault. No se activó LiveKit ni su mantenimiento. Los nombres, pasos para otro entorno y diagnóstico están en [HU31–HU33](hu31-hu33.md#configuración-un-único-envlocal).
+Desarrollo usa Supabase Vault para Web Push y LiveKit. Los jobs leen de Vault su URL y su credencial dedicada. El runtime consulta la configuración mediante una RPC restringida a `service_role` cuando las variables Edge del proveedor están ausentes. Una configuración parcial se rechaza. Consulta la [configuración de push](hu31-hu33.md#configuración-un-único-envlocal) y la [configuración de LiveKit](hu25-hu27.md#configurar-livekit-cloud-en-otro-ambiente).
 
 ### 3.2. Arranque
 
@@ -191,7 +193,7 @@ Para cámara/micrófono y PWA en un teléfono se necesita un **origen HTTPS acce
 
 ### 3.3. Qué configurar en Supabase
 
-Para un proyecto nuevo: migraciones vigentes, Email Auth con confirmación, URL de retorno de acceso/recuperación, correo SMTP según el entorno, Storage, publicación Realtime y despliegue de las tres funciones. Los detalles están en [autenticación](autenticacion.md), [migraciones](../supabase/migrations/README.md) y [Edge Functions](../supabase/functions/README.md). Algunos documentos históricos mencionan menos migraciones; el conjunto vigente tiene 19 al corte de esta guía.
+Para un proyecto nuevo: las 23 migraciones vigentes, Email Auth con confirmación, URL de retorno, correo SMTP según entorno, Storage, Realtime y cinco funciones: chat-media, appointment-call, call-maintenance, notification-push y account-data. Ver [autenticación](autenticacion.md), [migraciones](../supabase/migrations/README.md) y [Edge Functions](../supabase/functions/README.md). Los pasajes históricos conservan conteos anteriores; HU39 requiere la migración 23.
 
 Los endpoints de usuario `chat-media` y `appointment-call` tienen `verify_jwt=false` en el gateway, pero validan el bearer con `auth.getUser` y después RPC/RLS. **No son endpoints anónimos.** `call-maintenance` usa autenticación de servidor y no debe invocarse con la clave pública del navegador.
 
@@ -308,7 +310,7 @@ Si falta proveedor o mantenimiento, la respuesta prevista es **servicio no habil
 
 ### I. Dispositivos, recuperación y permiso push
 
-En una sala autorizada, actualizar dispositivos, cambiar micrófono/cámara, silenciar, apagar cámara o entrar solo por audio; comprobar que la salida detiene también capturas tardías. Interrumpir/restaurar la red y revisar reconexión con nueva autorización en la misma sala, o alternativas/incidencia si vence el intento. Estos pasos de medios reales requieren completar la activación de LiveKit siguiente.
+En una sala autorizada, actualiza la lista de dispositivos, cambia micrófono y cámara, silencia, apaga la cámara o entra solo por audio. Comprueba que la salida detiene también capturas tardías. Interrumpe y restaura la red. Revisa si la aplicación reautoriza la misma sala o muestra las alternativas y registra la incidencia cuando vence el intento. Desarrollo ya admite este recorrido con LiveKit activo.
 
 En `/cuenta/notificaciones`, comprobar que abrir la pantalla no pide permiso. Elegir plazo/preferencias, activar explícitamente, revisar vínculo y desactivarlo. Volver a activar y cerrar sesión: otra cuenta requiere su propia activación. Con permiso denegado/API ausente siguen accesibles citas, conversaciones y bandeja.
 
@@ -316,30 +318,14 @@ En `/notificaciones`, comprobar el aviso de solicitud para el establecimiento y 
 
 Para HU33, usar build/preview o HTTPS, instalar mediante acción voluntaria y abrir el icono en Android/computador o Safari de iPhone/iPad. Verificar Inicio, icono y standalone cuando se admita; abrir el shell offline no autoriza operaciones remotas.
 
-## 6. Pasos pendientes para activar LiveKit
+## 6. Configurar LiveKit en otro ambiente
 
-Las tres funciones de medios/llamadas están desplegadas y existe una comprobación histórica de solo lectura del par local LiveKit. Su activación, mantenimiento y aceptación siguen pendientes. La cuarta función, `notification-push`, y su job sí están activos; su configuración Vault y comprobación HTTP no habilitan LiveKit ni crean salas.
+Las funciones de medios y llamadas están desplegadas. El flujo de tokens y cierre de LiveKit está activo en desarrollo mediante Vault y Cron. `notification-push` tiene su propio job y credencial. Consulta el ensayo y la preparación de otros ambientes en [HU25–HU27](hu25-hu27.md).
 
-El operador del proyecto debe completar este orden:
-
-1. Comprobar que la URL Supabase identifica el proyecto de destino y que las tres funciones y migraciones necesarias están presentes.
-2. Completar `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` y los orígenes reales en el `.env.local` raíz. Mantener `LIVEKIT_MAINTENANCE_READY=false`.
-3. Con Supabase CLI autenticada y permisos sobre ese proyecto, validar y cargar las variables filtradas de backend (LiveKit/CORS y Web Push si está configurado):
-
-   ```sh
-   npm run deploy:secrets -- --check
-   npm run deploy:secrets
-   ```
-
-   El segundo comando **sí modifica secretos remotos**. El script fija CLI 3.1.0 y deriva el destino de `VITE_SUPABASE_URL`; no carga las variables `VITE_`.
-
-4. En Supabase Vault, preparar `call_maintenance_url` con la URL de la función `call-maintenance` del mismo proyecto, y `call_maintenance_auth` con su credencial `service_role`, exclusivamente en servidor. No poner esta credencial en la PWA ni en este documento.
-5. Revisar y ejecutar como operador [enable_call_maintenance.sql](../supabase/operations/enable_call_maintenance.sql). Habilita Cron/pg_net y programa el mantenimiento cada 30 segundos; es una operación posterior, no una migración ya aplicada.
-6. Comprobar que el worker responde HTTP 200 en las ejecuciones y que procesa cierres. Crear un job no demuestra que el endpoint esté funcionando.
-7. Solo entonces cambiar `LIVEKIT_MAINTENANCE_READY=true` en el archivo raíz y volver a ejecutar `npm run deploy:secrets` para reflejarlo en Edge Secrets.
-8. Completar la prueba con dos equipos del recorrido H y registrar fecha, entorno y resultados antes de aceptar HU27 como operativa.
-
-No es necesario crear agentes de IA ni un servidor propio de videoconferencia para este flujo entre cliente y profesional. Ver [la guía específica de HU25–HU27](hu25-hu27.md) para mantenimiento, límites y aceptación.
+1. Comprueba que la URL Supabase corresponde al ambiente de destino y que las migraciones y funciones de llamadas están desplegadas. Registra sus orígenes en `APP_ALLOWED_ORIGINS` de Edge Functions.
+2. Carga en Vault las credenciales LiveKit, `call_maintenance_url` del mismo proyecto y `call_maintenance_worker_secret`, un secreto dedicado de 32 bytes en hexadecimal. El job usa `x-call-worker-key` en su petición. [Provisionar Vault](../supabase/operations/configure_livekit.sql).
+3. Programa el job cada 30 segundos. Comprueba HTTP 403 en ausencia de la credencial y HTTP 200 con ella. [Programar mantenimiento](../supabase/operations/enable_call_maintenance.sql).
+4. Tras comprobar el worker, activa `livekit_maintenance_ready` si LiveKit lee Vault. Si el par de proveedor se configuró en Edge Functions, el indicador correspondiente es `LIVEKIT_MAINTENANCE_READY` del mismo ambiente. Completa el recorrido con dos equipos, comprueba el cierre efectivo de la sala de prueba y registra la fecha y los resultados. [Guía de HU25–HU27](hu25-hu27.md).
 
 ## 7. Qué funciona sin conexión
 
@@ -354,7 +340,7 @@ No es necesario crear agentes de IA ni un servidor propio de videoconferencia pa
 | Chat            | Historial que siga en memoria, texto duradero y adjuntos propios pendientes                | Recuperar historial remoto, enviar, descargar o confirmar lectura              |
 | Videollamada    | Ninguna comunicación de medios offline                                                     | Autorizar, entrar y mantener la comunicación                                   |
 
-IndexedDB no sustituye a Supabase ni contiene una copia completa de la aplicación. El esquema v6 conserva datos anteriores y añade `appointment_request_drafts`; texto, solicitudes y cambios guardan datos y operación en una misma transacción local. Los datos privados se separan por cuenta y se purgan al cerrar sesión según la decisión sobre pendientes. No se envían automáticamente textos, citas, cambios ni adjuntos solo por recuperar la red. Los reportes operativos de incidencias sí tienen replay acotado al entrar/reconectar, con UUID estable. Activar/desactivar push y desvincularlo al salir requieren confirmación remota.
+IndexedDB conserva el catálogo descargado y los pendientes. En v7, texto, solicitudes y cambios guardan datos y operación en una misma transacción local. Los datos privados se separan por cuenta y se ocultan en pestañas abiertas al vencer la sesión. El cierre explícito los purga según la decisión sobre pendientes. Texto, citas, cambios y adjuntos requieren envío explícito. Las incidencias de llamada pueden reintentarse al entrar o reconectar, con UUID estable. Activar, desactivar y desvincular una suscripción push requieren confirmación remota.
 
 Para probar HU34–HU36, descargar el directorio desde Explorar, desconectar y buscar/abrir una ficha no visitada. Con una sesión comprobada, preparar texto o una solicitud, recargar y abrir **Cuenta → Pendientes y sincronización**. Reintentar conserva el ID; un horario ocupado o una nota modificada requieren revisión explícita. La sincronización funciona con la app abierta; si la sesión venció, acceder con la misma cuenta. Ver [recorrido detallado](hu34-hu36.md#comprobación-funcional).
 
@@ -426,6 +412,8 @@ Consultar [docs/verificacion.md](verificacion.md) para fechas, alcance real y li
 Anotar entorno/origen, fecha y zona, rol utilizado, recorrido A–H, resultado esperado/obtenido y evidencia sin secretos. Para la llamada, registrar dos equipos, recepción de ambos medios y cierre remoto. Usar datos de prueba y evitar capturas con pacientes o credenciales reales.
 
 ## 10. Archivos para continuar el proyecto
+
+Actualización HU37–HU39: [guía de actualización segura y privacidad](hu37-hu39.md). Para demostrar exportación/eliminación, usar una cuenta desechable: exportar desde `/cuenta/datos`, solicitar con ELIMINAR y procesar con administración desde `/administracion/eliminaciones` y PROCESAR. La reautenticación es necesaria en cada acción; un pedido recibido no significa borrado completado. La política publicada explica las referencias retenidas, respaldos y dispositivos offline.
 
 | Archivo o guía                                                  | Para qué sirve                                              |
 | --------------------------------------------------------------- | ----------------------------------------------------------- |

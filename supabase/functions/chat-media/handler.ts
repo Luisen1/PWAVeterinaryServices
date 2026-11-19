@@ -36,6 +36,34 @@ export function createMediaHandler(env: Environment) {
         );
         if (!uuid.test(input.id ?? ''))
           throw new HttpError(400, 'INVALID_ID', 'Identificador inválido.');
+        if (input.action === 'moderation_download') {
+          const evidence = await userClient.rpc('report_media', {
+            p_id: input.id,
+          });
+          rpcError(evidence.error);
+          if (!evidence.data?.path)
+            throw new HttpError(
+              403,
+              '42501',
+              'No tienes acceso a esta evidencia.',
+            );
+          const file = await admin.storage
+            .from('chat-media')
+            .download(evidence.data.path);
+          if (file.error || !file.data)
+            throw new HttpError(
+              503,
+              'FILE_UNAVAILABLE',
+              'La evidencia no está disponible.',
+            );
+          return new Response(file.data, {
+            headers: {
+              ...headers,
+              'Content-Type': 'application/octet-stream',
+              'Content-Disposition': 'attachment',
+            },
+          });
+        }
         if (input.action === 'discard') {
           const { data, error } = await userClient.rpc('discard_chat_media', {
             p_id: input.id,

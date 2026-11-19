@@ -10,7 +10,7 @@ import {
   type Environment,
 } from '../_shared/http.ts';
 import {
-  callConfiguration,
+  resolveCallConfiguration,
   createCallToken,
   type CallGrant,
 } from '../_shared/call-token.ts';
@@ -41,9 +41,9 @@ export function createCallHandler(env: Environment) {
         p_id: input.appointment,
       });
       rpcError(access.error);
-      const config = callConfiguration(env),
+      const config = await resolveCallConfiguration(admin, env),
         grant = access.data as CallGrant;
-      if (env('LIVEKIT_MAINTENANCE_READY') !== 'true')
+      if (!config.ready)
         throw new HttpError(
           503,
           'CALL_PROVIDER_NOT_CONFIGURED',

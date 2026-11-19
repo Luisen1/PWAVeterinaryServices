@@ -6,6 +6,8 @@ import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import sharp from 'sharp';
 import { E2E_ENVIRONMENT } from './environment';
+import { mockAuthApi, login, TEST_USER_ID } from './auth-fixture';
+import { mockDirectoryApi } from './directory-fixture';
 
 const execute = promisify(execFile);
 
@@ -248,10 +250,37 @@ test('muestra instrucciones de iPhone y oculta la guía en modo standalone', asy
 
 test('una segunda compilación espera confirmación y actualiza al pulsar Actualizar', async ({
   page,
+  context,
 }, testInfo) => {
   test.setTimeout(120_000);
-  await page.goto('/explorar');
+  const auth = await mockAuthApi(context, { role: 'provider' });
+  await mockDirectoryApi(context, auth.getRole);
+  // Complete the first activation before navigating between documents.
+  await page.goto('/');
   await waitForWorker(page);
+  await login(page);
+  await page.goto('/oferentes/nuevo');
+  await page
+    .getByLabel('Nombre del establecimiento', { exact: true })
+    .fill('Actividad sin guardar');
+  await waitForWorker(page);
+  await page.evaluate(async (owner) => {
+    const request = indexedDB.open('veterinary-services');
+    const database = await new Promise<IDBDatabase>((resolve) => {
+      request.onsuccess = () => resolve(request.result);
+    });
+    const tx = database.transaction('message_drafts', 'readwrite');
+    tx.objectStore('message_drafts').put({
+      id: 'hu37-compatible-draft',
+      owner_id: owner,
+      updated_at: new Date().toISOString(),
+      data: { body: 'Pendiente guardado compatible' },
+    });
+    await new Promise<void>((resolve) => {
+      tx.oncomplete = () => resolve();
+    });
+    database.close();
+  }, TEST_USER_ID);
   const originalBuild = await page.locator('html').getAttribute('data-build');
   const backup = await mkdtemp(join(tmpdir(), 'veterinary-pwa-build-'));
   await cp(resolve('dist'), join(backup, 'dist'), { recursive: true });
@@ -277,13 +306,23 @@ test('una segunda compilación espera confirmación y actualiza al pulsar Actual
     expect(await page.locator('html').getAttribute('data-build')).toBe(
       originalBuild,
     );
-    expect(new URL(page.url()).pathname).toBe('/explorar');
+    expect(new URL(page.url()).pathname).toBe('/oferentes/nuevo');
+    await expect(
+      page.getByLabel('Nombre del establecimiento', { exact: true }),
+    ).toHaveValue('Actividad sin guardar');
+    await expect(
+      page.getByRole('button', { name: 'Actualizar', exact: true }),
+    ).toBeDisabled();
     expect(
       await page.evaluate(
         async () =>
           !!(await navigator.serviceWorker.getRegistration())?.waiting,
       ),
     ).toBe(true);
+    await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Actualizar', exact: true }),
+    ).toBeEnabled();
     await page.getByRole('button', { name: 'Actualizar', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute(
       'data-build',
@@ -291,11 +330,45 @@ test('una segunda compilación espera confirmación y actualiza al pulsar Actual
       { timeout: 30_000 },
     );
     await expect(
-      page.getByRole('heading', { name: 'Explorar', exact: true }),
+      page.getByRole('heading', { name: 'Mis establecimientos', exact: true }),
     ).toBeVisible();
     await expect(
       page.getByText('Hay una nueva versión', { exact: true }),
     ).toHaveCount(0);
+    expect(
+      await page.evaluate(async () => {
+        const r = indexedDB.open('veterinary-services');
+        const d = await new Promise<IDBDatabase>((resolve) => {
+          r.onsuccess = () => resolve(r.result);
+        });
+        const row = await new Promise<{ data: { body: string } }>((resolve) => {
+          const q = d
+            .transaction('message_drafts')
+            .objectStore('message_drafts')
+            .get('hu37-compatible-draft');
+          q.onsuccess = () => resolve(q.result);
+        });
+        d.close();
+        return row.data.body;
+      }),
+    ).toBe('Pendiente guardado compatible');
+    // HU41: volver al artefacto anterior también actualiza el SW sin borrar datos.
+    await cp(join(backup, 'dist'), resolve('dist'), { recursive: true });
+    await page.evaluate(async () => {
+      await (await navigator.serviceWorker.ready).update();
+    });
+    await expect(
+      page.getByRole('button', { name: 'Actualizar', exact: true }),
+    ).toBeEnabled({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Actualizar', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-build',
+      originalBuild!,
+      { timeout: 30_000 },
+    );
+    await expect(
+      page.getByRole('heading', { name: 'Mis establecimientos', exact: true }),
+    ).toBeVisible();
   } finally {
     await cp(join(backup, 'dist'), resolve('dist'), { recursive: true });
   }

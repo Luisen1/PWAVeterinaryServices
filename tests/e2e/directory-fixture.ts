@@ -34,6 +34,7 @@ export async function mockDirectoryApi(
       const path = url.pathname;
       if (
         path.endsWith('/offering_items') ||
+        path.endsWith('/published_service_items') ||
         path.endsWith('/establishment_preferences')
       ) {
         await route.fulfill({ json: [] });

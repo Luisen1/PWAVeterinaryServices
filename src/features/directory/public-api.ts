@@ -55,10 +55,11 @@ export function usePublications() {
     savedAt: query.data?.savedAt ?? null,
   };
 }
-export function usePublicServices(establishmentId?: string) {
+export function usePublicServices(establishmentId?: string, enabled = true) {
   const online = useOnline();
   const query = useQuery<PublicResult<Item<'service'>[]>>({
     queryKey: ['public-services', establishmentId ?? 'directory', online],
+    enabled,
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === (establishmentId ?? 'directory')
         ? previous
@@ -72,7 +73,7 @@ export function usePublicServices(establishmentId?: string) {
           const rows: Item<'service'>[] = [];
           for (let start = 0; ; start += pageSize) {
             let query = authClient()
-              .from('offering_items')
+              .from('published_service_items')
               .select('*')
               .eq('kind', 'service')
               .eq('document->>active', 'true');

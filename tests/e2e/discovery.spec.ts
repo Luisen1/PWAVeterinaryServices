@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { mockAuthApi, TEST_EMAIL, TEST_PASSWORD } from './auth-fixture';
+import { login, mockAuthApi, TEST_EMAIL, TEST_PASSWORD } from './auth-fixture';
 import { mockDirectoryApi } from './directory-fixture';
 import {
   mockOfferings,
@@ -11,6 +11,82 @@ import { E2E_ENVIRONMENT } from './environment';
 import { mockGoogleMaps } from './google-maps-fixture';
 
 const secondSite = '66666666-6666-4666-8666-666666666666';
+
+test('HU11 oculta chat y reserva cuando la sede no ofrece esas acciones', async ({
+  page,
+  context,
+}) => {
+  const { directory } = await setup(context);
+  const publication = directory.publications[0]!;
+  publication.document.sites[0] = {
+    ...publication.document.sites[0]!,
+    chat_enabled: false,
+  };
+  await context.route(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/published_service_items**`,
+    (route) => route.fulfill({ json: [] }),
+  );
+  await page.goto(
+    `/establecimientos/${OFFERING_ESTABLISHMENT}?sede=${OFFERING_SITE}&tab=servicios`,
+  );
+  await expect(
+    page.getByText(
+      'Este establecimiento aún no tiene servicios activos publicados.',
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Solicitar una cita en esta sede' }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Conversar con esta sede' }),
+  ).toHaveCount(0);
+});
+
+test('HU40 reporta una sede y conserva la referencia tras perder la respuesta', async ({
+  page,
+  context,
+}) => {
+  await setup(context);
+  const attempts: Record<string, unknown>[] = [];
+  await context.route(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/rpc/submit_report`,
+    async (route) => {
+      const body = route.request().postDataJSON();
+      attempts.push(body);
+      if (attempts.length === 1)
+        return route.fulfill({
+          status: 503,
+          json: { message: 'Respuesta perdida' },
+        });
+      return route.fulfill({ json: body.p_id });
+    },
+  );
+  await login(page);
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto(
+    `/establecimientos/${OFFERING_ESTABLISHMENT}?sede=${OFFERING_SITE}`,
+  );
+  await page
+    .getByRole('button', { name: 'Reportar información de esta sede' })
+    .click();
+  const dialog = page.getByRole('dialog');
+  await dialog
+    .getByLabel('Describe lo ocurrido')
+    .fill('El teléfono publicado ya cambió.');
+  const submit = dialog.getByRole('button', { name: 'Enviar reporte' });
+  await submit.click();
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  await submit.click();
+  await expect(dialog.getByText(/Reporte recibido/)).toBeVisible();
+  expect(attempts).toHaveLength(2);
+  expect(attempts[1]).toEqual(attempts[0]);
+  expect(attempts[0]).toMatchObject({
+    p_target: OFFERING_ESTABLISHMENT,
+    p_site: OFFERING_SITE,
+  });
+  await dialog.getByRole('link', { name: 'Consultar mis reportes' }).click();
+  await expect(page).toHaveURL(/\/reportes$/);
+});
 
 for (const unavailable of [false, true]) {
   test(`el mapa tiene prioridad en la primera pantalla con catálogo ${unavailable ? 'fallido' : 'vacío'}`, async ({
@@ -291,7 +367,7 @@ test('busca servicios y conserva término, categoría y selección entre mapa, l
   );
   await page
     .getByRole('button', {
-      name: 'Seleccionar Sede norte de Veterinaria Horizonte',
+      name: 'Seleccionar sede · Veterinaria Horizonte · Sede norte',
     })
     .click();
   await page.getByRole('button', { name: 'Mapa', exact: true }).click();
@@ -308,7 +384,7 @@ test('busca servicios y conserva término, categoría y selección entre mapa, l
   ).toHaveAttribute('aria-pressed', 'true');
   await expect(
     page.getByRole('button', {
-      name: 'Seleccionar Sede norte de Veterinaria Horizonte',
+      name: 'Seleccionar sede · Veterinaria Horizonte · Sede norte',
     }),
   ).toHaveAttribute('aria-pressed', 'true');
   await page
@@ -499,7 +575,7 @@ test('busca también servicios después de la primera página de la API', async 
     });
   let pages = 0;
   page.on('request', (request) => {
-    if (request.url().includes('/offering_items?')) pages++;
+    if (request.url().includes('/published_service_items?')) pages++;
   });
   await page.goto('/explorar?vista=lista&q=terapia');
   await expect(page.locator('.establishment-list-card')).toHaveCount(1);
@@ -516,7 +592,7 @@ test('un fallo del catálogo no se confunde con búsqueda vacía y permite reint
   await setup(context);
   let fail = true;
   await context.route(
-    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/offering_items**`,
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/published_service_items**`,
     (route) =>
       fail
         ? route.fulfill({

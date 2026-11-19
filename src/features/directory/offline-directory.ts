@@ -68,7 +68,7 @@ export async function downloadDirectory() {
   }
   for (let offset = 0; ; offset += 500) {
     const { data, error } = await authClient()
-      .from('offering_items')
+      .from('published_service_items')
       .select('*')
       .eq('kind', 'service')
       .eq('document->>active', 'true')

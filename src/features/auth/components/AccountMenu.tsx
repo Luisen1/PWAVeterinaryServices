@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { useId } from 'react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { SectionHeading } from '@/components/ui/PageHeading';
 import { canUseArea, type AccountContext } from '../account-types';
@@ -13,20 +14,26 @@ function Menu({
   icon: IconName;
   entries: Entry[];
 }) {
+  const menuId = useId();
   return (
     <section>
       <SectionHeading icon={icon}>{title}</SectionHeading>
       <div className="account-menu">
-        {entries.map((entry) => (
-          <Link key={entry.to} to={entry.to} aria-label={entry.title}>
-            <Icon name={entry.icon} className="account-menu__icon" />
-            <span className="account-menu__text">
-              <strong>{entry.title}</strong>
-              <small>{entry.help}</small>
-            </span>
-            <Icon name="chevron" className="chevron" />
-          </Link>
-        ))}
+        {entries.map((entry, index) => {
+          const helpId = `${menuId}-help-${index}`;
+          return (
+            <div key={entry.to} className="account-menu__item">
+              <Icon name={entry.icon} className="account-menu__icon" />
+              <span className="account-menu__text">
+                <Link to={entry.to} aria-describedby={helpId}>
+                  {entry.title}
+                </Link>
+                <small id={helpId}>{entry.help}</small>
+              </span>
+              <Icon name="chevron" className="chevron" />
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -35,6 +42,12 @@ export function AccountMenu({ context }: { context: AccountContext }) {
   const owner = canUseArea(context, 'pet_owner');
   const veterinary = canUseArea(context, 'veterinary');
   const personal: Entry[] = [
+    {
+      to: '/reportes',
+      title: 'Mis reportes',
+      help: 'Consulta referencias y decisiones de revisión',
+      icon: 'shield',
+    },
     {
       to: '/perfil',
       title: 'Mi perfil',
@@ -70,9 +83,9 @@ export function AccountMenu({ context }: { context: AccountContext }) {
       icon: 'bell',
     },
     {
-      to: '/privacidad',
+      to: '/cuenta/datos',
       title: 'Privacidad y datos',
-      help: 'Conoce cómo protegemos tu información',
+      help: 'Exporta tus datos o solicita eliminar la cuenta',
       icon: 'shield',
     },
   ];
@@ -155,6 +168,24 @@ export function AccountMenu({ context }: { context: AccountContext }) {
             to: '/administracion/oferentes',
             title: 'Revisar solicitudes de oferentes',
             help: 'Panel de revisión administrativa',
+            icon: 'shield',
+          },
+          {
+            to: '/administracion/eliminaciones',
+            title: 'Solicitudes de eliminación',
+            help: 'Procesa solicitudes de privacidad confirmadas',
+            icon: 'shield',
+          },
+          {
+            to: '/administracion/operacion',
+            title: 'Estado y límites de operación',
+            help: 'Alertas técnicas y consumo de la aplicación',
+            icon: 'shield',
+          },
+          {
+            to: '/administracion/reportes',
+            title: 'Reportes y moderación',
+            help: 'Revisión de fichas y evidencia mínima autorizada',
             icon: 'shield',
           },
         ];

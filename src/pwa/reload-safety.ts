@@ -1,3 +1,5 @@
+import { queryClient } from '@/app/query-client';
+
 const blockers = new Set<symbol>();
 const listeners = new Set<() => void>();
 
@@ -17,12 +19,16 @@ export function acquireReloadBlock(reason: string): () => void {
 }
 
 export function canReload() {
-  return blockers.size === 0;
+  return blockers.size === 0 && queryClient.isMutating() === 0;
 }
 
 export function subscribeReloadSafety(listener: () => void) {
   listeners.add(listener);
+  const unsubscribeMutations = queryClient
+    .getMutationCache()
+    .subscribe(listener);
   return () => {
     listeners.delete(listener);
+    unsubscribeMutations();
   };
 }

@@ -1,5 +1,15 @@
 # Verificación de la base técnica
 
+## HU37–HU39 · 2026-11-18
+
+Cierre: build regenerado con el entorno real después de E2E (17 entradas de precache, ~1872 KiB), revisión móvil a 320 px, 110 enlaces locales correctos y 35 archivos cambiados más `dist/` comprobados sin coincidencias con cuatro valores privados locales. `.env.local` sigue ignorado. Se mantienen avisos conocidos de tamaño de chunks y deprecación de Workbox.
+
+Pasaron **282 pruebas en 33 archivos y 128 E2E completos con `CI=true`**, sin fallos ni reintentos en la ejecución final. Lint, tipos y Deno de cinco Edge Functions correctos. Segunda compilación real: actualización bloqueada durante formulario sucio, activación confirmada tras dejarlo y borrador compatible conservado. Otro E2E simula fallo de apertura local, reintenta sin borrar y recupera el registro. El teclado completa origen manual con GPS denegado, foco visible y 320 px sin desbordamiento general. Tras plegar la política en pantallas privadas se repitieron los cinco recorridos nuevos.
+
+Migración 23 aplicada/alineada: `20261118235131_account_privacy_and_deletion.sql`. `account-data` v1 activa. `supabase/tests/hu37_hu39.sql` pasó localmente y en desarrollo con rollback. También se comprobaron exportación, solicitud y procesamiento HTTP/Auth reales con dos cuentas técnicas temporales: identidad soft-deleted, sesiones revocadas y token anterior sin rol. Ambas cuentas y sus registros de la app se retiraron; conteos finales: cinco cuentas, dos citas, cuatro mensajes y cero solicitudes/notificaciones/suscripciones. No se eliminó ninguna cuenta real ni se enviaron correos/push. HTTP 401 sin autenticación y 403 para origen ajeno comprobados.
+
+Seguridad sin avisos nuevos: dos informativos privados sin política y aviso previo de contraseñas filtradas desactivado. Rendimiento conserva la política permisiva histórica y suma dos índices sin uso a los catorce previos; sirven a FK de procesador y cola ordenada. La aceptación física de lectores de pantalla, eliminación con salas/medios y pendientes previos de LiveKit/push/instalación sigue pendiente. No puede comprobarse revocación en un dispositivo desconectado hasta reconectar. Ver [contratos y política](hu37-hu39.md).
+
 ## HU34–HU36 · 2026-11-18
 
 Pasaron **264 pruebas de lógica/PostgreSQL en 30 archivos** y **123 E2E completos con `CI=true`, sin fallos ni reintentos**. Incluyen descarga completa, fallback/listado, búsqueda local y ficha no visitada previamente, atomicidad ante error de cuota/página fallida, IndexedDB v5-v6, recarga offline de texto y solicitud, respuestas perdidas, IDs estables, cita ocupada, comparación/resolución de nota y envío en primer plano sin `SyncManager`. Las pruebas de lógica comprueban aislamiento y sesión expirada conservando datos. Ver [HU34-HU36](hu34-hu36.md).
