@@ -278,7 +278,12 @@ test('HU38 el teclado permite origen manual tras negar ubicación y sin mapa a 3
   ).not.toBe('none');
   await page.keyboard.press('Enter');
   const lat = page.getByLabel('Latitud de partida');
-  await lat.focus();
+  await page.keyboard.press('Tab');
+  await expect(
+    page.getByRole('button', { name: 'Usar centro de Tunja' }),
+  ).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(lat).toBeFocused();
   await page.keyboard.type('5.5353');
   await page.keyboard.press('Tab');
   await expect(page.getByLabel('Longitud de partida')).toBeFocused();
@@ -300,6 +305,35 @@ test('HU38 el teclado permite origen manual tras negar ubicación y sin mapa a 3
     path: info.outputPath('origen-manual-teclado-320.png'),
     fullPage: true,
   });
+});
+test('HU38 identifica los filtros y mantiene los controles enfocados por encima de la navegación móvil', async ({
+  page,
+  context,
+}) => {
+  const auth = await mockAuthApi(context);
+  await mockDirectoryApi(context, auth.getRole);
+  await page.setViewportSize({ width: 320, height: 650 });
+  await page.goto('/explorar?vista=lista');
+  const categories = page.getByRole('group', { name: 'Filtrar por categoría' });
+  await expect(
+    categories.getByRole('button', { name: 'Todos' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+
+  await page.goto('/citas');
+  const date = page.getByLabel('Fecha para consultar horarios');
+  for (let step = 0; step < 25; step++) {
+    await page.keyboard.press('Tab');
+    if (await date.evaluate((element) => element === document.activeElement))
+      break;
+  }
+  await expect(date).toBeFocused();
+  const nav = page.getByRole('navigation', { name: 'Navegación principal' });
+  const navBox = (await nav.boundingBox())!;
+  await expect
+    .poll(() =>
+      date.evaluate((element) => element.getBoundingClientRect().bottom),
+    )
+    .toBeLessThanOrEqual(navBox.y);
 });
 test('HU37 un fallo de apertura local ofrece recuperación y no borra la cola', async ({
   page,

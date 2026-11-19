@@ -184,7 +184,7 @@ test('24 horas no promete profesional y los horarios guardados pasan a desconoci
   ).toBeVisible();
   await page
     .getByRole('button', {
-      name: 'Seleccionar Sede central de Veterinaria Horizonte',
+      name: 'Seleccionar sede · Veterinaria Horizonte · Sede central',
       exact: true,
     })
     .click();

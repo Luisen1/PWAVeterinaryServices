@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { useId } from 'react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { SectionHeading } from '@/components/ui/PageHeading';
 import { canUseArea, type AccountContext } from '../account-types';
@@ -13,20 +14,26 @@ function Menu({
   icon: IconName;
   entries: Entry[];
 }) {
+  const menuId = useId();
   return (
     <section>
       <SectionHeading icon={icon}>{title}</SectionHeading>
       <div className="account-menu">
-        {entries.map((entry) => (
-          <Link key={entry.to} to={entry.to} aria-label={entry.title}>
-            <Icon name={entry.icon} className="account-menu__icon" />
-            <span className="account-menu__text">
-              <strong>{entry.title}</strong>
-              <small>{entry.help}</small>
-            </span>
-            <Icon name="chevron" className="chevron" />
-          </Link>
-        ))}
+        {entries.map((entry, index) => {
+          const helpId = `${menuId}-help-${index}`;
+          return (
+            <div key={entry.to} className="account-menu__item">
+              <Icon name={entry.icon} className="account-menu__icon" />
+              <span className="account-menu__text">
+                <Link to={entry.to} aria-describedby={helpId}>
+                  {entry.title}
+                </Link>
+                <small id={helpId}>{entry.help}</small>
+              </span>
+              <Icon name="chevron" className="chevron" />
+            </div>
+          );
+        })}
       </div>
     </section>
   );

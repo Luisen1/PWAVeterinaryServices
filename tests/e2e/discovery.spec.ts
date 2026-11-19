@@ -367,7 +367,7 @@ test('busca servicios y conserva término, categoría y selección entre mapa, l
   );
   await page
     .getByRole('button', {
-      name: 'Seleccionar Sede norte de Veterinaria Horizonte',
+      name: 'Seleccionar sede · Veterinaria Horizonte · Sede norte',
     })
     .click();
   await page.getByRole('button', { name: 'Mapa', exact: true }).click();
@@ -384,7 +384,7 @@ test('busca servicios y conserva término, categoría y selección entre mapa, l
   ).toHaveAttribute('aria-pressed', 'true');
   await expect(
     page.getByRole('button', {
-      name: 'Seleccionar Sede norte de Veterinaria Horizonte',
+      name: 'Seleccionar sede · Veterinaria Horizonte · Sede norte',
     }),
   ).toHaveAttribute('aria-pressed', 'true');
   await page

@@ -57,7 +57,16 @@ test('dueño ve solo cuidado de mascotas y no entra por URL al área veterinaria
   await expect(page.locator('.account-grid a[href^="/oferentes"]')).toHaveCount(
     0,
   );
-  await page.getByRole('link', { name: 'Mi perfil', exact: true }).click();
+  const profile = page.getByRole('link', { name: 'Mi perfil', exact: true });
+  await expect(profile).toHaveAccessibleDescription(
+    'Actualiza tus datos de contacto',
+  );
+  const description = page.getByText('Actualiza tus datos de contacto', {
+    exact: true,
+  });
+  await description.scrollIntoViewIfNeeded();
+  const box = (await description.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect(
     page.getByRole('heading', { name: 'Mis mascotas', exact: true }),
   ).toBeVisible();
