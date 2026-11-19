@@ -14,6 +14,7 @@ import { MediaImage } from './Media';
 import { PreferencePanel } from '@/features/preferences/PreferenceControls';
 import { OpeningBadge } from './OpeningBadge';
 import { useNow } from './useNow';
+import { ReportButton } from '@/features/moderation/ReportButton';
 
 export function PublicEstablishmentPage() {
   const { id } = useParams();
@@ -122,6 +123,11 @@ export function PublicEstablishmentPage() {
           {site && (
             <>
               <div className="public-site-actions">
+                <ReportButton
+                  kind="establishment"
+                  target={row.data.id}
+                  site={site.id}
+                />
                 <PhoneContact phone={site.phone} />
                 {validCoordinates(site) && (
                   <Link

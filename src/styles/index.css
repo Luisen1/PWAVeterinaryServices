@@ -2154,3 +2154,10 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+.sv-report-dialog {
+  width: min(36rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  margin: auto;
+}

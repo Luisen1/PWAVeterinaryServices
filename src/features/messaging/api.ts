@@ -42,6 +42,9 @@ export function useConversation(owner: string, id: string) {
         cache.getQueryData<ReturnType<typeof historySchema.parse>>(key);
       return {
         ...result,
+        writable:
+          (await appointmentRpc('chat_writable', { p_id: id }, signal)) ===
+          true,
         messages: mergeMessages(latest?.messages ?? [], incoming),
       };
     },

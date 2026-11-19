@@ -50,6 +50,7 @@ export const messageSchema = z
     'El mensaje debe contener texto o un archivo validado.',
   );
 export const historySchema = z.object({
+  writable: z.boolean().default(true),
   conversation: conversationSchema,
   messages: z.array(messageSchema),
 });

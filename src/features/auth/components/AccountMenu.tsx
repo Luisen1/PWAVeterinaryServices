@@ -36,6 +36,12 @@ export function AccountMenu({ context }: { context: AccountContext }) {
   const veterinary = canUseArea(context, 'veterinary');
   const personal: Entry[] = [
     {
+      to: '/reportes',
+      title: 'Mis reportes',
+      help: 'Consulta referencias y decisiones de revisión',
+      icon: 'shield',
+    },
+    {
       to: '/perfil',
       title: 'Mi perfil',
       help: 'Actualiza tus datos de contacto',
@@ -161,6 +167,12 @@ export function AccountMenu({ context }: { context: AccountContext }) {
             to: '/administracion/eliminaciones',
             title: 'Solicitudes de eliminación',
             help: 'Procesa solicitudes de privacidad confirmadas',
+            icon: 'shield',
+          },
+          {
+            to: '/administracion/reportes',
+            title: 'Reportes y moderación',
+            help: 'Revisión de fichas y evidencia mínima autorizada',
             icon: 'shield',
           },
         ];

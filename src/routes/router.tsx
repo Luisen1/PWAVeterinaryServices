@@ -33,6 +33,10 @@ import { NotificationSettingsPage } from '@/features/notifications/NotificationS
 import { NotificationInboxPage } from '@/features/notifications/NotificationInboxPage';
 import { PendingPage } from '@/features/sync/PendingPage';
 import {
+  ReportsPage,
+  ReportDetailsPage,
+} from '@/features/moderation/ReportsPage';
+import {
   AccountDataPage,
   AccountDeletionAdminPage,
 } from '@/features/privacy/AccountDataPage';
@@ -79,6 +83,13 @@ export const router = createBrowserRouter([
       { path: '/cuenta/notificaciones', element: <NotificationSettingsPage /> },
       { path: '/notificaciones', element: <NotificationInboxPage /> },
       { path: '/cuenta/pendientes', element: <PendingPage /> },
+      { path: '/reportes', element: <ReportsPage /> },
+      { path: '/reportes/:id', element: <ReportDetailsPage /> },
+      { path: '/administracion/reportes', element: <ReportsPage admin /> },
+      {
+        path: '/administracion/reportes/:id',
+        element: <ReportDetailsPage admin />,
+      },
       { path: '/cuenta/datos', element: <AccountDataPage /> },
       {
         path: '/administracion/eliminaciones',

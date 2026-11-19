@@ -30,6 +30,7 @@ import {
 } from './text-store';
 import { MediaComposer } from './MediaComposer';
 import { MediaMessage } from './MediaMessage';
+import { ReportButton } from '@/features/moderation/ReportButton';
 
 function chatError(error: unknown) {
   return error &&
@@ -251,9 +252,12 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
   });
   const text = editedText ?? local.data?.body ?? '';
   const refetchLocalContext = localContext.refetch;
-  const canCompose = online
-    ? !!result && !query.isError
-    : !!result || !!localContext.data;
+  const canCompose =
+    result?.writable === false
+      ? false
+      : online
+        ? !!result && !query.isError
+        : !!result || !!localContext.data;
   const save = useMutation({
     networkMode: 'always',
     mutationFn: (body: string) => saveTextDraft(owner, id, body),
@@ -494,6 +498,7 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
                         <p className="chat-message-text">{m.body}</p>
                       )}
                       <div className="chat-message-meta">
+                        <ReportButton kind="message" target={m.id} compact />
                         <time
                           dateTime={m.created_at}
                           title={
@@ -572,6 +577,12 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
             Revisar mis pendientes
           </Link>
         </div>
+      )}
+      {result?.writable === false && (
+        <Notice>
+          Esta conversación está suspendida para nuevos mensajes y archivos.
+          Puedes consultar el historial y el estado de tus reportes.
+        </Notice>
       )}
       <MediaComposer
         owner={owner}

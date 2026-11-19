@@ -23,6 +23,7 @@ export const exportSections = [
   'notifications',
   'notification_preferences',
   'establishments',
+  'reports',
 ] as const;
 const POLICY = 'academic-2026-11-18';
 export function createPrivacyHandler(
@@ -121,11 +122,17 @@ export function createPrivacyHandler(
           for (const section of exportSections) {
             const rows: unknown[] = [];
             for (let offset = 0; ; offset += 500) {
-              const page = await admin.rpc('export_account_page', {
-                p_actor: user.id,
-                p_section: section,
-                p_offset: offset,
-              });
+              const page =
+                section === 'reports'
+                  ? await admin.rpc('export_report_page', {
+                      p_actor: user.id,
+                      p_offset: offset,
+                    })
+                  : await admin.rpc('export_account_page', {
+                      p_actor: user.id,
+                      p_section: section,
+                      p_offset: offset,
+                    });
               rpcError(page.error);
               size += JSON.stringify(page.data).length;
               if (size > 20_000_000)

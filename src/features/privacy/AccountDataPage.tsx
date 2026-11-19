@@ -56,6 +56,15 @@ export function RetentionPolicy() {
         archivo JSON descargado queda bajo tu control; en un dispositivo
         compartido, retíralo después de usarlo.
       </p>
+      <p>
+        Puedes reportar una ficha o un mensaje concreto. Solo administración
+        asignada a ese reporte puede revisar la evidencia mínima y su acceso
+        queda registrado; esto no permite explorar conversaciones privadas. No
+        incluyas datos ajenos innecesarios en el motivo. Al resolver se retira
+        la copia de evidencia; la referencia, decisión y sus motivos se
+        conservan durante el proyecto, sujetos a la eliminación de datos
+        personales.
+      </p>
     </section>
   );
 }
