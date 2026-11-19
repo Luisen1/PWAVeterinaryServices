@@ -2,6 +2,8 @@
 
 Última actualización: 2026-11-18, zona de referencia `America/Bogota`.
 
+Verificación HU37–HU39: 282 pruebas en 33 archivos y 128 E2E completos con `CI=true`, sin fallos ni reintentos. Actualización protegida por actividad/mutaciones/escrituras, recuperación local sin borrado, origen manual accesible y `/cuenta/datos` con exportación reautenticada y solicitud de eliminación. Administración procesa desde `/administracion/eliminaciones`. Migración 23 aplicada/alineada y quinta función `account-data` activa; flujo HTTP/Auth real con dos cuentas técnicas retiradas, además de SQL con rollback. Política académica elegida por el usuario: contenido personal retirado, referencias técnicas mínimas durante la existencia del proyecto. IndexedDB permanece v6. Ver `docs/hu37-hu39.md`.
+
 Verificación HU34–HU36: 264 pruebas en 30 archivos y 123 E2E completos con `CI=true`, sin fallos ni reintentos. Descarga pública completa y atómica, búsqueda/fichas offline, texto y citas pendientes duraderos, reintentos con ID estable y centro `/cuenta/pendientes`. IndexedDB v6 conserva versiones previas y añade `appointment_request_drafts`; siguen 22 migraciones SQL. Contratos remotos de citas y chat comprobados con rollback y conteos conservados. Ver `docs/hu34-hu36.md`.
 
 Verificación HU31–HU33: 250 pruebas en 29 archivos y 117 E2E correctos; se repitieron los cuatro E2E de bandeja tras reforzar escrituras por cuenta y las 66 pruebas del archivo de citas tras cerrar intentos cancelados. Lint/tipos/Deno/build real correctos. Migraciones 20–22 aplicadas; contrato SQL remoto con rollback, Cron activo y HTTP 200 en cola vacía, 403 sin secreto. Recepción push e instalación física pendientes. Ver `docs/hu31-hu33.md` y `docs/verificacion.md`.
@@ -53,6 +55,9 @@ La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_vet
 | HU34      | Directorio completo guardado atómicamente, búsqueda/fichas offline y sustitutos de mapa/archivos                                                  |
 | HU35      | Texto, horarios, solicitudes/cambios de cita y operaciones duraderos por cuenta; IndexedDB v6                                                     |
 | HU36      | Centro de pendientes, reintentos con ID estable, conflictos de cita/nota y sincronización en primer plano                                         |
+| HU37      | Actualización confirmada, bloqueo por actividad/escrituras/mutaciones y recuperación local sin borrar pendientes                                  |
+| HU38      | Nombres/foco/teclado, origen manual tras negar GPS y recorridos a 320 px sin desbordamiento general                                               |
+| HU39      | Exportación reautenticada, solicitud/procesamiento administrativo de eliminación, revocación y purga local al comprobarla                         |
 | Base PWA  | Instalación, shell offline, actualización confirmada, precache y persistencia IndexedDB                                                           |
 
 **No confundir apartado con cita solicitada o confirmada.** `/citas` consulta disponibilidad, prepara borradores/apartados de cinco minutos y permite enviar solicitudes presenciales/virtuales con mascota. Una solicitud `requested` ocupa el intervalo y espera decisión del establecimiento; no es todavía una confirmación. HU22-HU23 completan cambios de cita y agenda filtrada; HU24 añade chat autorizado con Realtime y recuperación HTTP. HU25-HU26 añaden fotos y voz privadas con pendientes duraderos. HU27-HU29 tienen integración LiveKit, controles y recuperación implementados, pendientes de activación remota/mantenimiento y aceptación real entre dos equipos. HU30-HU32 gestionan suscripciones, envío remoto/recordatorios y bandeja; el worker de notificaciones está activo, con HTTP 200 comprobado en cola vacía, pendiente de aceptación de entrega física. HU33 completa ayuda/instalación. HU34–HU36 añaden descarga completa y sincronización en primer plano; la automatización privada con la app cerrada sigue fuera de alcance. HU17 tiene clave local y prueba real de ruta en Tunja; esto no demuestra navegación física, tráfico real ni operación a escala.
@@ -78,6 +83,7 @@ La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_vet
 17. [docs/hu28-hu30.md](docs/hu28-hu30.md): dispositivos/solo audio, reconexión reautorizada, incidencias privadas y permiso/suscripción push por dispositivo. Distingue implementación y aceptación física pendiente.
 18. [docs/hu31-hu33.md](docs/hu31-hu33.md): eventos/bandeja, preferencias, anulación por revisión, transporte con leases/reintentos, Vault/Cron activos y comprobación de instalación. Distingue HTTP 200 de entrega al dispositivo.
 19. [docs/hu34-hu36.md](docs/hu34-hu36.md): descarga completa del directorio, pendientes por cuenta, IndexedDB v6, texto/citas duraderos, conflictos y sincronización explícita en primer plano.
+20. [docs/hu37-hu39.md](docs/hu37-hu39.md): actualización segura, recuperación local, accesibilidad/origen manual, exportación reautenticada, eliminación por etapas y política académica.
 
 Algunos README de dominios y pasajes históricos describen una fase anterior. Por ejemplo, la disponibilidad ya existe en `offerings`, aunque el README de `appointments` la enumere como futura; hay sincronización acotada de cuentas aunque el README inicial de IndexedDB describa solo un esqueleto. La fuente visual actual es **Poppins**, no la DM Sans mencionada en decisiones iniciales.
 
@@ -139,7 +145,7 @@ En Explorar se conservan `q`, `categoria`, `vista`, `orden`, `seleccion`, `servi
 
 Proyecto de desarrollo registrado y verificado el 2026-11-16: **`veterinary-services-dev`**, referencia **`osoljaiqizmcxxlirrwo`**. Es un identificador público, no una credencial. Antes de una futura operación remota, comprobar que sigue siendo el proyecto previsto; el registro histórico no demuestra el estado actual de otra base.
 
-Hay veintidós migraciones aplicadas y alineadas con el historial remoto, comprobado el 2026-11-18:
+Hay veintitrés migraciones aplicadas y alineadas con el historial remoto, comprobado el 2026-11-18:
 
 1. `20261114000000_enable_extensions.sql`: PostGIS y btree_gist.
 2. `20261114010000_identity_and_access.sql`: perfiles, consentimiento, roles y acceso.
@@ -163,6 +169,7 @@ Hay veintidós migraciones aplicadas y alineadas con el historial remoto, compro
 20. `20261118134520_notification_delivery_and_inbox.sql`: eventos únicos privados, preferencias, recordatorios por revisión, cola/leases/intentos, RPC autorizadas y extensiones operativas pg_cron/pg_net.
 21. `20261118134855_notification_worker_vault_configuration.sql`: configuración Vault recuperable solo por `service_role` y secreto vigente del worker; sin acceso de cuentas autenticadas.
 22. `20261118140015_finish_cancelled_push_attempts.sql`: termina el registro del intento cuando cancelar/reprogramar invalida una entrega ya reclamada; preserva auditoría e ignora respuestas tardías.
+23. `20261118235131_account_privacy_and_deletion.sql`: solicitudes privadas de eliminación, exportación por propietario exclusiva de backend, bloqueo durante procesamiento, retirada/anonimización por etapas y revocación de sesiones/suscripciones.
 
 Crear migraciones nuevas para cambios posteriores y preservar las ya aplicadas. No repetir estas migraciones sobre desarrollo ni reiniciar la base para añadir una funcionalidad.
 
@@ -361,6 +368,10 @@ Reproductor propio de voz (2026-11-17): **21 E2E de mensajería correctos**, inc
 Verificación HU28-HU30 (2026-11-17): **224 pruebas en 25 archivos y 112 E2E completos con `CI=true` correctos, sin fallos ni reintentos en la ejecución final**. Migración 19 aplicada/alineada; SQL reproducible remoto con rollback correcto, manteniendo cinco usuarios, dos citas, una conversación y cuatro mensajes, con cero suscripciones/incidencias al terminar. Capturas móviles a 320 px revisadas. Se corrigió la invalidación innecesaria del catálogo durante el arranque anónimo y un selector ambiguo de aviso offline antes de la ejecución final. Seguridad sin avisos nuevos; índice de FK de incidencias añade un informativo de índice sin uso (catorce en total). La aceptación real de HU27-HU29 y push en dispositivos físicos sigue pendiente; no se activaron LiveKit, mantenimiento ni envío HU31. Ver `docs/hu28-hu30.md` y `docs/verificacion.md`.
 
 ## 8. Convenciones para continuar
+
+HU37–HU39: `/cuenta/datos` es común a cuentas confirmadas; `/administracion/eliminaciones` exige administración en UI y servidor. `src/features/privacy/` conecta `account-data`; no guardar contraseñas ni exportaciones en IndexedDB/outbox. Titular reautentica para exportar/solicitar y administración para procesar; no aceptar propietarios elegidos por el navegador. La solicitud no elimina hasta procesarse. No eliminar administradores con rol vigente. `processing` bloquea incluso JWT anteriores; errores de Storage/Auth conservan etapa e ID. Política `academic-2026-11-18`: retirar contenido personal, conservar referencias técnicas mínimas durante la existencia del proyecto; excepciones de respaldos/descargas/dispositivos offline visibles. Purga privada al comprobar eliminación online; no prometer purga instantánea offline. Ver la guía antes de modificar.
+
+Actualización: `canReload` combina bloqueos y mutaciones del QueryClient; `withAccountWriteLock` protege también su espera y libera en finally. Texto duradero no bloquea indefinidamente. `LocalDataRecovery` ofrece reintento sin borrar; no introducir `db.delete()` como recuperación. IndexedDB permanece v6. Funciones actuales: chat-media, appointment-call, call-maintenance, notification-push y account-data; Deno comprueba las cinco.
 
 Verificación HU19-HU21 (2026-11-15): **154 pruebas en 21 archivos y 37 E2E** de solicitudes/decisiones, disponibilidad/rutas, descubrimiento, mapa y preferencias; lint, tipos y build correctos. Se añadieron trece pruebas SQL y siete E2E. La suite disponible suma 61 E2E; no se afirma haber repetido toda esa suite. Se revisaron capturas de detalle a 320/1280 px. Las once migraciones quedaron alineadas; `supabase/tests/hu19_hu21.sql` pasó en desarrollo con rollback. Dos operaciones SQL independientes, concurrentes sobre el mismo intervalo, dieron exactamente una solicitud y un conflicto `23P01`; sus mascotas/solicitud/evento temporales se retiraron y se verificó cero residuos. No se concedieron permisos reales ni se enviaron correos/push.
 

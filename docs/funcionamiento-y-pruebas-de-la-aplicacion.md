@@ -6,6 +6,8 @@ Esta guía explica cómo se conectan los componentes de PWAVeterinaryServices y 
 
 ## 1. Hasta dónde está implementada
 
+HU37–HU39 añaden actualización protegida por actividad/escrituras, recuperación local sin borrar pendientes y origen manual accesible tras negar GPS. En **Cuenta → Privacidad y datos** (`/cuenta/datos`) se exportan datos con reautenticación y se solicita eliminación. Administración procesa desde `/administracion/eliminaciones`; la política académica y las excepciones de conservación están visibles. Migración 23 y quinta función `account-data` activas. Ver [guía y recorrido HU37–HU39](hu37-hu39.md).
+
 La aplicación permite registrar cuentas de dueño o veterinaria, publicar establecimientos tras revisión, configurar servicios y horarios, buscar sedes en Tunja, solicitar/gestionar citas y conversar mediante texto, fotos y voz. **HU01–HU26 tienen implementación. HU27–HU29 incorporan integración de llamada, controles y recuperación; su activación remota y aceptación con dos equipos reales siguen pendientes. HU30–HU33 incorporan permiso/suscripción, avisos y recordatorios remotos, bandeja privada e instalación con ayuda por equipo. El emisor de notificaciones está activo; recepción push e instalación físicas siguen pendientes.**
 
 | Área              | Comportamiento disponible                                                                                                  | Límite actual                                                                                                   |
@@ -191,7 +193,7 @@ Para cámara/micrófono y PWA en un teléfono se necesita un **origen HTTPS acce
 
 ### 3.3. Qué configurar en Supabase
 
-Para un proyecto nuevo: migraciones vigentes, Email Auth con confirmación, URL de retorno de acceso/recuperación, correo SMTP según el entorno, Storage, publicación Realtime y despliegue de las tres funciones. Los detalles están en [autenticación](autenticacion.md), [migraciones](../supabase/migrations/README.md) y [Edge Functions](../supabase/functions/README.md). Algunos documentos históricos mencionan menos migraciones; el conjunto vigente tiene 19 al corte de esta guía.
+Para un proyecto nuevo: las 23 migraciones vigentes, Email Auth con confirmación, URL de retorno, correo SMTP según entorno, Storage, Realtime y cinco funciones: chat-media, appointment-call, call-maintenance, notification-push y account-data. Ver [autenticación](autenticacion.md), [migraciones](../supabase/migrations/README.md) y [Edge Functions](../supabase/functions/README.md). Los pasajes históricos conservan conteos anteriores; HU39 requiere la migración 23.
 
 Los endpoints de usuario `chat-media` y `appointment-call` tienen `verify_jwt=false` en el gateway, pero validan el bearer con `auth.getUser` y después RPC/RLS. **No son endpoints anónimos.** `call-maintenance` usa autenticación de servidor y no debe invocarse con la clave pública del navegador.
 
@@ -426,6 +428,8 @@ Consultar [docs/verificacion.md](verificacion.md) para fechas, alcance real y li
 Anotar entorno/origen, fecha y zona, rol utilizado, recorrido A–H, resultado esperado/obtenido y evidencia sin secretos. Para la llamada, registrar dos equipos, recepción de ambos medios y cierre remoto. Usar datos de prueba y evitar capturas con pacientes o credenciales reales.
 
 ## 10. Archivos para continuar el proyecto
+
+Actualización HU37–HU39: [guía de actualización segura y privacidad](hu37-hu39.md). Para demostrar exportación/eliminación, usar una cuenta desechable: exportar desde `/cuenta/datos`, solicitar con ELIMINAR y procesar con administración desde `/administracion/eliminaciones` y PROCESAR. La reautenticación es necesaria en cada acción; un pedido recibido no significa borrado completado. La política publicada explica las referencias retenidas, respaldos y dispositivos offline.
 
 | Archivo o guía                                                  | Para qué sirve                                              |
 | --------------------------------------------------------------- | ----------------------------------------------------------- |

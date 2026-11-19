@@ -26,8 +26,11 @@ HU28-HU30 incorporan la migración 19 de incidencias y suscripciones privadas. [
 20. `20261118134520_notification_delivery_and_inbox.sql` añade eventos únicos por cuenta, preferencias, recordatorios por revisión, cola/leases/intentos, RPC de bandeja y worker y extensiones Cron/pg_net.
 21. `20261118134855_notification_worker_vault_configuration.sql` permite recuperar configuración de Vault solo a `service_role` con secreto vigente del worker; no admite cuentas de navegador.
 22. `20261118140015_finish_cancelled_push_attempts.sql` completa la auditoría al cancelar una entrega ya reclamada; sus respuestas tardías no modifican el resultado cancelado.
+23. `20261118235131_account_privacy_and_deletion.sql` añade solicitudes privadas, exportación por propietario exclusiva de backend, bloqueo de cuentas en procesamiento, revocación de sesiones/suscripciones y retirada de datos por etapas.
 
-Las veintidós migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-18. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las 12–17 el 2026-11-16, las 18-19 el 2026-11-17 (la 19 tiene fecha UTC 2026-11-18) y las 20-22 el 2026-11-18. No volver a ejecutarlas manualmente sobre este proyecto.
+Las veintitrés migraciones están aplicadas/alineadas en `veterinary-services-dev` (`osoljaiqizmcxxlirrwo`), comprobado el 2026-11-18. Las versiones 7–11 con fecha UTC 2026-11-16 se aplicaron el 2026-11-15 en `America/Bogota`; las 12–17 el 2026-11-16, las 18-19 el 2026-11-17 (la 19 tiene fecha UTC 2026-11-18) y las 20-23 el 2026-11-18. No volver a ejecutarlas manualmente sobre este proyecto.
+
+HU37–HU39: `supabase/tests/hu37_hu39.sql` pasó local y remotamente con rollback. `account-data` v1 está activa; exportación, solicitud y procesamiento real de Auth se comprobaron con dos cuentas técnicas retiradas, manteniendo datos reales. Ver [política y operación](../../docs/hu37-hu39.md). Exportación/procesamiento solo admiten `service_role`; nunca exponer esas RPC al navegador ni editar la migración ya aplicada.
 
 `supabase/tests/appointment_chat.sql` verifica apertura desde cita por responsable/cliente, conversación compartida con la ficha, permisos combinados, revocación y seguimiento tras despublicar. Pasó en PostgreSQL embebido y desarrollo con rollback, sin conservar cuentas/citas/mensajes temporales.
 

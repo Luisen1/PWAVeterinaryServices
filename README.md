@@ -1,5 +1,7 @@
 # PWA de servicios veterinarios
 
+Las [HU37–HU39](docs/hu37-hu39.md) refuerzan la actualización segura y recuperación local, el origen manual accesible y **Cuenta → Privacidad y datos**: exportación reautenticada y solicitud de eliminación procesada por administración. Integración activa en desarrollo con migración 23 y `account-data`; política académica y excepciones de conservación visibles en la aplicación.
+
 Para continuar el desarrollo con un asistente de IA, consultar primero [AGENTS.md](AGENTS.md): contexto, estado de las HU, arquitectura, reglas del dominio y verificación.
 
 Para entender las conexiones con Supabase, Google y LiveKit y comprobar el recorrido de administración, veterinaria y dueño, consultar la [guía de funcionamiento y pruebas](docs/funcionamiento-y-pruebas-de-la-aplicacion.md). Distingue las funciones disponibles de la activación y aceptación pendientes de videollamadas.
@@ -72,7 +74,7 @@ El comando usa CLI 3.1.0, excluye variables públicas y credenciales ajenas, y e
 
 El cliente admite una clave pública publishable (`sb_publishable_`) en `VITE_SUPABASE_ANON_KEY`, además de la clave anon legacy. La sesión persiste y se refresca mediante el SDK. Los enlaces de correo usan PKCE y se procesan en `/auth/confirmar`.
 
-Para habilitar un proyecto nuevo, aplicar las veintidós migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` están aplicadas/alineadas, incluidas notificaciones, recordatorios, cola y configuración protegida de worker. Las tablas de chat se añaden a `supabase_realtime` cuando la publicación existe. Las cuatro Edge Functions están desplegadas; activar LiveKit y su trabajo de cierre sigue requiriendo `docs/hu25-hu27.md`.
+Para habilitar un proyecto nuevo, aplicar las veintitrés migraciones y configurar las URL de Auth y el correo según `docs/autenticacion.md` y `docs/hu01-hu06.md`. En `veterinary-services-dev` están aplicadas/alineadas, incluida privacidad HU39. Las tablas de chat se añaden a `supabase_realtime` cuando la publicación existe. Las cinco Edge Functions están desplegadas; activar LiveKit y su trabajo de cierre sigue requiriendo `docs/hu25-hu27.md`. `account-data` ya procesa exportación/eliminación; ver `docs/hu37-hu39.md`.
 
 Para Web Push, `npm run push:keys` crea/valida el par VAPID y genera el secreto de worker que falte en `.env.local`, sin mostrarlos ni rotarlos. Completar `WEB_PUSH_SUBJECT` con `mailto:` y el contacto del operador. `VITE_WEB_PUSH_PUBLIC_KEY` va al navegador; el emisor usa la privada, el contacto y `NOTIFICATION_WORKER_SECRET`. `deploy:secrets` valida y selecciona estas cuatro variables además de LiveKit/CORS; requiere CLI autenticada. En desarrollo el emisor usa Vault provisionado desde el archivo raíz. La tarea remota, su parada y el diagnóstico están en [HU31-HU33](docs/hu31-hu33.md). Regenerar el build al cambiar la clave pública.
 
