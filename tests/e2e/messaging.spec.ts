@@ -1292,6 +1292,49 @@ test('la nota permite reintentar reproducción sin onda y libera el audio al sal
   ).toBe(true);
 });
 
+test('HU26 permite descargar una nota autorizada cuando el navegador no decodifica su formato', async ({
+  page,
+  context,
+}) => {
+  const api = server();
+  const bytes = await readFile('tests/fixtures/note.webm');
+  const media = await validateMedia(new Uint8Array(bytes), 'audio');
+  const id = crypto.randomUUID();
+  api.files.set(id, new Uint8Array(bytes));
+  api.messages.push({
+    id,
+    seq: '1',
+    conversation_id: conversation,
+    author_id: team,
+    author_side: 'team',
+    body: '',
+    created_at: new Date().toISOString(),
+    media: { ...media, id },
+  });
+  await api.setup(context);
+  await login(page);
+  await page.goto(`/mensajes/${conversation}`);
+  await page.getByRole('button', { name: 'Cargar nota de voz' }).click();
+  const audio = page.locator('audio[data-voice-note]');
+  await audio.evaluate((element) => {
+    Object.defineProperty(element, 'error', {
+      value: { code: MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED },
+    });
+    element.dispatchEvent(new Event('error'));
+  });
+  await expect(page.getByRole('alert')).toContainText(
+    'no puede reproducir el formato',
+  );
+  await expect(
+    page.getByRole('button', { name: 'Reproducir nota de voz' }),
+  ).toBeDisabled();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Descargar nota de voz' }).click();
+  const note = await download;
+  expect(note.suggestedFilename()).toBe('nota-de-voz.webm');
+  expect(await readFile(await note.path())).toEqual(bytes);
+});
+
 test('HU26 graba audio real del navegador, permite escucharlo y reintenta tras corte sin duplicarlo', async ({
   page,
   context,

@@ -12,7 +12,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
     ...devices['Desktop Chrome'],
     viewport: { width: 360, height: 800 },
-    serviceWorkers: 'allow',
+    serviceWorkers:
+      process.env.E2E_BLOCK_SERVICE_WORKERS === '1' ? 'block' : 'allow',
     locale: 'es-CO',
     timezoneId: 'America/Bogota',
   },

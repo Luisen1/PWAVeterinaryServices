@@ -71,7 +71,7 @@ export function VoiceNotePlayer({
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
   const [peaks, setPeaks] = useState<number[]>([]);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<'playback' | 'unsupported' | null>(null);
   const total = duration || (durationMs ?? 0) / 1000;
   const progress = total ? Math.min(1, current / total) : 0;
 
@@ -109,19 +109,41 @@ export function VoiceNotePlayer({
   async function toggle() {
     const element = audio.current;
     if (!element) return;
-    if (!element.paused) {
+    if (!element.paused && !element.error) {
       element.pause();
       return;
     }
-    setError(false);
+    setError(null);
     try {
       if (element.error) element.load();
       if (element.ended) element.currentTime = 0;
       await element.play();
     } catch (reason) {
-      if (!(reason instanceof DOMException && reason.name === 'AbortError'))
-        setError(true);
+      if (reason instanceof DOMException && reason.name === 'AbortError')
+        return;
+      setPlaying(false);
+      setError(
+        element.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
+          (reason instanceof DOMException &&
+            reason.name === 'NotSupportedError')
+          ? 'unsupported'
+          : 'playback',
+      );
     }
+  }
+
+  function downloadVoice() {
+    const url = audio.current?.getAttribute('src');
+    if (!url?.startsWith('blob:')) return;
+    const format = (mime ?? file.type).split(';')[0];
+    const extension =
+      format === 'audio/mp4' ? 'm4a' : format === 'audio/ogg' ? 'ogg' : 'webm';
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `nota-de-voz.${extension}`;
+    document.body.append(link);
+    link.click();
+    link.remove();
   }
 
   return (
@@ -142,14 +164,15 @@ export function VoiceNotePlayer({
           setCurrent(0);
           setDuration(0);
           setPeaks([]);
-          setError(false);
+          setError(null);
         }}
         aria-label={
           received
             ? 'Reproducir nota de voz recibida'
             : 'Escuchar nota de voz antes de enviar'
         }
-        onPlay={() => {
+        onPlay={(event) => {
+          if (event.currentTarget.error) return;
           // Listen to one note at a time, including previews in the composer.
           document
             .querySelectorAll<HTMLAudioElement>('audio[data-voice-note]')
@@ -165,11 +188,20 @@ export function VoiceNotePlayer({
           const value = event.currentTarget.duration;
           if (Number.isFinite(value) && value > 0) setDuration(value);
         }}
-        onError={() => setError(true)}
+        onError={(event) => {
+          setPlaying(false);
+          setError(
+            event.currentTarget.error?.code ===
+              MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+              ? 'unsupported'
+              : 'playback',
+          );
+        }}
       />
       <button
         type="button"
         className="voice-note-toggle"
+        disabled={error === 'unsupported'}
         onClick={() => void toggle()}
         aria-label={playing ? 'Pausar nota de voz' : 'Reproducir nota de voz'}
         title={playing ? 'Pausar nota de voz' : 'Reproducir nota de voz'}
@@ -185,7 +217,7 @@ export function VoiceNotePlayer({
             max={total || 1}
             step="0.01"
             value={Math.min(current, total || 1)}
-            disabled={!total}
+            disabled={!total || error === 'unsupported'}
             aria-label="Posición de la nota de voz"
             aria-valuetext={`${voiceTime(current)} de ${voiceTime(total)}`}
             onChange={(event) => {
@@ -206,9 +238,18 @@ export function VoiceNotePlayer({
         <Icon name="microphone" />
       </span>
       {error && (
-        <p className="voice-note-error" role="alert">
-          No pudimos reproducir el audio. Pulsa reproducir para reintentar.
-        </p>
+        <div className="voice-note-error">
+          <p role="alert">
+            {error === 'unsupported'
+              ? 'Este navegador no puede reproducir el formato de esta nota.'
+              : 'No pudimos reproducir el audio. Pulsa reproducir para reintentar.'}
+          </p>
+          {received && (
+            <button type="button" className="underline" onClick={downloadVoice}>
+              Descargar nota de voz
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
