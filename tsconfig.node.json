@@ -20,6 +20,8 @@
   },
   "include": [
     "vite.config.ts",
+    "scripts/build-metadata.ts",
+    "scripts/public-environment.ts",
     "vitest.config.ts",
     "playwright.config.ts",
     "tests/e2e",

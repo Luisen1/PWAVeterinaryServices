@@ -255,6 +255,9 @@ test('una segunda compilación espera confirmación y actualiza al pulsar Actual
   test.setTimeout(120_000);
   const auth = await mockAuthApi(context, { role: 'provider' });
   await mockDirectoryApi(context, auth.getRole);
+  // Complete the first activation before navigating between documents.
+  await page.goto('/');
+  await waitForWorker(page);
   await login(page);
   await page.goto('/oferentes/nuevo');
   await page
@@ -349,6 +352,23 @@ test('una segunda compilación espera confirmación y actualiza al pulsar Actual
         return row.data.body;
       }),
     ).toBe('Pendiente guardado compatible');
+    // HU41: volver al artefacto anterior también actualiza el SW sin borrar datos.
+    await cp(join(backup, 'dist'), resolve('dist'), { recursive: true });
+    await page.evaluate(async () => {
+      await (await navigator.serviceWorker.ready).update();
+    });
+    await expect(
+      page.getByRole('button', { name: 'Actualizar', exact: true }),
+    ).toBeEnabled({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Actualizar', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-build',
+      originalBuild!,
+      { timeout: 30_000 },
+    );
+    await expect(
+      page.getByRole('heading', { name: 'Mis establecimientos', exact: true }),
+    ).toBeVisible();
   } finally {
     await cp(join(backup, 'dist'), resolve('dist'), { recursive: true });
   }

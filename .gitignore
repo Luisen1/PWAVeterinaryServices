@@ -8,6 +8,8 @@ dist/
 playwright-report/
 test-results/
 .cache/
+.wrangler/
 supabase/.temp/
 backups/
 .local-recovery/
+release-manifest.json
