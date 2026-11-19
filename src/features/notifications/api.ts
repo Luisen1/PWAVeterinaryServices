@@ -128,6 +128,18 @@ export async function activateDevicePush(owner: string) {
 }
 
 // Also called inside logout's account lock, before purging the session or private data.
+export async function forgetRevokedDevicePush() {
+  const subscription = await nativeSubscription().catch(() => null);
+  if (subscription) await subscription.unsubscribe().catch(() => false);
+  const registration =
+    'serviceWorker' in navigator
+      ? await navigator.serviceWorker.getRegistration().catch(() => undefined)
+      : undefined;
+  if (registration?.getNotifications)
+    (await registration.getNotifications().catch(() => [])).forEach((n) =>
+      n.close(),
+    );
+}
 export async function detachDevicePush(owner: string, force = false) {
   const bindings = await db.push_bindings
     .where('owner_id')

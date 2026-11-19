@@ -33,6 +33,10 @@ import { NotificationSettingsPage } from '@/features/notifications/NotificationS
 import { NotificationInboxPage } from '@/features/notifications/NotificationInboxPage';
 import { PendingPage } from '@/features/sync/PendingPage';
 import {
+  AccountDataPage,
+  AccountDeletionAdminPage,
+} from '@/features/privacy/AccountDataPage';
+import {
   ChatInboxPage,
   ChatStartPage,
   ConversationPage,
@@ -75,6 +79,11 @@ export const router = createBrowserRouter([
       { path: '/cuenta/notificaciones', element: <NotificationSettingsPage /> },
       { path: '/notificaciones', element: <NotificationInboxPage /> },
       { path: '/cuenta/pendientes', element: <PendingPage /> },
+      { path: '/cuenta/datos', element: <AccountDataPage /> },
+      {
+        path: '/administracion/eliminaciones',
+        element: <AccountDeletionAdminPage />,
+      },
       {
         path: '/citas/solicitudes/:id/videollamada',
         element: <VideoCallPage />,

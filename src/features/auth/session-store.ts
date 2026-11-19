@@ -1,7 +1,12 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/app/query-client';
-import { clearForeignPushBindings } from '@/features/notifications/api';
+import {
+  clearForeignPushBindings,
+  forgetRevokedDevicePush,
+} from '@/features/notifications/api';
+import { purgePrivateLocalData } from '@/lib/db';
+import { withAccountWriteLock } from '@/features/sync/account-write-lock';
 import {
   offlineIdentity,
   rememberVerifiedSession,
@@ -73,6 +78,19 @@ async function resolveSession(session: Session | null) {
         });
       return;
     }
+    const access = await supabase.rpc('account_access_state');
+    if (currentRevision !== revision) return;
+    if (!access.error && ['processing', 'completed'].includes(access.data)) {
+      await withAccountWriteLock(session.user.id, async () => {
+        await clearQueryCache();
+        await forgetRevokedDevicePush();
+        await purgePrivateLocalData(session.user.id);
+        await supabase!.auth.signOut({ scope: 'local' });
+      });
+      owner = null;
+      publish({ status: 'anonymous', user: null, error: null });
+      return;
+    }
     const { data, error } = await supabase.auth.getUser(session.access_token);
     if (currentRevision !== revision) return;
     if (error || !data.user) {
@@ -136,4 +154,15 @@ export function startAuthSession() {
     }, 0);
   });
   void refreshAuthSession();
+  const revalidate = () => {
+    if (
+      navigator.onLine &&
+      document.visibilityState === 'visible' &&
+      (state.user || state.offlineUser)
+    )
+      void refreshAuthSession();
+  };
+  window.addEventListener('online', revalidate);
+  document.addEventListener('visibilitychange', revalidate);
+  window.setInterval(revalidate, 60_000);
 }

@@ -70,9 +70,9 @@ export function AccountMenu({ context }: { context: AccountContext }) {
       icon: 'bell',
     },
     {
-      to: '/privacidad',
+      to: '/cuenta/datos',
       title: 'Privacidad y datos',
-      help: 'Conoce cómo protegemos tu información',
+      help: 'Exporta tus datos o solicita eliminar la cuenta',
       icon: 'shield',
     },
   ];
@@ -155,6 +155,12 @@ export function AccountMenu({ context }: { context: AccountContext }) {
             to: '/administracion/oferentes',
             title: 'Revisar solicitudes de oferentes',
             help: 'Panel de revisión administrativa',
+            icon: 'shield',
+          },
+          {
+            to: '/administracion/eliminaciones',
+            title: 'Solicitudes de eliminación',
+            help: 'Procesa solicitudes de privacidad confirmadas',
             icon: 'shield',
           },
         ];

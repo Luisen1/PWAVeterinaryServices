@@ -126,7 +126,17 @@ export function OriginPicker({
           Buscando tu posición. También puedes marcar un punto sin esperar.
         </Notice>
       )}
-      {error && <Notice error>{error}</Notice>}
+      {error && (
+        <Notice error>
+          {error}{' '}
+          <button
+            className="font-semibold underline"
+            onClick={() => setExpanded(true)}
+          >
+            Introducir origen manual
+          </button>
+        </Notice>
+      )}
       {picking && (
         <Notice>
           Toca un punto del mapa para elegir tu casa o tu lugar de salida.
