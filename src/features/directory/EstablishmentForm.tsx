@@ -50,7 +50,15 @@ export function EstablishmentForm({
   const uploading = useIsMutating({ mutationKey: ['media-upload'] }) > 0;
   const form = useZodForm(establishmentSchema, {
     mode: 'onSubmit',
-    defaultValues: establishment?.document ?? blankEstablishment(),
+    defaultValues: establishment
+      ? {
+          ...establishment.document,
+          sites: establishment.document.sites.map((site) => ({
+            ...site,
+            chat_enabled: site.chat_enabled !== false,
+          })),
+        }
+      : blankEstablishment(),
   });
   const sites = useFieldArray({
     control: form.control,
@@ -451,6 +459,14 @@ function SiteFields({
       )}
       {part === 'details' && (
         <>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 accent-brand-700"
+              {...form.register(`sites.${index}.chat_enabled`)}
+            />
+            Permitir iniciar conversaciones desde la ficha pública de esta sede
+          </label>
           <div className="space-y-3">
             <h3 className="font-semibold">Horario semanal</h3>
             <button

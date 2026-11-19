@@ -209,6 +209,84 @@ async function conversation() {
   );
   return { id, message };
 }
+it('HU11 conserva la lectura del equipo pero excluye del catálogo servicios de sedes aún sin publicar', async () => {
+  const published = await db.query<{ id: string }>(
+    "select id from public.published_service_items where establishment_id=$1 and document->>'site_id'=$2 limit 1",
+    [establishment, site],
+  );
+  const unpublished = crypto.randomUUID();
+  await db.query(
+    "insert into public.offering_items(id,establishment_id,kind,document) select $1,establishment_id,kind,jsonb_set(document,'{site_id}',to_jsonb($2::text)) from public.offering_items where id=$3",
+    [unpublished, crypto.randomUUID(), published.rows[0]!.id],
+  );
+  const { rows } = await db.query<{ owner_id: string }>(
+    'select owner_id from public.establishments where id=$1',
+    [establishment],
+  );
+  await asUser(rows[0]!.owner_id);
+  expect(
+    (
+      await db.query('select id from public.offering_items where id=$1', [
+        unpublished,
+      ])
+    ).rows,
+  ).toHaveLength(1);
+  expect(
+    (
+      await db.query(
+        'select id from public.published_service_items where id=$1',
+        [unpublished],
+      )
+    ).rows,
+  ).toHaveLength(0);
+  await asUser(null);
+  expect(
+    (
+      await db.query(
+        'select id from public.published_service_items where id=$1',
+        [published.rows[0]!.id],
+      )
+    ).rows,
+  ).toHaveLength(1);
+});
+it('HU11 conserva la compatibilidad del chat anterior y respeta la opción publicada de la sede', async () => {
+  await asUser(user);
+  expect(
+    (await db.query('select public.open_chat($1,$2)', [establishment, site]))
+      .rows,
+  ).toHaveLength(1);
+  await operator();
+  await db.query(
+    "update public.establishment_publications set document=jsonb_set(document,'{sites,0,chat_enabled}','false') where id=$1",
+    [establishment],
+  );
+  await asUser(other);
+  await fail('select public.open_chat($1,$2)', [establishment, site], '42501');
+});
+it('HU39 exporta medios enviados aunque exista una reserva todavía sin archivo', async () => {
+  const c = await conversation();
+  const sent = crypto.randomUUID();
+  for (const id of [crypto.randomUUID(), sent]) {
+    await db.query(
+      "insert into public.chat_media_uploads(id,conversation_id,owner_id,kind,mime,bytes,sha256,width,height,object_path,published_at) values($1::uuid,$2,$3,'image','image/png',64,repeat('a',64),32,32,$1::uuid::text,case when $1::uuid=$4::uuid then now() end)",
+      [id, c.id, user, sent],
+    );
+  }
+  const { rows } = await db.query<{ data: { id: string }[] }>(
+    "select public.export_account_page($1,'media',0) data",
+    [user],
+  );
+  expect(rows[0]!.data.map((item) => item.id)).toEqual([sent]);
+});
+it('HU42 conserva referencias de cuenta en la copia sin metadatos arbitrarios ni hashes', async () => {
+  const { rows } = await db.query<{ data: Record<string, unknown> }>(
+    "select a data from jsonb_array_elements(public.recovery_snapshot()->'tables'->'auth.users') a where a->>'id'=$1",
+    [user],
+  );
+  expect(rows[0]!.data).toMatchObject({ id: user, raw_user_meta_data: {} });
+  expect(rows[0]!.data).not.toHaveProperty('encrypted_password');
+  expect(rows[0]!.data).not.toHaveProperty('raw_app_meta_data');
+});
 it('registra referencia estable y aísla el reporte y su motivo entre cuentas', async () => {
   const id = await submit();
   await db.query('select public.submit_report($1,$2,$3,$4,$5,$6)', [

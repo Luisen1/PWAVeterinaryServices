@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth/useAuth';
 import { authWithReturn } from '@/features/auth/return-to';
 import { PublicServices } from '@/features/offerings/PublicServices';
 import { EstablishmentDetails } from './EstablishmentDetails';
-import { usePublication } from './public-api';
+import { usePublication, usePublicServices } from './public-api';
 import { safeDiscoveryReturn } from './discovery';
 import { cardClass, Notice, secondaryClass, Workspace } from './Workspace';
 import { validCoordinates } from './map-model';
@@ -29,6 +29,16 @@ export function PublicEstablishmentPage() {
     ? row.data?.document.sites.find((s) => s.id === siteId)
     : row.data?.document.sites[0];
   const tab = params.get('tab') === 'servicios' ? 'servicios' : 'informacion';
+  const services = usePublicServices(row.data?.id, !!row.data);
+  const canBook =
+    !services.isError &&
+    !!services.data?.some(
+      ({ document }) =>
+        document.site_id === site?.id &&
+        document.active &&
+        (document.modality === 'Presencial' || document.modality === 'Virtual'),
+    );
+  const canChat = online && site?.chat_enabled !== false;
   const destination = location.pathname + location.search;
   const requestedAction = params.get('accion');
   return (
@@ -203,38 +213,42 @@ export function PublicEstablishmentPage() {
                   Iniciar sesión y conservar esta sede
                 </Link>
               )}
-              <Link
-                className="button button-primary"
-                to={`/citas?${new URLSearchParams({ establecimiento: row.data.id, sede: site.id })}`}
-              >
-                Solicitar una cita en esta sede
-              </Link>
-              {requestedAction === 'agendar' && (
+              {canBook && (
+                <Link
+                  className="button button-primary"
+                  to={`/citas?${new URLSearchParams({ establecimiento: row.data.id, sede: site.id })}`}
+                >
+                  Solicitar una cita en esta sede
+                </Link>
+              )}
+              {canBook && requestedAction === 'agendar' && (
                 <Notice>
                   Conservamos la sede elegida. Elige un servicio y un horario
                   para solicitar atención presencial o virtual.
                 </Notice>
               )}
-              {requestedAction === 'conversar' && (
+              {canChat && requestedAction === 'conversar' && (
                 <Notice>
                   {!auth.user
                     ? 'Inicia sesión para conservar la sede elegida y conversar con su equipo.'
                     : 'Conservamos la sede elegida. Continúa al chat para escribir al equipo.'}
                 </Notice>
               )}
-              <Link
-                className={secondaryClass}
-                to={
-                  auth.user?.email_confirmed_at
-                    ? `/mensajes/nuevo?${new URLSearchParams({ establecimiento: row.data.id, sede: site.id })}`
-                    : authWithReturn(
-                        '/acceso',
-                        `${location.pathname}?${new URLSearchParams({ ...Object.fromEntries(params), sede: site.id, accion: 'conversar' })}`,
-                      )
-                }
-              >
-                Conversar con esta sede
-              </Link>
+              {canChat && (
+                <Link
+                  className={secondaryClass}
+                  to={
+                    auth.user?.email_confirmed_at
+                      ? `/mensajes/nuevo?${new URLSearchParams({ establecimiento: row.data.id, sede: site.id })}`
+                      : authWithReturn(
+                          '/acceso',
+                          `${location.pathname}?${new URLSearchParams({ ...Object.fromEntries(params), sede: site.id, accion: 'conversar' })}`,
+                        )
+                  }
+                >
+                  Conversar con esta sede
+                </Link>
+              )}
               <PreferencePanel establishmentId={row.data.id} />
             </>
           )}

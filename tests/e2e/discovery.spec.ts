@@ -12,6 +12,36 @@ import { mockGoogleMaps } from './google-maps-fixture';
 
 const secondSite = '66666666-6666-4666-8666-666666666666';
 
+test('HU11 oculta chat y reserva cuando la sede no ofrece esas acciones', async ({
+  page,
+  context,
+}) => {
+  const { directory } = await setup(context);
+  const publication = directory.publications[0]!;
+  publication.document.sites[0] = {
+    ...publication.document.sites[0]!,
+    chat_enabled: false,
+  };
+  await context.route(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/published_service_items**`,
+    (route) => route.fulfill({ json: [] }),
+  );
+  await page.goto(
+    `/establecimientos/${OFFERING_ESTABLISHMENT}?sede=${OFFERING_SITE}&tab=servicios`,
+  );
+  await expect(
+    page.getByText(
+      'Este establecimiento aún no tiene servicios activos publicados.',
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Solicitar una cita en esta sede' }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Conversar con esta sede' }),
+  ).toHaveCount(0);
+});
+
 test('HU40 reporta una sede y conserva la referencia tras perder la respuesta', async ({
   page,
   context,
@@ -545,7 +575,7 @@ test('busca también servicios después de la primera página de la API', async 
     });
   let pages = 0;
   page.on('request', (request) => {
-    if (request.url().includes('/offering_items?')) pages++;
+    if (request.url().includes('/published_service_items?')) pages++;
   });
   await page.goto('/explorar?vista=lista&q=terapia');
   await expect(page.locator('.establishment-list-card')).toHaveCount(1);
@@ -562,7 +592,7 @@ test('un fallo del catálogo no se confunde con búsqueda vacía y permite reint
   await setup(context);
   let fail = true;
   await context.route(
-    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/offering_items**`,
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/published_service_items**`,
     (route) =>
       fail
         ? route.fulfill({

@@ -12,7 +12,7 @@ afterEach(async () => {
 });
 
 describe('base local', () => {
-  it('actualiza v5 a v6 conservando mensajes y datos públicos', async () => {
+  it('actualiza v5 a v7 conservando mensajes y descartando antiguos resultados de servicios', async () => {
     const legacy = new Dexie(db.name);
     legacy
       .version(5)
@@ -39,6 +39,11 @@ describe('base local', () => {
     await legacy
       .table('public_snapshots')
       .put({ key: 'publications', saved_at: '2026-11-18', data: [] });
+    await legacy.table('public_snapshots').put({
+      key: 'services:all',
+      saved_at: '2026-11-18',
+      data: [{ name: 'Servicio todavía sin publicar' }],
+    });
     legacy.close();
     await db.open();
     expect((await db.message_drafts.get('mensaje-anterior'))?.data).toEqual({
@@ -48,7 +53,8 @@ describe('base local', () => {
       data: [],
     });
     expect(await db.appointment_request_drafts.count()).toBe(0);
-    expect(db.verno).toBe(6);
+    expect(await db.public_snapshots.get('services:all')).toBeUndefined();
+    expect(db.verno).toBe(7);
   });
   it('actualiza v4 a v5 sin perder cambios de cita ni adjuntos', async () => {
     const legacy = new Dexie(db.name);
@@ -197,7 +203,7 @@ describe('base local', () => {
     };
     await putLocalRecord(db.catalog, record);
     expect(await getLocalRecord(db.catalog, record.id)).toEqual(record);
-    expect(db.verno).toBe(6);
+    expect(db.verno).toBe(7);
     expect(db.tables).toHaveLength(18);
   });
 
