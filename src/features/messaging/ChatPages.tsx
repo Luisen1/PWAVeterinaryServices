@@ -349,15 +349,15 @@ function Conversation({ owner, id }: { owner: string; id: string }) {
     },
   });
   useEffect(() => {
-    if (!text) return;
-    const release = acquireReloadBlock('mensaje sin enviar');
+    if (!text || (!save.isPending && local.data?.body === text)) return;
+    const release = acquireReloadBlock('mensaje sin guardar');
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
     return () => {
       release();
       window.removeEventListener('beforeunload', warn);
     };
-  }, [text]);
+  }, [text, save.isPending, local.data?.body]);
   return (
     <section className="chat-window" aria-label="Chat privado">
       <header className="chat-header">

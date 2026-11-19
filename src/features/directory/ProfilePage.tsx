@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { acquireReloadBlock } from '@/pwa/reload-safety';
 import { useAccountContext } from '@/features/auth/useAccountContext';
 import { canUseArea } from '@/features/auth/account-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -276,6 +277,11 @@ function ProfileContent({ userId }: { userId: string }) {
     </div>
   );
 }
+function usePrivateFormReloadGuard(dirty: boolean) {
+  useEffect(() => {
+    if (dirty) return acquireReloadBlock('perfil o mascota sin guardar');
+  }, [dirty]);
+}
 function ProfileForm({
   userId,
   profile,
@@ -289,9 +295,11 @@ function ProfileForm({
   const form = useZodForm(profileSchema, {
     defaultValues: { display_name: profile.display_name, phone: profile.phone },
   });
+  usePrivateFormReloadGuard(form.formState.isDirty);
   const mutation = useMutation({
     mutationFn: async (values: { display_name: string; phone: string }) => {
       await enqueueAccountChange(userId, userId, 'profile.update', values);
+      form.reset(values);
       await syncPendingAccountChanges(userId);
     },
     onSettled: onSaved,
@@ -353,9 +361,11 @@ function PetForm({
   const form = useZodForm(petSchema, {
     defaultValues: { name: pet?.name ?? '', species: pet?.species ?? 'Perro' },
   });
+  usePrivateFormReloadGuard(form.formState.isDirty);
   const mutation = useMutation({
     mutationFn: async (values: { name: string; species: Pet['species'] }) => {
       await enqueueAccountChange(userId, id, 'pet.save', { id, ...values });
+      form.reset(values);
       await syncPendingAccountChanges(userId);
     },
     onSuccess: onSaved,
