@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { mockAuthApi, login, TEST_USER_ID } from './auth-fixture';
+import { mockAuthApi, login, TEST_EMAIL, TEST_USER_ID } from './auth-fixture';
 import { mockDirectoryApi } from './directory-fixture';
 import { E2E_ENVIRONMENT } from './environment';
 const base = E2E_ENVIRONMENT.VITE_SUPABASE_URL;
@@ -163,6 +163,27 @@ test('HU39 administración reintenta la misma solicitud cuando falla el procesam
   ).toBeVisible();
   expect(attempt).toBe(2);
 });
+test('HU39 oculta datos de cuenta mientras el estado de eliminación es desconocido', async ({
+  page,
+  context,
+}) => {
+  const auth = await mockAuthApi(context);
+  await mockDirectoryApi(context, auth.getRole);
+  await login(page);
+  await context.route(`${base}/rest/v1/rpc/account_access_state`, (route) =>
+    route.fulfill({ status: 503, json: { code: 'UNAVAILABLE' } }),
+  );
+  await page.reload();
+  await expect(page.getByRole('alert')).toContainText(
+    'No pudimos comprobar el estado de tu cuenta.',
+  );
+  await expect(page.getByText(TEST_EMAIL, { exact: true })).toHaveCount(0);
+
+  await context.unroute(`${base}/rest/v1/rpc/account_access_state`);
+  await page.getByRole('button', { name: 'Reintentar validación' }).click();
+  await expect(page.getByText(TEST_EMAIL, { exact: true })).toBeVisible();
+});
+
 test('HU39 un dispositivo purga datos privados al comprobar una eliminación remota', async ({
   page,
   context,

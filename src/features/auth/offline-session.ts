@@ -37,7 +37,7 @@ export async function rememberVerifiedSession(session: Session, user: User) {
 }
 export async function offlineIdentity(
   session: Session | null,
-): Promise<OfflineUser | null> {
+): Promise<(OfflineUser & { validUntil: number }) | null> {
   if (!session?.expires_at || session.expires_at * 1000 <= Date.now())
     return null;
   const saved = await db.offline_sessions.get(session.user.id);
@@ -47,5 +47,8 @@ export async function offlineIdentity(
     saved.token_hash !== (await fingerprint(session.access_token))
   )
     return null;
-  return saved.user;
+  return {
+    ...saved.user,
+    validUntil: Math.min(saved.expires_at, session.expires_at) * 1000,
+  };
 }

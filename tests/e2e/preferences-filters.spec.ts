@@ -296,6 +296,38 @@ test('favorito y nota sobreviven a recarga offline, sincronizan y se purgan al c
   ).toBe(0);
 });
 
+test('una sesión vencida oculta la nota privada sin perder el cambio guardado sin conexión', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context);
+  await page.clock.install();
+  await login(page);
+  await page.goto(`/establecimientos/${OFFERING_ESTABLISHMENT}`);
+  await expect(page.getByLabel('Mi nota privada')).toBeVisible();
+  await prepareOffline(page);
+  await context.setOffline(true);
+  await page.reload();
+  await page.getByLabel('Mi nota privada').fill('Pendiente de la misma cuenta');
+  await page.getByRole('button', { name: 'Guardar nota privada' }).click();
+  await expect(
+    page.getByText('Tus cambios están guardados localmente.', { exact: false }),
+  ).toBeVisible();
+
+  await page.clock.fastForward(3_601_000);
+  await expect(page.getByLabel('Mi nota privada')).toHaveCount(0);
+  expect(api.getWrites()).toBe(0);
+
+  await page.clock.setSystemTime(new Date());
+  await context.setOffline(false);
+  await expect(page.getByLabel('Mi nota privada')).toHaveValue(
+    'Pendiente de la misma cuenta',
+  );
+  await expect
+    .poll(() => api.getRemote()?.note)
+    .toBe('Pendiente de la misma cuenta');
+});
+
 test('un conflicto preserva la nota local y permite elegir la versión del servidor', async ({
   page,
   context,

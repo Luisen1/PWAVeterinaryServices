@@ -150,6 +150,10 @@ export async function mockAuthApi(
         await route.fulfill({ json: role });
         return;
       }
+      if (url.pathname === '/rest/v1/rpc/account_access_state' && active) {
+        await route.fulfill({ json: 'active' });
+        return;
+      }
       if (url.pathname === '/rest/v1/rpc/chat_writable' && active) {
         await route.fulfill({ json: true });
         return;
