@@ -125,6 +125,7 @@ it('HU42 no expone snapshots ni claves de recuperación al navegador', async () 
   await fail('select public.recovery_snapshot()', [], '42501');
   await fail('select public.recovery_ledger()', [], '42501');
   await fail('select public.recovery_configuration($1)', ['anything'], '42501');
+  await fail('select public.call_runtime_configuration()', [], '42501');
 });
 async function asUser(id: string | null) {
   await db.exec(`reset role;set local role ${id ? 'authenticated' : 'anon'};`);

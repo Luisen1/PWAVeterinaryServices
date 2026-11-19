@@ -5,7 +5,8 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.call-maintenance]
-verify_jwt = true
+# Credencial de worker validada dentro de la función, sin sesión de navegador.
+verify_jwt = false
 
 # Autenticación propia constante mediante NOTIFICATION_WORKER_SECRET; sin sesiones de usuario.
 [functions.notification-push]

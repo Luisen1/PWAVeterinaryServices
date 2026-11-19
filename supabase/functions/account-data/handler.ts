@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { RoomServiceClient } from 'livekit-server-sdk';
+import { resolveCallConfiguration } from '../_shared/call-token.ts';
 import {
   authenticate,
   corsHeaders,
@@ -227,20 +228,11 @@ export function createPrivacyHandler(
         });
         rpcError(ban.error);
         if (plan.rooms.length) {
-          if (
-            !env('LIVEKIT_URL') ||
-            !env('LIVEKIT_API_KEY') ||
-            !env('LIVEKIT_API_SECRET')
-          )
-            throw new HttpError(
-              503,
-              'CALL_CLEANUP_REQUIRED',
-              'Falta configurar el cierre de salas; la solicitud conserva su progreso.',
-            );
+          const config = await resolveCallConfiguration(admin, env);
           const service = new RoomServiceClient(
-            env('LIVEKIT_URL')!.replace(/^wss:/, 'https:'),
-            env('LIVEKIT_API_KEY')!,
-            env('LIVEKIT_API_SECRET')!,
+            config.apiUrl,
+            config.key,
+            config.secret,
           );
           for (const room of plan.rooms) {
             // listRooms evita fallar por una sala que ya cerró durante un reintento.
