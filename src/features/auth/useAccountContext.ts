@@ -4,7 +4,7 @@ import { useAuth } from './useAuth';
 import { offlineIdentity } from './offline-session';
 import { useOnline } from '@/pwa/useOnline';
 import { db } from '@/lib/db';
-import { withAccountWriteLock } from '@/features/sync/account-write-lock';
+import { cacheWithAccountWriteLock } from '@/features/sync/account-write-lock';
 import { accountContextSchema } from './account-types';
 
 export function useAccountContext() {
@@ -39,7 +39,7 @@ export function useAccountContext() {
       if (error) throw error;
       const context = accountContextSchema.parse(data);
       try {
-        await withAccountWriteLock(owner!, async () => {
+        await cacheWithAccountWriteLock(owner!, async () => {
           const current = await authClient().auth.getSession();
           if (
             current.data.session?.user.id !== owner ||

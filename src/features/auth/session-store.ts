@@ -215,12 +215,13 @@ async function checkSession(readSession: () => Promise<Session | null>) {
   }
 }
 
-export async function refreshAuthSession() {
+export async function refreshAuthSession({ showProgress = false } = {}) {
   const client = supabase;
   if (!client) {
     publish({ status: 'anonymous', user: null, error: null });
     return;
   }
+  if (showProgress) publish({ status: 'loading', user: null, error: null });
   await checkSession(async () => {
     const { data, error } = await client.auth.getSession();
     if (error) throw error;
