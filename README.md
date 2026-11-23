@@ -2,7 +2,7 @@
 
 Consulta la [auditoría de historias y privacidad](docs/auditoria-historias.md) para ver qué criterios se probaron, las correcciones de seguridad y las comprobaciones externas pendientes.
 
-Las [HU40–HU42](docs/hu40-hu42.md) incorporan reportes auditables, publicación de versiones y supervisión con copias cifradas. Moderación y monitor están activos en desarrollo. El despliegue HTTPS del frontend requiere configurar el destino Cloudflare Pages.
+Las [HU40–HU42](docs/hu40-hu42.md) incorporan reportes auditables, publicación de versiones y supervisión con copias cifradas. Moderación y monitor están activos en desarrollo. El frontend se puede alojar en Vercel o Cloudflare Pages.
 
 Las [HU37–HU39](docs/hu37-hu39.md) refuerzan la actualización segura y recuperación local, el origen manual accesible y **Cuenta → Privacidad y datos**: exportación reautenticada y solicitud de eliminación procesada por administración. Integración activa en desarrollo con migración 23 y `account-data`; política académica y excepciones de conservación visibles en la aplicación.
 
@@ -241,6 +241,19 @@ Las pruebas automatizadas de iPhone emulan dimensiones y agente de usuario en Ch
 3. Volver a primer plano o solicitar Update en DevTools sin activar Update on reload ni Skip waiting.
 4. Verificar el aviso, la versión anterior todavía visible y la ausencia de recarga automática.
 5. Pulsar Actualizar. Verificar que carga la nueva versión en la misma ruta.
+
+## Vercel
+
+Importa el repositorio y selecciona **Vite** con **Node.js 24.x**. `vercel.json` configura `npm ci`, `npm run build`, la salida `dist`, las rutas directas y la caché del service worker.
+
+En **Settings → Environment Variables**, desactiva **Automatically expose System Environment Variables** para conservar la lista de variables públicas del proyecto. Registra `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (publishable o anon), `VITE_GOOGLE_MAPS_API_KEY` y `VITE_WEB_PUSH_PUBLIC_KEY`. Agrega `VITE_GOOGLE_MAPS_MAP_ID` si tienes un ID de mapa propio. Usa `DEPLOY_ENVIRONMENT=production` para identificar el build de producción. Las credenciales de funciones, notificaciones, LiveKit y respaldos requieren configuración en Supabase.
+
+Cuando tengas la URL HTTPS estable de Vercel, autoriza el dominio en Supabase y Google Maps:
+
+1. En **Authentication → URL Configuration** de Supabase, agrega `https://<dominio>/auth/confirmar?tipo=signup` y `https://<dominio>/auth/confirmar?tipo=recovery`. Si será el sitio principal del proyecto Supabase, actualiza también **Site URL** al dominio estable. Conserva los callbacks locales de desarrollo.
+2. En **Edge Functions → Secrets**, agrega el origen `https://<dominio>` a `APP_ALLOWED_ORIGINS`, separado por coma de los orígenes existentes. Esto habilita las llamadas del navegador para chat multimedia, videollamadas y datos de cuenta.
+3. En Google Cloud, abre **APIs y servicios → Credenciales** y selecciona la clave de `VITE_GOOGLE_MAPS_API_KEY`. En **Restricciones de aplicación → Sitios web**, agrega `https://<dominio>/*` y conserva los orígenes de desarrollo que uses. Si Explorar muestra `RefererNotAllowedMapError`, comprueba que figure el dominio que está abierto en el navegador. Puedes probar el cambio en el mismo despliegue tras guardar la restricción y esperar unos minutos.
+4. Ejecuta `npm run release:verify -- https://<dominio>/` para comprobar rutas directas, manifest, service worker y recursos. Prueba también la ruta en el mapa y el acceso con una cuenta autorizada.
 
 ## Cloudflare Pages
 
