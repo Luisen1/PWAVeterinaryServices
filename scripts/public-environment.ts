@@ -1,4 +1,4 @@
-const publicNames = [
+export const publicNames = [
   'VITE_SUPABASE_URL',
   'VITE_SUPABASE_ANON_KEY',
   'VITE_GOOGLE_MAPS_API_KEY',
@@ -46,7 +46,7 @@ export function validatePublicEnvironment(
     if (!name.startsWith('VITE_') || !value) continue;
     if (!publicNames.some((allowed) => name === allowed))
       throw new Error(
-        'Hay una variable VITE_ fuera de la lista de configuración pública.',
+        `Variable fuera de la lista de configuración pública: ${name.replace(/[^A-Z0-9_]/g, '')}.`,
       );
     if (
       value.startsWith('sb_secret_') ||

@@ -1,0 +1,14 @@
+.env*
+*.local
+.git/
+.vercel/
+.wrangler/
+.cache/
+.local-recovery/
+backups/
+dist/
+node_modules/
+playwright-report/
+release-manifest.json
+supabase/.temp/
+test-results/
