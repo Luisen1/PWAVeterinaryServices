@@ -84,7 +84,8 @@ export function Verified({
         <Notice error>{auth.error}</Notice>
         <button
           className={secondaryClass}
-          onClick={() => void refreshAuthSession()}
+          disabled={!online}
+          onClick={() => void refreshAuthSession({ showProgress: true })}
         >
           Reintentar validación
         </button>

@@ -195,12 +195,19 @@ test('Perfil ofrece reintentar cuando se agota la espera de validación de sesi�
 
   const accessUrl = `${base}/rest/v1/rpc/account_access_state`;
   let respond = false;
+  let releaseRetry!: () => void;
+  const retryResponse = new Promise<void>((resolve) => {
+    releaseRetry = resolve;
+  });
   let releaseRequest!: () => void;
   const stalled = new Promise<void>((resolve) => {
     releaseRequest = resolve;
   });
   await context.route(accessUrl, async (route) => {
-    if (respond) return route.fulfill({ json: 'active' });
+    if (respond) {
+      await retryResponse;
+      return route.fulfill({ json: 'active' });
+    }
     await stalled;
     await route.abort().catch(() => {});
   });
@@ -213,8 +220,80 @@ test('Perfil ofrece reintentar cuando se agota la espera de validación de sesi�
       timeout: 18_000,
     });
     await expect(page.getByText(TEST_EMAIL, { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole('link', { name: 'Volver a iniciar sesión' }),
+    ).toHaveAttribute('href', '/acceso');
 
     respond = true;
+    await page.getByRole('button', { name: 'Reintentar validación' }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Comprobando sesión…' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Reintentar validación' }),
+    ).toHaveCount(0);
+    releaseRetry();
+    await expect(page.getByText(TEST_EMAIL, { exact: true })).toBeVisible();
+  } finally {
+    releaseRequest();
+    releaseRetry();
+  }
+});
+
+test('Perfil valida en línea si otra ventana está escribiendo datos locales', async ({
+  page,
+  context,
+}) => {
+  const auth = await mockAuthApi(context);
+  await mockDirectoryApi(context, auth.getRole);
+  await login(page);
+  const foreground = await context.newPage();
+  try {
+    await foreground.goto('/privacidad');
+    await foreground.evaluate(async (owner) => {
+      await new Promise<void>((acquired) => {
+        void navigator.locks.request(`veterinary-account-${owner}`, () => {
+          acquired();
+          return new Promise<void>(() => {});
+        });
+      });
+    }, TEST_USER_ID);
+    await page.reload();
+    await expect(page.getByText(TEST_EMAIL, { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /Mis mascotas/ }),
+    ).toBeVisible();
+  } finally {
+    await foreground.close();
+  }
+});
+
+test('Perfil cancela una petición de identidad sin respuesta y permite validarla de nuevo', async ({
+  page,
+  context,
+}) => {
+  const auth = await mockAuthApi(context);
+  await mockDirectoryApi(context, auth.getRole);
+  await login(page);
+  const userUrl = `${base}/auth/v1/user`;
+  let releaseRequest!: () => void;
+  const stalled = new Promise<void>((resolve) => {
+    releaseRequest = resolve;
+  });
+  await context.route(userUrl, async (route) => {
+    await stalled;
+    await route.abort().catch(() => {});
+  });
+  try {
+    const cancelled = page.waitForEvent('requestfailed', {
+      predicate: (request) => request.url() === userUrl,
+    });
+    await page.reload();
+    await cancelled;
+    await expect(page.getByRole('alert')).toContainText(
+      'No pudimos validar tu sesión.',
+    );
+    await context.unroute(userUrl);
     await page.getByRole('button', { name: 'Reintentar validación' }).click();
     await expect(page.getByText(TEST_EMAIL, { exact: true })).toBeVisible();
   } finally {

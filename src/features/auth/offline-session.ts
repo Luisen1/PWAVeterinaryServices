@@ -1,6 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { db } from '@/lib/db';
-import { withAccountWriteLock } from '@/features/sync/account-write-lock';
+import { cacheWithAccountWriteLock } from '@/features/sync/account-write-lock';
 import { supabase } from '@/lib/supabase';
 
 export type OfflineUser = {
@@ -20,7 +20,7 @@ async function fingerprint(token: string) {
 export async function rememberVerifiedSession(session: Session, user: User) {
   if (!user.email_confirmed_at || !session.expires_at) return;
   const token_hash = await fingerprint(session.access_token);
-  await withAccountWriteLock(user.id, async () => {
+  await cacheWithAccountWriteLock(user.id, async () => {
     const current = await supabase?.auth.getSession();
     if (current?.data.session?.access_token !== session.access_token) return;
     await db.offline_sessions.put({

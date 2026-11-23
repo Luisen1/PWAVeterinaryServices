@@ -162,11 +162,19 @@ export function AccountPage() {
             </p>
             <button
               className={submitClass}
-              disabled={!online}
-              onClick={() => void refreshAuthSession()}
+              disabled={!online || busy}
+              onClick={() => void refreshAuthSession({ showProgress: true })}
             >
               Reintentar validación
             </button>
+            {online && (
+              <Link
+                to="/acceso"
+                className={`block text-center text-sm ${authLinkClass}`}
+              >
+                Volver a iniciar sesión
+              </Link>
+            )}
             <button
               className={`w-full py-3 text-sm ${authLinkClass}`}
               disabled={busy}

@@ -16,9 +16,31 @@ if ((url || key) && !environment.success) {
   );
 }
 
+function fetchWithAuthTimeout(input: RequestInfo | URL, init?: RequestInit) {
+  const target = new URL(input instanceof Request ? input.url : input);
+  const method =
+    init?.method ?? (input instanceof Request ? input.method : 'GET');
+  if (
+    target.pathname !== '/auth/v1/token' &&
+    !(target.pathname === '/auth/v1/user' && method === 'GET')
+  )
+    return fetch(input, init);
+
+  // Una renovación pendiente se comparte entre lecturas de sesión del SDK.
+  // Limitar la petición permite que esas lecturas vuelvan a intentarlo.
+  const timeout = AbortSignal.timeout(8_000);
+  const signal =
+    init?.signal ?? (input instanceof Request ? input.signal : null);
+  return fetch(input, {
+    ...init,
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+  });
+}
+
 // El shell funciona sin credenciales. Los futuros consumidores deben comprobar null.
 export const supabase = environment.success
   ? createClient(environment.data.url, environment.data.key, {
+      global: { fetch: fetchWithAuthTimeout },
       auth: {
         persistSession: true,
         autoRefreshToken: true,
