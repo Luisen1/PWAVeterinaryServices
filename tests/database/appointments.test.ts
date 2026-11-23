@@ -1002,6 +1002,7 @@ async function request(
     pet?: string;
     modality?: string;
     hold?: string;
+    startsAt?: string;
   } = {},
 ) {
   const { rows } = await db.query<{
@@ -1017,7 +1018,7 @@ async function request(
     overrides.id ?? appointment,
     service(overrides.n),
     assignment(overrides.n),
-    start,
+    overrides.startsAt ?? start,
     overrides.pet ?? pet,
     overrides.modality ?? 'Presencial',
     overrides.hold ?? null,
@@ -1166,7 +1167,13 @@ it('HU22 conserva el plazo acordado y rechaza fuera de él o con revisión obsol
     establishment,
   ]);
   await asUser(user);
-  const a = await request();
+  const { cutoffStart } = (
+    await db.query<{ cutoffStart: string }>(
+      `select ($1::timestamptz - interval '1 day')::text as "cutoffStart"`,
+      [start],
+    )
+  ).rows[0]!;
+  const a = await request({ startsAt: cutoffStart });
   expect(a.snapshot.cancel_minutes).toBe(10080);
   await asUser(owner);
   await db.query('select public.save_appointment_policy($1,0,0,1)', [
