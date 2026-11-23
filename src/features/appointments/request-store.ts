@@ -6,6 +6,7 @@ import {
   assertLocalOwner,
   assertRemoteOwner,
   pendingFailure,
+  restoreLocalOwner,
 } from '@/features/sync/local-owner';
 import {
   requestSchema,
@@ -46,6 +47,7 @@ export async function saveRequestDraft(
   },
 ) {
   const checked = requestSchema.parse(args);
+  await restoreLocalOwner(owner);
   return withAccountWriteLock(owner, async () => {
     await assertLocalOwner(owner);
     return db.transaction(
@@ -112,8 +114,9 @@ export async function saveRequestDraft(
   });
 }
 export async function sendRequestDraft(owner: string, service: string) {
-  return withAuthOperation(() =>
-    withAccountWriteLock(owner, async () => {
+  return withAuthOperation(async () => {
+    await restoreLocalOwner(owner);
+    return withAccountWriteLock(owner, async () => {
       await assertLocalOwner(owner);
       await assertRemoteOwner(owner);
       const draft = await readRequestDraft(owner, service);
@@ -167,8 +170,8 @@ export async function sendRequestDraft(owner: string, service: string) {
         );
         throw error;
       }
-    }),
-  );
+    });
+  });
 }
 export async function discardRequestDraft(owner: string, service: string) {
   return withAccountWriteLock(owner, async () => {

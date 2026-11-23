@@ -35,6 +35,17 @@ export async function saveProfile(userId: string, values: unknown) {
     .single();
   if (error) throw error;
 }
+export async function listPets(userId: string, signal: AbortSignal) {
+  const { data, error } = await authClient()
+    .from('pets')
+    .select('*')
+    .eq('owner_id', userId)
+    .order('created_at')
+    .abortSignal(signal);
+  if (error) throw error;
+  return data as Pet[];
+}
+
 export async function savePet(
   userId: string,
   pet: Pick<Pet, 'id' | 'name' | 'species'>,

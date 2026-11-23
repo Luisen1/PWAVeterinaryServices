@@ -23,7 +23,7 @@ import {
   type Pet,
   type Profile,
 } from './model';
-import { dataError } from './api';
+import { dataError, listPets } from './api';
 import {
   cardClass,
   fieldClass,
@@ -69,16 +69,7 @@ function ProfileContent({ userId }: { userId: string }) {
   const pets = useQuery({
     queryKey: ['pets', userId],
     enabled: online && petOwner,
-    queryFn: async ({ signal }) => {
-      const { data, error } = await authClient()
-        .from('pets')
-        .select('*')
-        .eq('owner_id', userId)
-        .order('created_at')
-        .abortSignal(signal);
-      if (error) throw error;
-      return data as Pet[];
-    },
+    queryFn: ({ signal }) => listPets(userId, signal),
   });
   const pending = useQuery({
     queryKey: ['account-pending', userId],

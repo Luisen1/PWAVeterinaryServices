@@ -1,5 +1,8 @@
 import { authClient } from '@/features/auth/api';
-import { offlineIdentity } from '@/features/auth/offline-session';
+import {
+  offlineIdentity,
+  rememberVerifiedSession,
+} from '@/features/auth/offline-session';
 
 export async function assertLocalOwner(owner: string) {
   const { data, error } = await authClient().auth.getSession();
@@ -12,6 +15,28 @@ export async function assertLocalOwner(owner: string) {
       'La sesión local no es válida. Accede de nuevo con la misma cuenta; tus pendientes se conservan.',
     );
 }
+
+export async function restoreLocalOwner(owner: string) {
+  if (!navigator.onLine) return;
+  const client = authClient();
+  const {
+    data: { session },
+    error,
+  } = await client.auth.getSession();
+  if (error || session?.user.id !== owner || (await offlineIdentity(session)))
+    return;
+
+  const access = await client
+    .rpc('account_access_state')
+    .setHeader('Authorization', `Bearer ${session.access_token}`)
+    .abortSignal(AbortSignal.timeout(8_000));
+  if (access.error || access.data !== 'active') return;
+
+  const verified = await client.auth.getUser(session.access_token);
+  if (!verified.error && verified.data.user?.id === owner)
+    await rememberVerifiedSession(session, verified.data.user);
+}
+
 export async function assertRemoteOwner(owner: string) {
   if (!navigator.onLine)
     throw new Error(

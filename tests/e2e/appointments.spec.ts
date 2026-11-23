@@ -522,6 +522,68 @@ test('muestra el envío antes de elegir horario y solicita directamente sin apar
   expect(api.holds()).toBe(0);
 });
 
+test('carga las mascotas con sesión en línea y recupera el comprobante al enviar', async ({
+  page,
+  context,
+}) => {
+  const api = await setup(context, { virtual: true });
+  await login(page);
+  await page.evaluate(async (owner) => {
+    const opening = indexedDB.open('veterinary-services');
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      opening.onsuccess = () => resolve(opening.result);
+      opening.onerror = () => reject(opening.error);
+    });
+    try {
+      const writing = database.transaction('offline_sessions', 'readwrite');
+      writing.objectStore('offline_sessions').delete(owner);
+      await new Promise<void>((resolve, reject) => {
+        writing.oncomplete = () => resolve();
+        writing.onabort = () => reject(writing.error);
+      });
+    } finally {
+      database.close();
+    }
+  }, TEST_USER_ID);
+  await page.addInitScript((owner) => {
+    void navigator.locks.request(
+      `veterinary-account-${owner}`,
+      () =>
+        new Promise<void>((release) => {
+          window.addEventListener(
+            'release-test-account-lock',
+            () => release(),
+            {
+              once: true,
+            },
+          );
+        }),
+    );
+  }, TEST_USER_ID);
+
+  await page.goto(path);
+  await page
+    .getByRole('group', { name: 'Intervalos disponibles' })
+    .getByRole('button')
+    .click();
+  const petSelect = page.getByLabel('Mascota para la cita');
+  await petSelect.selectOption(pet);
+  await expect(petSelect).toHaveValue(pet);
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('release-test-account-lock'));
+  });
+  const restored = page.waitForRequest(
+    `${E2E_ENVIRONMENT.VITE_SUPABASE_URL}/rest/v1/rpc/account_access_state`,
+  );
+  await page.getByRole('button', { name: 'Enviar solicitud de cita' }).click();
+  await restored;
+  await expect(
+    page.getByText('Solicitud registrada.', { exact: false }),
+  ).toBeVisible();
+  expect(api.requests).toHaveLength(1);
+});
+
 for (const unassigned of [true, false]) {
   test(`mantiene visible el envío bloqueado y explica ${unassigned ? 'la asignación pendiente' : 'la fecha sin cupos'}`, async ({
     page,
