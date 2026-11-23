@@ -1,6 +1,8 @@
 # Contexto del proyecto para asistentes de IA
 
-Última actualización: 2026-11-19, zona de referencia `America/Bogota`.
+Última actualización: 2026-11-23, zona de referencia `America/Bogota`.
+
+Despliegue del 2026-11-23: frontend publicado en [pwaveterinaryservices.vercel.app](https://pwaveterinaryservices.vercel.app/) con Vercel, Vite y Node.js 24. Se verificaron las rutas directas, el manifest, el service worker y el catálogo de Supabase. Google Maps devolvió `RefererNotAllowedMapError` en Explorar, por lo que queda por confirmar el mapa tras autorizar el dominio de Vercel en la clave. Este dominio también requiere autorización en Supabase Edge y el registro de callbacks de Auth para los flujos de correo. Vercel sigue enlazado a Supabase de desarrollo. Ver [Vercel](README.md#vercel).
 
 Auditoría HU01–HU45: consultar [docs/auditoria-historias.md](docs/auditoria-historias.md) para contrastar criterios, pruebas y aceptación externa. Desarrollo tiene 28 migraciones alineadas. El catálogo público usa `published_service_items` para todos los roles. IndexedDB v7 retira las consultas de servicios antiguas y conserva el directorio descargado y los pendientes. La exportación de cuenta firma archivos publicados. Las copias operativas excluyen hashes y metadatos de Auth. `npm audit` reportó cero avisos tras las correcciones. LiveKit Cloud está activo en desarrollo con Cron cada 30 segundos y credencial propia de Vault. La cita técnica transmitió audio/video en dos sesiones Chromium, denegó a terceros y cerró la sala tras cancelar. Queda la aceptación física.
 
@@ -65,7 +67,7 @@ La especificación funcional original es `Ruta_desarrollo_y_HU_PWA_servicios_vet
 | HU38      | Nombres/foco/teclado, origen manual tras negar GPS y recorridos a 320 px sin desbordamiento general                                               |
 | HU39      | Exportación reautenticada, solicitud/procesamiento administrativo de eliminación, revocación y purga local al comprobarla                         |
 | HU40      | Reportes de ficha o mensaje, revisión asignada, evidencia mínima y decisiones auditadas con revisión                                              |
-| HU41      | Artefactos identificables, pipeline Cloudflare Pages y reversión compatible ensayada en localhost. Publicación HTTPS pendiente                    |
+| HU41      | Frontend HTTPS en Vercel verificado. Flujo Cloudflare Pages y reversión ensayados en localhost. Validación integral en Vercel pendiente           |
 | HU42      | Monitor de alertas y cuotas, copia cifrada de tablas y archivos, ensayo aislado de integridad y reaplicación de eliminaciones                     |
 | Base PWA  | Instalación, shell offline, actualización confirmada, precache y persistencia IndexedDB                                                           |
 
