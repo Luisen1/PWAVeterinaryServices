@@ -184,6 +184,44 @@ test('HU39 oculta datos de cuenta mientras el estado de eliminación es desconoc
   await expect(page.getByText(TEST_EMAIL, { exact: true })).toBeVisible();
 });
 
+test('Perfil ofrece reintentar cuando se agota la espera de validación de sesión', async ({
+  page,
+  context,
+}) => {
+  const auth = await mockAuthApi(context);
+  await mockDirectoryApi(context, auth.getRole);
+  await login(page);
+  await expect(page.getByText(TEST_EMAIL, { exact: true })).toBeVisible();
+
+  const accessUrl = `${base}/rest/v1/rpc/account_access_state`;
+  let respond = false;
+  let releaseRequest!: () => void;
+  const stalled = new Promise<void>((resolve) => {
+    releaseRequest = resolve;
+  });
+  await context.route(accessUrl, async (route) => {
+    if (respond) return route.fulfill({ json: 'active' });
+    await stalled;
+    await route.abort().catch(() => {});
+  });
+  try {
+    const requested = page.waitForRequest(accessUrl);
+    await page.reload();
+    await requested;
+    await expect(page.getByText('Comprobando sesión…')).toBeVisible();
+    await expect(page.getByRole('alert')).toContainText('tardó demasiado', {
+      timeout: 18_000,
+    });
+    await expect(page.getByText(TEST_EMAIL, { exact: true })).toHaveCount(0);
+
+    respond = true;
+    await page.getByRole('button', { name: 'Reintentar validación' }).click();
+    await expect(page.getByText(TEST_EMAIL, { exact: true })).toBeVisible();
+  } finally {
+    releaseRequest();
+  }
+});
+
 test('HU39 un dispositivo purga datos privados al comprobar una eliminación remota', async ({
   page,
   context,
