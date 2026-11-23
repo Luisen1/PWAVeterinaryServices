@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { authClient } from '@/features/auth/api';
+import { listPets } from '@/features/directory/api';
 import { Notice, secondaryClass } from '@/features/directory/Workspace';
 import { useOnline } from '@/pwa/useOnline';
 import { acquireReloadBlock } from '@/pwa/reload-safety';
@@ -11,6 +11,7 @@ import { appointmentError } from './requests-model';
 import { useRefreshAppointments } from './requests-api';
 import { db } from '@/lib/db';
 import { assertLocalOwner } from '@/features/sync/local-owner';
+import { cacheWithAccountWriteLock } from '@/features/sync/account-write-lock';
 import {
   readRequestDraft,
   saveRequestDraft,
@@ -56,24 +57,30 @@ export function RequestForm({
     queryKey: ['request-pets', owner, online],
     networkMode: 'always',
     queryFn: async ({ signal }) => {
-      await assertLocalOwner(owner);
-      if (!online)
-        return ((await db.sync_meta.get(`request-pets:${owner}`))?.value ??
-          []) as unknown as Pet[];
-      const { data, error } = await authClient()
-        .from('pets')
-        .select('*')
-        .eq('owner_id', owner)
-        .order('created_at')
-        .abortSignal(signal);
-      if (error) throw error;
-      await db.sync_meta.put({
-        key: `request-pets:${owner}`,
-        owner_id: owner,
-        updated_at: new Date().toISOString(),
-        value: JSON.parse(JSON.stringify(data)),
-      });
-      return data as Pet[];
+      const cacheKey = `request-pets:${owner}`;
+      if (!online) {
+        await assertLocalOwner(owner);
+        const saved = await db.sync_meta.get(cacheKey);
+        return (saved?.owner_id === owner
+          ? saved.value
+          : []) as unknown as Pet[];
+      }
+      const data = await listPets(owner, signal);
+      try {
+        await cacheWithAccountWriteLock(owner, async () => {
+          await assertLocalOwner(owner);
+          signal.throwIfAborted();
+          await db.sync_meta.put({
+            key: cacheKey,
+            owner_id: owner,
+            updated_at: new Date().toISOString(),
+            value: data,
+          });
+        });
+      } catch {
+        /* Conserva las mascotas del servidor si falta la copia local. */
+      }
+      return data;
     },
   });
   const request = useMutation({
@@ -160,8 +167,8 @@ export function RequestForm({
         enviarla.
       </p>
       <PolicyNotice establishment={context.establishment_id} />
-      {pets.isPending && online && <Notice>Cargando tus mascotas…</Notice>}
-      {pets.isError && (
+      {online && pets.isFetching && <Notice>Cargando tus mascotas…</Notice>}
+      {pets.isError && !pets.isFetching && (
         <Notice error>
           No pudimos consultar tus mascotas.{' '}
           <button
@@ -187,7 +194,9 @@ export function RequestForm({
           className="sv-input"
           value={pet}
           onChange={(e) => setPet(e.target.value)}
-          disabled={request.isPending || !!result}
+          disabled={
+            pets.isPending || pets.isError || request.isPending || !!result
+          }
         >
           <option value="">Seleccionar mascota</option>
           {pets.data?.map((p) => (
