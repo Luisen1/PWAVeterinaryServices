@@ -21,7 +21,8 @@ export interface AuthState {
 }
 
 let state: AuthState = { status: 'loading', user: null, error: null };
-let revision = 0;
+const sessionCheckTimeout = 12_000;
+let activeCheck: AbortController | undefined;
 let started = false;
 let owner: string | null = null;
 let validityDeadline: number | undefined;
@@ -73,28 +74,30 @@ async function clearQueryCache() {
   queryClient.clear();
 }
 
-async function resolveSession(session: Session | null) {
-  const currentRevision = ++revision;
+async function resolveSession(session: Session | null, signal: AbortSignal) {
   try {
     await clearForeignPushBindings(session?.user.id ?? null);
-    if (currentRevision !== revision) return;
+    if (signal.aborted) return;
     if (!session) {
       // Initial anonymous startup has no private owner. Preserve public queries already loading.
       if (owner !== null || state.user !== null || state.offlineUser)
         await clearQueryCache();
-      owner = null;
-      if (currentRevision === revision)
+      if (!signal.aborted) {
+        owner = null;
         publish({ status: 'anonymous', user: null, error: null });
+      }
       return;
     }
     if (owner !== session.user.id) {
       publish({ status: 'loading', user: null, error: null });
       await clearQueryCache();
+      if (signal.aborted) return;
     }
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
     if (!navigator.onLine) {
       const offlineUser = await offlineIdentity(session);
-      if (currentRevision === revision)
+      if (!signal.aborted)
         publish(
           {
             status: 'unavailable',
@@ -108,8 +111,8 @@ async function resolveSession(session: Session | null) {
         );
       return;
     }
-    const access = await supabase.rpc('account_access_state');
-    if (currentRevision !== revision) return;
+    const access = await client.rpc('account_access_state').abortSignal(signal);
+    if (signal.aborted) return;
     if (!access.error && ['processing', 'completed'].includes(access.data)) {
       publish({
         ...expiredSession,
@@ -119,10 +122,14 @@ async function resolveSession(session: Session | null) {
         await clearQueryCache();
         await forgetRevokedDevicePush();
         await purgePrivateLocalData(session.user.id);
-        await supabase!.auth.signOut({ scope: 'local' });
+        const current = await client.auth.getSession();
+        if (current.data.session?.user.id === session.user.id)
+          await client.auth.signOut({ scope: 'local' });
       });
-      owner = null;
-      publish({ status: 'anonymous', user: null, error: null });
+      if (!signal.aborted) {
+        owner = null;
+        publish({ status: 'anonymous', user: null, error: null });
+      }
       return;
     }
     if (access.error || access.data !== 'active') {
@@ -134,8 +141,8 @@ async function resolveSession(session: Session | null) {
       });
       return;
     }
-    const { data, error } = await supabase.auth.getUser(session.access_token);
-    if (currentRevision !== revision) return;
+    const { data, error } = await client.auth.getUser(session.access_token);
+    if (signal.aborted) return;
     if (error || !data.user) {
       publish({
         status: 'unavailable',
@@ -151,13 +158,13 @@ async function resolveSession(session: Session | null) {
     } catch {
       /* La sesión online no depende de IndexedDB. */
     }
-    if (currentRevision !== revision) return;
+    if (signal.aborted) return;
     publish(
       { status: 'authenticated', user: data.user, error: null },
       session.expires_at ? session.expires_at * 1000 : undefined,
     );
   } catch {
-    if (currentRevision === revision)
+    if (!signal.aborted)
       publish({
         status: 'unavailable',
         user: null,
@@ -167,23 +174,58 @@ async function resolveSession(session: Session | null) {
   }
 }
 
-export async function refreshAuthSession() {
-  if (!supabase) {
-    publish({ status: 'anonymous', user: null, error: null });
-    return;
-  }
-  try {
-    const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    await resolveSession(data.session);
-  } catch {
+async function checkSession(readSession: () => Promise<Session | null>) {
+  activeCheck?.abort();
+  const check = new AbortController();
+  activeCheck = check;
+  const { signal } = check;
+  const cancelled = new Promise<void>((resolve) => {
+    signal.addEventListener('abort', () => resolve(), { once: true });
+  });
+  const timer = window.setTimeout(() => {
+    check.abort();
     publish({
       status: 'unavailable',
       user: null,
       error:
-        'No pudimos recuperar la sesión. Revisa tu conexión y vuelve a intentarlo.',
+        'La comprobación de tu sesión tardó demasiado. Vuelve a intentarlo.',
     });
+  }, sessionCheckTimeout);
+
+  async function validate() {
+    try {
+      const session = await readSession();
+      if (!signal.aborted) await resolveSession(session, signal);
+    } catch {
+      if (!signal.aborted)
+        publish({
+          status: 'unavailable',
+          user: null,
+          error:
+            'No pudimos recuperar la sesión. Revisa tu conexión y vuelve a intentarlo.',
+        });
+    }
   }
+
+  try {
+    await Promise.race([validate(), cancelled]);
+  } finally {
+    window.clearTimeout(timer);
+    if (activeCheck === check) activeCheck = undefined;
+  }
+}
+
+export async function refreshAuthSession() {
+  const client = supabase;
+  if (!client) {
+    publish({ status: 'anonymous', user: null, error: null });
+    return;
+  }
+  await checkSession(async () => {
+    const { data, error } = await client.auth.getSession();
+    if (error) throw error;
+    return data.session;
+  });
 }
 
 export function startAuthSession() {
@@ -193,10 +235,11 @@ export function startAuthSession() {
     publish({ status: 'anonymous', user: null, error: null });
     return;
   }
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'INITIAL_SESSION') return;
     // Salir del callback del SDK antes de hacer peticiones o transacciones.
     window.setTimeout(() => {
-      void resolveSession(session);
+      void checkSession(async () => session);
     }, 0);
   });
   void refreshAuthSession();
@@ -205,10 +248,7 @@ export function startAuthSession() {
     if (
       navigator.onLine &&
       document.visibilityState === 'visible' &&
-      (state.user ||
-        state.offlineUser ||
-        owner ||
-        state.status === 'unavailable')
+      state.status !== 'anonymous'
     )
       void refreshAuthSession();
   };
